@@ -21,7 +21,7 @@ defmodule StreamystatServer.JellyfinSync do
             Repo.insert_all(
               StreamystatServer.Jellyfin.User,
               users_data,
-              on_conflict: {:replace, [:name, :last_login_at, :last_activity_date]},
+              on_conflict: {:replace, [:name]},
               conflict_target: [:jellyfin_id, :server_id]
             )
 
