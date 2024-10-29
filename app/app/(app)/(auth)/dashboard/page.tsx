@@ -1,16 +1,24 @@
-import { redirect } from "next/navigation";
-import { Dashboard } from "./Dashboard";
-import { getServers, getStatistics } from "@/lib/db";
 import { Container } from "@/components/Container";
-import { WatchTimeGraph } from "./WatchTimeGraph";
-import { MostPopularItem } from "./MostPopularItem";
-import { unstable_noStore } from "next/cache";
 import { PageTitle } from "@/components/PageTitle";
+import { getServers, getStatistics } from "@/lib/db";
+import { WatchTimeGraph } from "./WatchTimeGraph";
+import { redirect } from "next/navigation";
 
 export default async function DashboardPage() {
   const servers = await getServers();
-  const server = servers[0];
+  const server = servers?.[0];
+
+  if (!server) {
+    console.log("No server redirecting to setup...");
+    redirect("/setup");
+  }
+
   const data = await getStatistics(server.id);
+
+  if (!data) {
+    redirect("/settings");
+  }
+
   return (
     <Container>
       <PageTitle title="Statistics" />

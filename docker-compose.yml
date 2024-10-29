@@ -1,0 +1,50 @@
+services:
+  app:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    depends_on:
+      - phoenix
+    networks:
+      - backend
+    environment:
+      API_URL: "http://phoenix:4000/api"
+
+  phoenix:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: "ecto://postgres:postgres@db/streamystat"
+      SECRET_KEY_BASE: "r0NgGxu5ETTDgF5G7mJsMevMbAF7y4w0IJlCRjzxHqSjbcrPqTQTzajOH0ne0sHH"
+    ports:
+      - "4000:4000"
+    depends_on:
+      - db
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      PGDATA: /var/lib/postgresql/data/pgdata
+    restart: always
+    networks:
+      - backend
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
+
+networks:
+  backend:

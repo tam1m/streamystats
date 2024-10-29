@@ -9,10 +9,15 @@ import { PartialSyncTask } from "./PartialSyncTask";
 import { UsersSyncTask } from "./UsersSyncTask";
 import { Separator } from "@/components/ui/separator";
 import { LibrariesSyncTask } from "./LibrariesSyncTask";
+import { redirect } from "next/navigation";
 
 export default async function Settings() {
   const servers: Server[] = await getServers();
-  const server = servers[0];
+  const server = servers?.[0];
+
+  if (!server) {
+    redirect("/setup");
+  }
 
   return (
     <Container>

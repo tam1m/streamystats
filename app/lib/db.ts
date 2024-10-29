@@ -72,16 +72,23 @@ export const createServer = async (
 };
 
 export const getServers = async (): Promise<Server[]> => {
-  const res = await fetch(process.env.API_URL + "/servers", {
-    cache: "no-store",
-  });
+  try {
+    const res = await fetch(process.env.API_URL + "/servers", {
+      cache: "no-store",
+    });
 
-  if (!res.ok) {
-    throw new Error("Failed to fetch data");
+    console.log(res);
+
+    if (!res.ok) {
+      return [];
+    }
+
+    const data = await res.json();
+    console.log("data", data);
+    return data.data;
+  } catch (e) {
+    return [];
   }
-
-  const data = await res.json();
-  return data.data;
 };
 
 export const getServer = async (): Promise<Server | null> => {
@@ -124,20 +131,25 @@ export const getUser = async (
   return data.data;
 };
 
-export const getStatistics = async (serverId: number): Promise<Statistics> => {
-  const res = await fetch(
-    process.env.API_URL + "/servers/" + serverId + "/statistics",
-    {
-      cache: "no-store",
+export const getStatistics = async (
+  serverId: number
+): Promise<Statistics | null> => {
+  try {
+    const res = await fetch(
+      process.env.API_URL + "/servers/" + serverId + "/statistics",
+      {
+        cache: "no-store",
+      }
+    );
+    if (!res.ok) {
+      return null;
     }
-  );
 
-  if (!res.ok) {
-    throw new Error("Failed to fetch data");
+    const data = await res.json();
+    return data.data;
+  } catch (e) {
+    return null;
   }
-
-  const data = await res.json();
-  return data.data;
 };
 
 export const getStatisticsHistory = async (

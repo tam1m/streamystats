@@ -19,7 +19,11 @@ defmodule StreamystatServerWeb.Router do
       get("/statistics/history", StatisticsController, :history)
       resources("/users", UserController, only: [:index, :show])
     end
+
+    get("/health", HealthController, :check)
   end
+
+  use Phoenix.Router, error_view: StreamystatServerWeb.ErrorJSON
 
   # Enable LiveDashboard and Swoosh mailbox preview in development
   if Application.compile_env(:streamystat_server, :dev_routes) do
