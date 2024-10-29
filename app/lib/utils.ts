@@ -1,0 +1,22 @@
+import { clsx, type ClassValue } from "clsx";
+import { twMerge } from "tailwind-merge";
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+
+export function formatDuration(seconds: number): string {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const remainingSeconds = Math.floor(seconds % 60);
+
+  let formattedDuration = "";
+
+  if (hours > 0) {
+    formattedDuration += `${hours}h `;
+  }
+
+  formattedDuration += `${minutes}m ${remainingSeconds}s`;
+
+  return formattedDuration.trim();
+}

@@ -1,0 +1,10 @@
+{
+  "dev": {
+    "driver": "pg",
+    "connectionString": "postgresql://username:password@localhost:5432/your_database_name"
+  },
+  "prod": {
+    "driver": "pg",
+    "connectionString": {"ENV": "DATABASE_URL"}
+  }
+}
