@@ -29,6 +29,7 @@ export const UsersSyncTask: React.FC<Props> = ({ server }) => {
         onClick={() => {
           action();
         }}
+        variant={"outline"}
       >
         Run
       </Button>

@@ -1,9 +1,15 @@
 "use server";
 
-import { Container } from "@/components/Container";
 import { DynamicBreadcrumbs } from "@/components/DynamicBreadcrumbs";
 import { FadeInWrapper } from "@/components/FadeInWrapper";
+import { ServerSelector } from "@/components/ServerSelector";
 import { SuspenseLoading } from "@/components/SuspenseLoading";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Separator } from "@/components/ui/separator";
 import {
   Sidebar,
@@ -17,9 +23,16 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { Skeleton } from "@/components/ui/skeleton";
 import { getServers } from "@/lib/db";
-import { Calendar, Home, Settings, Users } from "lucide-react";
+import {
+  Calendar,
+  Check,
+  ChevronsUpDown,
+  GalleryVerticalEnd,
+  Home,
+  Settings,
+  Users,
+} from "lucide-react";
 import { redirect } from "next/navigation";
 import { PropsWithChildren, Suspense } from "react";
 
@@ -64,6 +77,7 @@ export default async function layout({ children }: Props) {
               <SidebarGroupLabel>Streamystat</SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
+                  {/* <ServerSelector servers={servers} /> */}
                   {items.map((item) => (
                     <SidebarMenuItem key={item.title}>
                       <SidebarMenuButton asChild>

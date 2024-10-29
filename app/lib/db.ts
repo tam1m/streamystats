@@ -15,7 +15,7 @@ export type Statistics = {
     item_type: "Episode" | "Movie";
     total_play_count: number;
     total_play_duration: number; // in seconds
-  };
+  } | null;
   watchtime_per_day: [
     {
       date: string;
@@ -49,6 +49,7 @@ export type User = {
   jellyfin_id: string | null;
   watch_stats: { total_watch_time: number; total_plays: number };
   watch_history: any[];
+  watch_time_per_day: { date: string; watch_time: number }[];
 };
 
 export const createServer = async (
@@ -146,7 +147,7 @@ export const getStatistics = async (
     }
 
     const data = await res.json();
-    return data.data;
+    return data.data as Statistics;
   } catch (e) {
     return null;
   }

@@ -17,7 +17,8 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-import { Statistics } from "@/lib/db";
+import { User } from "@/lib/db";
+import { useMemo } from "react";
 
 const chartConfig = {
   minutes: {
@@ -27,14 +28,18 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 interface Props {
-  data: Statistics["watchtime_per_day"];
+  data: User["watch_time_per_day"];
 }
 
-export const WatchTimeGraph: React.FC<Props> = ({ data }) => {
-  const formattedData = data.map((item) => ({
-    date: new Date(item.date).toLocaleDateString(),
-    minutes: Math.floor(item.total_duration / 60),
-  }));
+export const WatchTimePerDay: React.FC<Props> = ({ data }) => {
+  const formattedData = useMemo(
+    () =>
+      data.map((item) => ({
+        date: new Date(item.date).toLocaleDateString(),
+        minutes: Math.floor(item.watch_time / 60),
+      })),
+    [data]
+  );
 
   return (
     <Card>

@@ -16,9 +16,8 @@ defmodule StreamystatServerWeb.UserController do
     render(conn, :index, users: users_with_details)
   end
 
-  @spec show(Plug.Conn.t(), map()) :: Plug.Conn.t()
-  def show(conn, %{"server_id" => server_id, "id" => user_identifier}) do
-    case Users.get_user(server_id, user_identifier) do
+  def show(conn, %{"server_id" => server_id, "id" => user_id}) do
+    case Users.get_user(server_id, user_id) do
       nil ->
         conn
         |> put_status(:not_found)
@@ -26,13 +25,16 @@ defmodule StreamystatServerWeb.UserController do
         |> render(:"404")
 
       user ->
-        render_user_details(conn, user, server_id)
-    end
-  end
+        watch_history = Users.get_user_watch_history(server_id, user.id)
+        watch_stats = Users.get_user_watch_stats(server_id, user.id)
+        watch_time_per_day = Users.get_user_watch_time_per_day(server_id, user.id)
 
-  defp render_user_details(conn, user, server_id) do
-    watch_history = Users.get_user_watch_history(server_id, user.id)
-    watch_stats = Users.get_user_watch_stats(server_id, user.id)
-    render(conn, :show, user: user, watch_history: watch_history, watch_stats: watch_stats)
+        render(conn, :show,
+          user: user,
+          watch_history: watch_history,
+          watch_stats: watch_stats,
+          watch_time_per_day: watch_time_per_day
+        )
+    end
   end
 end

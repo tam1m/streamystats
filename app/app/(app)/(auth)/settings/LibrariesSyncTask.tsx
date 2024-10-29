@@ -31,6 +31,7 @@ export const LibrariesSyncTask: React.FC<Props> = ({ server }) => {
         onClick={() => {
           action();
         }}
+        variant={"outline"}
       >
         Run
       </Button>

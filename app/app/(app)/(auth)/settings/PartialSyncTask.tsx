@@ -32,6 +32,7 @@ export const PartialSyncTask: React.FC<Props> = ({ server }) => {
         onClick={() => {
           action();
         }}
+        variant={"outline"}
       >
         Run
       </Button>

@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { getServer, getUser } from "@/lib/db";
 import { HistoryTable } from "../../history/HistoryTable";
 import { formatDuration } from "@/lib/utils";
+import { WatchTimePerDay } from "./WatchTimePerDay.tsx";
 
 export default async function User({ params }: { params: { name: string } }) {
   console.log("name", params.name);
@@ -18,6 +19,8 @@ export default async function User({ params }: { params: { name: string } }) {
   }
 
   const user = await getUser(params.name, server.id);
+
+  console.log(user);
 
   return (
     <Container>
@@ -48,6 +51,7 @@ export default async function User({ params }: { params: { name: string } }) {
         server={server}
         data={user.watch_history.map((h) => ({ ...h, user: user }))}
       />
+      <WatchTimePerDay data={user.watch_time_per_day} />
     </Container>
   );
 }

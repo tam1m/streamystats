@@ -42,4 +42,26 @@ defmodule StreamystatServer.Contexts.Users do
 
     Repo.one(query) || %{total_watch_time: 0, total_plays: 0}
   end
+
+  @spec get_user_watch_time_per_day(any(), any()) :: list()
+  def get_user_watch_time_per_day(server_id, user_id) do
+    query =
+      from(w in PlaybackActivity,
+        where: w.server_id == ^server_id and w.user_id == ^user_id,
+        group_by: fragment("DATE(date_created)"),
+        order_by: fragment("DATE(date_created)"),
+        select: {
+          fragment("DATE(date_created)"),
+          sum(w.play_duration)
+        }
+      )
+
+    Repo.all(query)
+    |> Enum.map(fn {date, watch_time} ->
+      %{
+        date: Date.to_string(date),
+        watch_time: watch_time
+      }
+    end)
+  end
 end

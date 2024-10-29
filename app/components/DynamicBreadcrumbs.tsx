@@ -20,7 +20,7 @@ export const DynamicBreadcrumbs: React.FC = () => {
       <BreadcrumbList>
         <BreadcrumbItem>
           <BreadcrumbLink href="/dashboard">
-            <House className="h-4 w-4" />
+            <House className="h-4 w-4 ml-1" />
           </BreadcrumbLink>
         </BreadcrumbItem>
         {pathSegments.map((segment, index) => {
