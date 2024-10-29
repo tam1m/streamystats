@@ -14,6 +14,7 @@ import { useRouter } from "next/navigation";
 
 export function NoStatsModal() {
   const router = useRouter();
+
   return (
     <AlertDialog open={true}>
       <AlertDialogContent>
@@ -22,12 +23,12 @@ export function NoStatsModal() {
             Run inital full sync task to get started
           </AlertDialogTitle>
           <AlertDialogDescription>
-            This action is not optional. You need to sync statistics from your
-            Jellyfin server. This will only take a minute.
+            Run the full sync task from the settings page. Reload the page after
+            ~1 minute to see your stats.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Done</AlertDialogCancel>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
           <AlertDialogAction
             onClick={() => {
               router.push("/settings");
