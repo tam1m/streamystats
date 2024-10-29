@@ -1,34 +1,26 @@
 #!/bin/bash
-set -e
 
-# Verify DATABASE_URL environment variable is set
-if [[ -z "${DATABASE_URL}" ]]; then
-  echo "DATABASE_URL is not set. Exiting..."
-  exit 1
+# Parse DATABASE_URL to extract host, database name, user, and password
+DATABASE_URL=${DATABASE_URL}
+DB_HOST=$(echo $DATABASE_URL | sed -E 's/^.*@([^:/]+).*/\1/')
+DB_NAME=$(echo $DATABASE_URL | sed -E 's|^.*/([^/?]+).*|\1|')
+DB_USER=$(echo $DATABASE_URL | sed -E 's|^.*//([^:]+):.*|\1|')
+DB_PASSWORD=$(echo $DATABASE_URL | sed -E 's|^.*:([^@]+)@.*|\1|')
+
+# Wait for PostgreSQL to be ready
+until pg_isready -q -h $DB_HOST -p 5432 -U $DB_USER
+do
+  echo "$(date) - waiting for database to start"
+  sleep 2
+done
+
+# Check if the database exists, create it if it doesn’t
+if ! PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -U $DB_USER -lqt | cut -d \| -f 1 | grep -qw $DB_NAME; then
+  echo "Database $DB_NAME does not exist. Creating..."
+  PGPASSWORD=$DB_PASSWORD createdb -h $DB_HOST -U $DB_USER $DB_NAME
+  echo "Database $DB_NAME created."
 fi
 
-# Extract database name from DATABASE_URL
-DB_NAME="${DATABASE_URL##*/}"
-echo "Extracted database name: $DB_NAME"
+/server/bin/streamystat_server eval "StreamystatServer.Release.migrate"
 
-# Check if the database already exists by attempting `mix ecto.create`
-echo "Checking if database $DB_NAME exists and creating if it does not..."
-if ! MIX_ENV=prod mix ecto.create; then
-  echo "Database $DB_NAME already exists or could not be created."
-else
-  echo "Database $DB_NAME created successfully."
-
-  echo "Running migrations..."
-  MIX_ENV=prod mix ecto.migrate
-
-  echo "Seeding the database..."
-  MIX_ENV=prod mix run priv/repo/seeds.exs
-fi
-
-echo "Building the Phoenix application in production mode..."
-MIX_ENV=prod mix deps.get
-MIX_ENV=prod mix compile
-MIX_ENV=prod mix release
-
-echo "Starting Phoenix server in production mode..."
-exec _build/prod/rel/streamystat_server/bin/streamystat_server start
+exec /server/bin/server
