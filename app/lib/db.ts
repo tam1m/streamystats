@@ -58,7 +58,7 @@ export const createServer = async (
   admin_id: string,
   name: string
 ) => {
-  await fetch(process.env.API_URL + "/servers", {
+  await fetch("http://localhost:4000/api/servers", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -74,7 +74,7 @@ export const createServer = async (
 
 export const getServers = async (): Promise<Server[]> => {
   try {
-    const res = await fetch(process.env.API_URL + "/servers", {
+    const res = await fetch("http://localhost:4000/api/servers", {
       cache: "no-store",
     });
 
@@ -99,7 +99,7 @@ export const getServer = async (): Promise<Server | null> => {
 
 export const getUsers = async (serverId: number): Promise<User[]> => {
   const res = await fetch(
-    process.env.API_URL + "/servers/" + serverId + "/users",
+    "http://localhost:4000/api/servers/" + serverId + "/users",
     {
       cache: "no-store",
     }
@@ -118,7 +118,7 @@ export const getUser = async (
   serverId: number
 ): Promise<User> => {
   const res = await fetch(
-    process.env.API_URL + "/servers/" + serverId + "/users/" + name,
+    "http://localhost:4000/api/servers/" + serverId + "/users/" + name,
     {
       cache: "no-store",
     }
@@ -137,7 +137,7 @@ export const getStatistics = async (
 ): Promise<Statistics | null> => {
   try {
     const res = await fetch(
-      process.env.API_URL + "/servers/" + serverId + "/statistics",
+      "http://localhost:4000/api/servers/" + serverId + "/statistics",
       {
         cache: "no-store",
       }
@@ -157,7 +157,7 @@ export const getStatisticsHistory = async (
   serverId: number
 ): Promise<PlaybackActivity[]> => {
   const res = await fetch(
-    process.env.API_URL + "/servers/" + serverId + "/statistics/history",
+    "http://localhost:4000/api/servers/" + serverId + "/statistics/history",
     {
       cache: "no-store",
     }
@@ -176,7 +176,7 @@ const executeSyncTask = async (
   endpoint: string
 ): Promise<void> => {
   const res = await fetch(
-    `${process.env.API_URL}/servers/${serverId}/sync${endpoint}`,
+    `http://localhost:4000/api/servers/${serverId}/sync${endpoint}`,
     {
       method: "POST",
     }
