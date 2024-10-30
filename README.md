@@ -1,5 +1,24 @@
 # A statistics service for Jellyfin
 
+Streamystats is a statistics service for Jellyfin, providing analytics and data visualization.
+
+## Features
+
+- Dashboard with overview statistics
+- User-specific watch history and statistics
+- Most popular item tracking
+- Watch time graphs
+- Full and partial sync options with Jellyfin server
+
+## Getting started
+
+1. Clone the repository
+2. Install Docker and Docker Compose if you haven't already.
+3. Change the `SECRET_KEY_BASE` in the `docker-compose.yml` file if you plan to use the application in production.
+4. Start the application with `docker-compose up -d`
+5. Open your browser and navigate to `http://localhost:3000`
+6. Follow the setup wizard to connect your Jellyfin server.
+
 ## Screenshots
 
 <img width="1420" alt="Screenshot 2024-10-29 at 23 08 14" src="https://github.com/user-attachments/assets/ec942b14-4935-4024-950b-bd2a3dd8c331">
@@ -8,10 +27,9 @@
 <img width="1420" alt="Screenshot 2024-10-29 at 23 08 32" src="https://github.com/user-attachments/assets/7fb03f9a-54c7-4abb-8ced-97b022f03a4c">
 <img width="1420" alt="Screenshot 2024-10-29 at 23 08 36" src="https://github.com/user-attachments/assets/4292f8de-54b5-4486-8171-fe78ece71616">
 
-## Backend
+## Tech Stack
 
-Build with Phoenix 
-
-## Froontend
-
-Built with Next.js
+- Frontend: Next.js, React, TypeScript
+- Backend: Phoenix (Elixir)
+- Database: PostgreSQL
+- Containerization: Docker
