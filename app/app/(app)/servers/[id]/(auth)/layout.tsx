@@ -8,6 +8,7 @@ import { Separator } from "@/components/ui/separator";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { UserMenu } from "@/components/UserMenu";
 import { getMe, getServer, getServers, getUser } from "@/lib/db";
+import { redirect } from "next/navigation";
 import { PropsWithChildren, Suspense } from "react";
 
 interface Props extends PropsWithChildren {
@@ -21,6 +22,11 @@ export default async function layout({ children, params }: Props) {
   const server = await getServer(id);
 
   const me = await getMe();
+
+  if (!me) {
+    redirect("/servers/" + id + "/login");
+  }
+
   const user = await getUser(me?.name, server?.id);
 
   return (

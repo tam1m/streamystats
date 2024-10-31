@@ -298,19 +298,18 @@ export const getToken = async (): Promise<string | undefined> => {
   return token?.value;
 };
 
-export const getMe = async (): Promise<
-  | {
-      name: string;
-    }
-  | undefined
-> => {
+export const getMe = async (): Promise<{
+  name: string;
+} | null> => {
   const cookieStore = cookies();
   const userStr = cookieStore.get("streamystats-user");
   const user = userStr?.value ? JSON.parse(userStr.value) : undefined;
 
-  return {
-    name: user?.["Name"],
-  };
+  return user
+    ? {
+        name: user?.["Name"],
+      }
+    : null;
 };
 
 const executeSyncTask = async (
