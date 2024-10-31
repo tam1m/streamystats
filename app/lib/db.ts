@@ -145,14 +145,12 @@ export const login = async ({
 
   cookies().set("streamystats-token", token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     maxAge: Infinity,
   });
 
   cookies().set("streamystats-user", JSON.stringify(user), {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     maxAge: Infinity,
   });
