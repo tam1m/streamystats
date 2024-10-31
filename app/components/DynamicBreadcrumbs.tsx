@@ -21,7 +21,7 @@ export const DynamicBreadcrumbs: React.FC = () => {
     <Breadcrumb>
       <BreadcrumbList>
         <BreadcrumbItem>
-          <BreadcrumbLink href="/dashboard">
+          <BreadcrumbLink href="/">
             <House className="h-4 w-4 ml-1" />
           </BreadcrumbLink>
         </BreadcrumbItem>
