@@ -12,12 +12,13 @@ Streamystats is a statistics service for Jellyfin, providing analytics and data 
 
 ## 🚀 Getting started
 
-1. Clone the repository
-2. Install Docker and Docker Compose if you haven't already.
-3. Change the `SECRET_KEY_BASE` in the `docker-compose.yml` file if you plan to use the application in production.
-4. Start the application with `docker-compose up -d`
-5. Open your browser and navigate to `http://localhost:3000`
-6. Follow the setup wizard to connect your Jellyfin server.
+1. Install the Playback Reporting Plugin on your Jellyfin server
+2. Clone this repository to your server
+3. Install Docker and Docker Compose if you haven't already.
+4. Change the `SECRET_KEY_BASE` in the `docker-compose.yml` file if you plan to use the application in production.
+5. Start the application with `docker-compose up -d`
+6. Open your browser and navigate to `http://localhost:3000`
+7. Follow the setup wizard to connect your Jellyfin server.
 
 ## 📸 Screenshots
 
