@@ -1,6 +1,6 @@
 "use client";
 
-import { getMe, logout } from "@/lib/db";
+import { logout } from "@/lib/db";
 import { ChevronsUpDown, Loader2, LogOut } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
@@ -14,10 +14,9 @@ import {
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 import { SidebarMenuButton } from "./ui/sidebar";
-import { cookies } from "next/headers";
 
 interface Props {
-  me?: { name: string };
+  me?: { name?: string };
 }
 
 export const UserMenu: React.FC<Props> = ({ me }) => {
@@ -27,10 +26,11 @@ export const UserMenu: React.FC<Props> = ({ me }) => {
 
   const { id } = params as { id: string };
 
-  if (!me) return null;
+  if (!me || !me?.name) return null;
 
   const shortName = useMemo(() => {
-    if (me.name.length >= 2) {
+    if (!me.name) return "";
+    if (me.name?.length >= 2) {
       return me.name.slice(0, 2).toUpperCase();
     } else {
       return me.name.toUpperCase();
