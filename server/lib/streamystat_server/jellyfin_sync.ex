@@ -167,21 +167,24 @@ defmodule StreamystatServer.JellyfinSync do
     end
   end
 
-  def sync_playback_stats(server) do
-    Logger.info("Starting playback stats sync for server #{server.name}")
+  def sync_playback_stats(server, sync_type) when sync_type in [:full, :partial] do
+    Logger.info("Starting #{sync_type} playback stats sync for server #{server.name}")
 
     case check_playback_reporting_plugin(server) do
       {:ok, true} ->
-        oldest_activity_date = get_oldest_playback_activity_date()
+        # For full sync, start from the beginning (last_synced_id = 0)
+        # For partial sync, use the last synced ID from the server record
+        last_synced_id = if sync_type == :full, do: 0, else: server.last_synced_playback_id || 0
 
-        Logger.info("Fetching playback stats since #{oldest_activity_date}")
+        Logger.info("Last synced playback ID: #{last_synced_id}")
 
-        case JellyfinClient.get_playback_stats(server, oldest_activity_date) do
-          {:ok, playback_data} ->
-            insert_playback_data(playback_data, server)
+        case fetch_and_sync_playback_data(server, last_synced_id) do
+          {:ok, total_count} ->
+            Logger.info("Successfully synced #{total_count} playback records")
+            {:ok, total_count}
 
           {:error, reason} ->
-            Logger.error("Failed to fetch playback stats: #{inspect(reason)}")
+            Logger.error("Failed to sync playback stats: #{inspect(reason)}")
             {:error, reason}
         end
 
@@ -193,6 +196,51 @@ defmodule StreamystatServer.JellyfinSync do
         Logger.error("Error checking Playback Reporting Plugin: #{inspect(reason)}")
         {:error, reason}
     end
+  end
+
+  defp fetch_and_sync_playback_data(server, last_synced_id, acc \\ 0) do
+    Logger.info("Fetching batch of playback data after ID #{last_synced_id}")
+
+    case JellyfinClient.get_playback_stats(server, last_synced_id) do
+      {:ok, []} ->
+        # No more data to sync
+        {:ok, acc}
+
+      {:ok, playback_data} ->
+        case insert_playback_data(playback_data, server) do
+          {:ok, count} ->
+            # Get the highest rowid from the current batch
+            max_rowid = get_max_rowid(playback_data)
+
+            # Update the server's last synced ID
+            case update_server_last_synced_id(server, max_rowid) do
+              {:ok, updated_server} ->
+                # If we got a full batch (1000 records), there might be more
+                if length(playback_data) >= 1000 do
+                  # Recursive call to fetch next batch
+                  fetch_and_sync_playback_data(updated_server, max_rowid, acc + count)
+                else
+                  {:ok, acc + count}
+                end
+
+              {:error, reason} ->
+                Logger.error("Failed to update server's last synced ID: #{inspect(reason)}")
+                {:error, reason}
+            end
+
+          {:error, reason} ->
+            {:error, reason}
+        end
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp get_max_rowid(playback_data) do
+    playback_data
+    |> Enum.map(fn [rowid | _] -> parse_integer(rowid) end)
+    |> Enum.max(fn -> 0 end)
   end
 
   defp check_playback_reporting_plugin(server) do
@@ -210,31 +258,26 @@ defmodule StreamystatServer.JellyfinSync do
     end
   end
 
-  defp get_oldest_playback_activity_date do
-    Repo.one(from(p in PlaybackActivity, select: min(p.date_created)))
-  end
-
   defp insert_playback_data(playback_data, server) do
-    Logger.info("Received playback data: #{inspect(playback_data)}")
+    Logger.info("Processing #{length(playback_data)} playback records")
 
     mapped_data = Enum.map(playback_data, &map_playback_data(&1, server))
 
     Repo.transaction(fn ->
       Enum.reduce(mapped_data, 0, fn data, count ->
         case insert_or_update_playback_activity(data) do
-          {:ok, _} -> count + 1
-          {:error, _} -> count
+          {:ok, _} ->
+            count + 1
+
+          {:error, reason} ->
+            Logger.warning("Failed to insert/update playback activity: #{inspect(reason)}")
+            count
         end
       end)
     end)
     |> case do
-      {:ok, count} ->
-        update_server_last_synced_id_if_needed(server, mapped_data)
-        {:ok, count}
-
-      {:error, reason} ->
-        Logger.error("Transaction failed: #{inspect(reason)}")
-        {:error, reason}
+      {:ok, count} -> {:ok, count}
+      {:error, reason} -> {:error, reason}
     end
   end
 
@@ -249,11 +292,20 @@ defmodule StreamystatServer.JellyfinSync do
     |> Repo.insert_or_update()
   end
 
+  defp update_server_last_synced_id(server, max_rowid)
+       when is_integer(max_rowid) and max_rowid > 0 do
+    Logger.info("Updating server's last synced playback ID to #{max_rowid}")
+
+    server
+    |> Server.changeset(%{last_synced_playback_id: max_rowid})
+    |> Repo.update()
+  end
+
   defp map_playback_data(data, server) do
     [
       rowid,
       date_created,
-      jellyfin_user_id,
+      user_name,
       item_id,
       item_type,
       item_name,
@@ -263,7 +315,7 @@ defmodule StreamystatServer.JellyfinSync do
       play_duration
     ] = data
 
-    user = get_or_create_user(server, jellyfin_user_id)
+    user = get_user(server, user_name)
 
     %{
       rowid: parse_integer(rowid),
@@ -282,52 +334,17 @@ defmodule StreamystatServer.JellyfinSync do
     }
   end
 
-  defp get_or_create_user(server, jellyfin_user_id) do
-    Logger.info(
-      "Getting or creating user with Jellyfin ID #{jellyfin_user_id} for server #{server.id}"
-    )
+  defp get_user(server, name) do
+    Logger.info("Getting user with name #{name} for server #{server.id}")
 
-    case Repo.get_by(User, name: jellyfin_user_id, server_id: server.id) do
+    case Repo.get_by(User, name: name, server_id: server.id) do
       nil ->
-        Logger.info("User not found. Creating new user.")
-        {:ok, user} = create_user(server, jellyfin_user_id)
-        user
+        Logger.warning("User not found: #{name}")
+        nil
 
       user ->
         Logger.info("User found: #{user.name}")
         user
-    end
-  end
-
-  defp create_user(server, jellyfin_user_id) do
-    Logger.info("Creating new user with Jellyfin ID #{jellyfin_user_id} for server #{server.id}")
-
-    case JellyfinClient.get_user(server, jellyfin_user_id) do
-      {:ok, user_data} ->
-        Logger.info("Received user data from Jellyfin: #{inspect(user_data)}")
-
-        result =
-          %User{}
-          |> User.changeset(%{
-            jellyfin_id: jellyfin_user_id,
-            name: user_data["Name"],
-            server_id: server.id
-          })
-          |> Repo.insert()
-
-        case result do
-          {:ok, user} ->
-            Logger.info("Successfully created user: #{user.name}")
-            {:ok, user}
-
-          {:error, changeset} ->
-            Logger.error("Failed to create user: #{inspect(changeset.errors)}")
-            {:error, changeset.errors}
-        end
-
-      {:error, reason} ->
-        Logger.error("Failed to fetch user data from Jellyfin: #{inspect(reason)}")
-        {:error, reason}
     end
   end
 
@@ -342,30 +359,27 @@ defmodule StreamystatServer.JellyfinSync do
     end
   end
 
-  defp update_server_last_synced_id_if_needed(server, mapped_data) do
-    max_rowid = Enum.map(mapped_data, & &1.rowid) |> Enum.max(fn -> 0 end)
+  defp parse_datetime(nil), do: nil
+  defp parse_datetime(""), do: nil
 
-    if max_rowid > 0 and max_rowid > server.last_synced_playback_id do
-      update_server_last_synced_id(server, max_rowid)
-    end
-  end
-
-  defp parse_datetime(datetime_string) do
+  defp parse_datetime(datetime_string) when is_binary(datetime_string) do
     case NaiveDateTime.from_iso8601(datetime_string) do
       {:ok, datetime} ->
         NaiveDateTime.truncate(datetime, :second)
 
       {:error, _} ->
-        Logger.warning("Failed to parse datetime: #{datetime_string}")
-        nil
+        case NaiveDateTime.from_iso8601(datetime_string <> "Z") do
+          {:ok, datetime} ->
+            NaiveDateTime.truncate(datetime, :second)
+
+          {:error, _} ->
+            Logger.warning("Failed to parse datetime: #{datetime_string}")
+            nil
+        end
     end
   end
 
-  defp update_server_last_synced_id(server, max_rowid) do
-    server
-    |> Server.changeset(%{last_synced_playback_id: max_rowid})
-    |> Repo.update()
-  end
+  defp parse_datetime(_), do: nil
 
   defp get_library_by_jellyfin_id(jellyfin_library_id, server_id) do
     case Repo.get_by(Library, jellyfin_id: jellyfin_library_id, server_id: server_id) do
@@ -391,6 +405,41 @@ defmodule StreamystatServer.JellyfinSync do
       jellyfin_id: user_data["Id"],
       name: user_data["Name"],
       server_id: server_id,
+      has_password: user_data["HasPassword"],
+      has_configured_password: user_data["HasConfiguredPassword"],
+      has_configured_easy_password: user_data["HasConfiguredEasyPassword"],
+      enable_auto_login: user_data["EnableAutoLogin"],
+      last_login_date: parse_datetime(user_data["LastLoginDate"]),
+      last_activity_date: parse_datetime(user_data["LastActivityDate"]),
+      is_administrator: user_data["Policy"]["IsAdministrator"],
+      is_hidden: user_data["Policy"]["IsHidden"],
+      is_disabled: user_data["Policy"]["IsDisabled"],
+      enable_user_preference_access: user_data["Policy"]["EnableUserPreferenceAccess"],
+      enable_remote_control_of_other_users:
+        user_data["Policy"]["EnableRemoteControlOfOtherUsers"],
+      enable_shared_device_control: user_data["Policy"]["EnableSharedDeviceControl"],
+      enable_remote_access: user_data["Policy"]["EnableRemoteAccess"],
+      enable_live_tv_management: user_data["Policy"]["EnableLiveTvManagement"],
+      enable_live_tv_access: user_data["Policy"]["EnableLiveTvAccess"],
+      enable_media_playback: user_data["Policy"]["EnableMediaPlayback"],
+      enable_audio_playback_transcoding: user_data["Policy"]["EnableAudioPlaybackTranscoding"],
+      enable_video_playback_transcoding: user_data["Policy"]["EnableVideoPlaybackTranscoding"],
+      enable_playback_remuxing: user_data["Policy"]["EnablePlaybackRemuxing"],
+      enable_content_deletion: user_data["Policy"]["EnableContentDeletion"],
+      enable_content_downloading: user_data["Policy"]["EnableContentDownloading"],
+      enable_sync_transcoding: user_data["Policy"]["EnableSyncTranscoding"],
+      enable_media_conversion: user_data["Policy"]["EnableMediaConversion"],
+      enable_all_devices: user_data["Policy"]["EnableAllDevices"],
+      enable_all_channels: user_data["Policy"]["EnableAllChannels"],
+      enable_all_folders: user_data["Policy"]["EnableAllFolders"],
+      enable_public_sharing: user_data["Policy"]["EnablePublicSharing"],
+      invalid_login_attempt_count: user_data["Policy"]["InvalidLoginAttemptCount"],
+      login_attempts_before_lockout: user_data["Policy"]["LoginAttemptsBeforeLockout"],
+      max_active_sessions: user_data["Policy"]["MaxActiveSessions"],
+      remote_client_bitrate_limit: user_data["Policy"]["RemoteClientBitrateLimit"],
+      authentication_provider_id: user_data["Policy"]["AuthenticationProviderId"],
+      password_reset_provider_id: user_data["Policy"]["PasswordResetProviderId"],
+      sync_play_access: user_data["Policy"]["SyncPlayAccess"],
       inserted_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second),
       updated_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
     }

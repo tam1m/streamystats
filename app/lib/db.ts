@@ -1,5 +1,7 @@
 "use server";
 
+import { cookies } from "next/headers";
+
 export type Server = {
   id: number;
   name: string;
@@ -54,22 +56,22 @@ export type User = {
 
 export const createServer = async (
   url: string,
-  api_key: string,
-  admin_id: string,
-  name: string
-) => {
-  await fetch(process.env.API_URL + "/servers", {
+  api_key: string
+): Promise<Server> => {
+  const result = await fetch(process.env.API_URL + "/servers", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      name,
       url,
       api_key,
-      admin_id,
     }),
   });
+
+  const data = await result.json();
+
+  return data.data as Server;
 };
 
 export const getServers = async (): Promise<Server[]> => {
@@ -92,21 +94,93 @@ export const getServers = async (): Promise<Server[]> => {
   }
 };
 
-export const getServer = async (): Promise<Server | null> => {
-  const servers = await getServers();
-  return servers?.[0] || null;
+export const getServer = async (
+  serverId: number | string
+): Promise<Server | null> => {
+  try {
+    const res = await fetch(process.env.API_URL + "/servers/" + serverId, {
+      cache: "no-store",
+    });
+
+    console.log(res);
+
+    if (!res.ok) {
+      return null;
+    }
+
+    const data = await res.json();
+    console.log("data", data);
+    return data.data;
+  } catch (e) {
+    return null;
+  }
 };
+
+export const login = async ({
+  serverId,
+  username,
+  password,
+}: {
+  serverId: number;
+  username: string;
+  password?: string | null;
+}): Promise<void> => {
+  const res = await fetch(process.env.API_URL + "/login", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      username,
+      password,
+      server_id: serverId,
+    }),
+  });
+
+  if (!res.ok) {
+    throw new Error("Failed to login");
+  }
+
+  const data = await res.json();
+  const token = data.access_token;
+  const user = data.user;
+
+  console.log("token", token);
+
+  cookies().set("streamystats-token", token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: Infinity,
+  });
+
+  cookies().set("streamystats-user", JSON.stringify(user), {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: Infinity,
+  });
+};
+
+// export const getServer = async (serverId: number): Promise<Server | null> => {
+//   const servers = await getServers();
+//   return servers?.[0] || null;
+// };
 
 export const getUsers = async (serverId: number): Promise<User[]> => {
   const res = await fetch(
     process.env.API_URL + "/servers/" + serverId + "/users",
     {
       cache: "no-store",
+      headers: {
+        Authorization: `Bearer ${await getToken()}`,
+        "Content-Type": "application/json",
+      },
     }
   );
 
   if (!res.ok) {
-    throw new Error("Failed to fetch data");
+    return [];
   }
 
   const data = await res.json();
@@ -121,6 +195,10 @@ export const getUser = async (
     process.env.API_URL + "/servers/" + serverId + "/users/" + name,
     {
       cache: "no-store",
+      headers: {
+        Authorization: `Bearer ${await getToken()}`,
+        "Content-Type": "application/json",
+      },
     }
   );
 
@@ -136,10 +214,15 @@ export const getStatistics = async (
   serverId: number
 ): Promise<Statistics | null> => {
   try {
+    console.log("getStatistics", await getToken());
     const res = await fetch(
       process.env.API_URL + "/servers/" + serverId + "/statistics",
       {
         cache: "no-store",
+        headers: {
+          Authorization: `Bearer ${await getToken()}`,
+          "Content-Type": "application/json",
+        },
       }
     );
     if (!res.ok) {
@@ -160,6 +243,10 @@ export const getStatisticsHistory = async (
     process.env.API_URL + "/servers/" + serverId + "/statistics/history",
     {
       cache: "no-store",
+      headers: {
+        Authorization: `Bearer ${await getToken()}`,
+        "Content-Type": "application/json",
+      },
     }
   );
 
@@ -171,6 +258,32 @@ export const getStatisticsHistory = async (
   return data.data;
 };
 
+export const logout = async (): Promise<void> => {
+  cookies().delete("streamystats-token");
+  cookies().delete("streamystats-user");
+};
+
+export const getToken = async (): Promise<string | undefined> => {
+  const cookieStore = cookies();
+  const token = cookieStore.get("streamystats-token");
+  return token?.value;
+};
+
+export const getMe = async (): Promise<
+  | {
+      name: string;
+    }
+  | undefined
+> => {
+  const cookieStore = cookies();
+  const userStr = cookieStore.get("streamystats-user");
+  const user = userStr?.value ? JSON.parse(userStr.value) : undefined;
+
+  return {
+    name: user?.["Name"],
+  };
+};
+
 const executeSyncTask = async (
   serverId: number,
   endpoint: string
@@ -179,6 +292,10 @@ const executeSyncTask = async (
     `${process.env.API_URL}/servers/${serverId}/sync${endpoint}`,
     {
       method: "POST",
+      headers: {
+        Authorization: `Bearer ${await getToken()}`,
+        "Content-Type": "application/json",
+      },
     }
   );
 

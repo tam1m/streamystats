@@ -1,6 +1,9 @@
 "use client";
 
-import { GalleryVerticalEnd, ChevronsUpDown, Check } from "lucide-react";
+import { Server } from "@/lib/db";
+import { Check, ChevronsUpDown, GalleryVerticalEnd } from "lucide-react";
+import { useParams, useRouter } from "next/navigation";
+import { useMemo } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -8,16 +11,21 @@ import {
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 import { SidebarMenuButton } from "./ui/sidebar";
-import { Server } from "@/lib/db";
-import { useAtom } from "jotai/react";
-import { serverAtom } from "@/lib/atoms/serverAtom";
 
 interface Props {
   servers: Server[];
 }
 
 export const ServerSelector: React.FC<Props> = ({ servers }) => {
-  const [server, setServer] = useAtom(serverAtom);
+  const params = useParams();
+  const { id } = params as { id: string };
+
+  const currentServer = useMemo(() => {
+    return servers.find((server) => server.id === Number(id));
+  }, [servers, id]);
+
+  const router = useRouter();
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -30,7 +38,7 @@ export const ServerSelector: React.FC<Props> = ({ servers }) => {
           </div>
           <div className="flex flex-col gap-0.5 leading-none">
             <span className="font-semibold">Server</span>
-            <span className="">{server?.name || "N/A"}</span>
+            <span className="">{currentServer?.name || "N/A"}</span>
           </div>
           <ChevronsUpDown className="ml-auto" />
         </SidebarMenuButton>
@@ -40,7 +48,12 @@ export const ServerSelector: React.FC<Props> = ({ servers }) => {
         align="start"
       >
         {servers.map((server) => (
-          <DropdownMenuItem key={server.id} onSelect={() => setServer(server)}>
+          <DropdownMenuItem
+            key={server.id}
+            onSelect={() => {
+              router.push(`/servers/${server.id}/login`);
+            }}
+          >
             {server.name} {server === server && <Check className="ml-auto" />}
           </DropdownMenuItem>
         ))}

@@ -21,6 +21,20 @@ defmodule StreamystatServerWeb.UserJSON do
     }
   end
 
+  def me(%{user: user}) do
+    %{
+      id: user["Id"],
+      name: user["Name"],
+      server_id: user["ServerId"],
+      primary_image_tag: user["PrimaryImageTag"],
+      has_password: user["HasPassword"],
+      has_configured_password: user["HasConfiguredPassword"],
+      last_login_date: user["LastLoginDate"],
+      last_activity_date: user["LastActivityDate"],
+      configuration: user["Configuration"]
+    }
+  end
+
   defp data(%{user: %User{} = user, watch_stats: watch_stats}, :index) do
     %{
       id: user.id,

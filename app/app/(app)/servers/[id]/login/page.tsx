@@ -1,15 +1,17 @@
 import { redirect } from "next/navigation";
-import { getServers } from "@/lib/db";
-import { SetupForm } from "./SetupForm";
+import { getServer, getServers } from "@/lib/db";
+import { SignInForm } from "./SignInForm";
 
-export default async function Setup() {
-  const servers = await getServers();
-  const server = servers?.[0];
+export default async function Setup({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const server = await getServer(id);
 
-  console.log(server);
-
-  if (server) {
-    redirect(`/servers/${servers[0].id}/login`);
+  if (!server) {
+    redirect("/");
   }
 
   return (
@@ -25,7 +27,7 @@ export default async function Setup() {
         </div>
       </div>
       <div className="grid place-items-center py-12 md:py-0">
-        <SetupForm />
+        <SignInForm server={server} />
       </div>
     </div>
   );

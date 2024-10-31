@@ -4,11 +4,18 @@ import { formatDuration } from "@/lib/utils";
 import Link from "next/link";
 import { UserTable } from "./UserTable";
 import { PageTitle } from "@/components/PageTitle";
+import { redirect } from "next/navigation";
 
-export default async function UsersPage() {
-  const server = await getServer();
+export default async function UsersPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const server = await getServer(id);
+
   if (!server) {
-    return <div>Server not found</div>;
+    redirect("/");
   }
 
   const users = await getUsers(server.id);
@@ -17,7 +24,7 @@ export default async function UsersPage() {
   return (
     <Container>
       <PageTitle title="Users" />
-      <UserTable data={users} />
+      <UserTable data={users} server={server} />
     </Container>
   );
 }

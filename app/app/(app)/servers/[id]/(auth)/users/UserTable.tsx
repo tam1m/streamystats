@@ -35,87 +35,80 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { PlaybackActivity, Server } from "@/lib/db";
+import { Server, User } from "@/lib/db";
 import { useRouter } from "next/navigation";
 import { formatDuration } from "@/lib/utils";
 
-export interface HistoryTableProps {
-  data: PlaybackActivity[];
+export interface UserTableProps {
+  data: User[];
   server: Server;
 }
 
-export function HistoryTable({ data, server }: HistoryTableProps) {
+export const UserTable: React.FC<UserTableProps> = ({
+  data,
+  server,
+}: UserTableProps) => {
   const router = useRouter();
-  const columns: ColumnDef<PlaybackActivity>[] = [
+  const columns: ColumnDef<User>[] = [
     {
-      id: "select",
-      header: ({ table }) => (
-        <Checkbox
-          checked={
-            table.getIsAllPageRowsSelected() ||
-            (table.getIsSomePageRowsSelected() && "indeterminate")
-          }
-          onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-          aria-label="Select all"
-        />
-      ),
-      cell: ({ row }) => (
-        <Checkbox
-          checked={row.getIsSelected()}
-          onCheckedChange={(value) => row.toggleSelected(!!value)}
-          aria-label="Select row"
-        />
-      ),
-      enableSorting: false,
-      enableHiding: false,
-    },
-    {
-      accessorKey: "item_name",
-      header: "Item Name",
-      cell: ({ row }) => (
-        <div className="capitalize">{row.getValue("item_name")}</div>
-      ),
-    },
-    {
-      accessorKey: "user",
-      header: () => <div className="text-right">User</div>,
-      cell: ({ row }) => {
-        const user = row.getValue("user") as PlaybackActivity["user"];
-        return <div className="text-right font-medium">{user.name}</div>;
-      },
-    },
-
-    {
-      accessorKey: "play_duration",
-      header: () => <div className="text-right">Play Duration</div>,
-      cell: ({ row }) => {
-        const playDuration = row.getValue("play_duration") as number | null;
-        const formatted = playDuration ? formatDuration(playDuration) : "N/A";
-        return <div className="text-right font-medium">{formatted}</div>;
-      },
-    },
-    {
-      accessorKey: "date_created",
+      accessorKey: "name",
       header: ({ column }) => {
         return (
           <Button
             variant="ghost"
             onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
           >
-            Date Created
+            Name
             <ArrowUpDown className="ml-2 h-4 w-4" />
           </Button>
         );
       },
-      cell: ({ row }) => (
-        <div>{(row.getValue("date_created") as Date)?.toLocaleString()}</div>
-      ),
+      cell: ({ row }) => <div className="">{row.getValue("name")}</div>,
+    },
+    {
+      accessorKey: "watch_stats.total_plays",
+      header: ({ column }) => {
+        return (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          >
+            Total Plays
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          </Button>
+        );
+      },
+      cell: ({ row }) => {
+        const totalPlays = row.original.watch_stats.total_plays;
+        return <div className="text-left">{totalPlays}</div>;
+      },
+    },
+    {
+      accessorKey: "watch_stats.total_watch_time",
+      header: ({ column }) => {
+        return (
+          <Button
+            variant="ghost"
+            className="justify-self-end place-self-end self-end"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          >
+            Total Watch Time
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          </Button>
+        );
+      },
+      cell: ({ row }) => {
+        const totalWatchTime = row.original.watch_stats.total_watch_time;
+        return (
+          <div className="text-left">{formatDuration(totalWatchTime)}</div>
+        );
+      },
     },
     {
       id: "actions",
       enableHiding: false,
       cell: ({ row }) => {
-        const playbackActivity = row.original;
+        const user = row.original;
 
         return (
           <DropdownMenu>
@@ -128,26 +121,8 @@ export function HistoryTable({ data, server }: HistoryTableProps) {
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>Actions</DropdownMenuLabel>
               <DropdownMenuItem
-                onClick={() =>
-                  navigator.clipboard.writeText(playbackActivity.id.toString())
-                }
-              >
-                Copy activity ID
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
                 onClick={() => {
-                  window.open(
-                    `${server.url}/web/#/details?id=${playbackActivity.item_id}`,
-                    "_blank"
-                  );
-                }}
-              >
-                View item details
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => {
-                  router.push(`/users/${playbackActivity.user.name}`);
+                  router.push(`/servers/${server.id}/users/${user.name}`);
                 }}
               >
                 View user details
@@ -190,12 +165,10 @@ export function HistoryTable({ data, server }: HistoryTableProps) {
     <div className="w-full">
       <div className="flex items-center py-4">
         <Input
-          placeholder="Filter item names..."
-          value={
-            (table.getColumn("item_name")?.getFilterValue() as string) ?? ""
-          }
+          placeholder="Filter names..."
+          value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}
           onChange={(event) =>
-            table.getColumn("item_name")?.setFilterValue(event.target.value)
+            table.getColumn("name")?.setFilterValue(event.target.value)
           }
           className="max-w-sm"
         />
@@ -302,4 +275,4 @@ export function HistoryTable({ data, server }: HistoryTableProps) {
       </div>
     </div>
   );
-}
+};

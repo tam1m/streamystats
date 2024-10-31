@@ -35,78 +35,87 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { User } from "@/lib/db";
+import { PlaybackActivity, Server } from "@/lib/db";
 import { useRouter } from "next/navigation";
 import { formatDuration } from "@/lib/utils";
 
-export interface UserTableProps {
-  data: User[];
+export interface HistoryTableProps {
+  data: PlaybackActivity[];
+  server: Server;
 }
 
-export const UserTable: React.FC<UserTableProps> = ({
-  data,
-}: UserTableProps) => {
+export function HistoryTable({ data, server }: HistoryTableProps) {
   const router = useRouter();
-  const columns: ColumnDef<User>[] = [
+  const columns: ColumnDef<PlaybackActivity>[] = [
     {
-      accessorKey: "name",
-      header: ({ column }) => {
-        return (
-          <Button
-            variant="ghost"
-            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          >
-            Name
-            <ArrowUpDown className="ml-2 h-4 w-4" />
-          </Button>
-        );
-      },
-      cell: ({ row }) => <div className="">{row.getValue("name")}</div>,
+      id: "select",
+      header: ({ table }) => (
+        <Checkbox
+          checked={
+            table.getIsAllPageRowsSelected() ||
+            (table.getIsSomePageRowsSelected() && "indeterminate")
+          }
+          onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+          aria-label="Select all"
+        />
+      ),
+      cell: ({ row }) => (
+        <Checkbox
+          checked={row.getIsSelected()}
+          onCheckedChange={(value) => row.toggleSelected(!!value)}
+          aria-label="Select row"
+        />
+      ),
+      enableSorting: false,
+      enableHiding: false,
     },
     {
-      accessorKey: "watch_stats.total_plays",
-      header: ({ column }) => {
-        return (
-          <Button
-            variant="ghost"
-            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          >
-            Total Plays
-            <ArrowUpDown className="ml-2 h-4 w-4" />
-          </Button>
-        );
-      },
+      accessorKey: "item_name",
+      header: "Item Name",
+      cell: ({ row }) => (
+        <div className="capitalize">{row.getValue("item_name")}</div>
+      ),
+    },
+    {
+      accessorKey: "user",
+      header: () => <div className="text-right">User</div>,
       cell: ({ row }) => {
-        const totalPlays = row.original.watch_stats.total_plays;
-        return <div className="text-left">{totalPlays}</div>;
+        const user = row.getValue("user") as PlaybackActivity["user"];
+        return <div className="text-right font-medium">{user.name}</div>;
+      },
+    },
+
+    {
+      accessorKey: "play_duration",
+      header: () => <div className="text-right">Play Duration</div>,
+      cell: ({ row }) => {
+        const playDuration = row.getValue("play_duration") as number | null;
+        const formatted = playDuration ? formatDuration(playDuration) : "N/A";
+        return <div className="text-right font-medium">{formatted}</div>;
       },
     },
     {
-      accessorKey: "watch_stats.total_watch_time",
+      accessorKey: "date_created",
       header: ({ column }) => {
         return (
           <Button
             variant="ghost"
-            className="justify-self-end place-self-end self-end"
             onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
           >
-            Total Watch Time
+            Date Created
             <ArrowUpDown className="ml-2 h-4 w-4" />
           </Button>
         );
       },
-      cell: ({ row }) => {
-        const totalWatchTime = row.original.watch_stats.total_watch_time;
-        return (
-          <div className="text-left">{formatDuration(totalWatchTime)}</div>
-        );
-      },
+      cell: ({ row }) => (
+        <div>{(row.getValue("date_created") as Date)?.toLocaleString()}</div>
+      ),
     },
     {
       id: "actions",
       enableHiding: false,
       cell: ({ row }) => {
-        const user = row.original;
+        const playbackActivity = row.original;
 
         return (
           <DropdownMenu>
@@ -119,9 +128,28 @@ export const UserTable: React.FC<UserTableProps> = ({
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>Actions</DropdownMenuLabel>
               <DropdownMenuItem
+                onClick={() =>
+                  navigator.clipboard.writeText(playbackActivity.id.toString())
+                }
+              >
+                Copy activity ID
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
                 onClick={() => {
-                  console.log(user.name);
-                  router.push(`/users/${user.name}`);
+                  window.open(
+                    `${server.url}/web/#/details?id=${playbackActivity.item_id}`,
+                    "_blank"
+                  );
+                }}
+              >
+                View item details
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  router.push(
+                    `/servers/${server.id}/users/${playbackActivity.user.name}`
+                  );
                 }}
               >
                 View user details
@@ -164,10 +192,12 @@ export const UserTable: React.FC<UserTableProps> = ({
     <div className="w-full">
       <div className="flex items-center py-4">
         <Input
-          placeholder="Filter names..."
-          value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}
+          placeholder="Filter item names..."
+          value={
+            (table.getColumn("item_name")?.getFilterValue() as string) ?? ""
+          }
           onChange={(event) =>
-            table.getColumn("name")?.setFilterValue(event.target.value)
+            table.getColumn("item_name")?.setFilterValue(event.target.value)
           }
           className="max-w-sm"
         />
@@ -274,4 +304,4 @@ export const UserTable: React.FC<UserTableProps> = ({
       </div>
     </div>
   );
-};
+}

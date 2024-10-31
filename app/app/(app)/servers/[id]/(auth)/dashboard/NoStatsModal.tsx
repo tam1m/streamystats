@@ -10,13 +10,16 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { AlertDialogCancel } from "@radix-ui/react-alert-dialog";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
+import { useState } from "react";
 
 export function NoStatsModal() {
   const router = useRouter();
+  const params = useParams();
+  const [open, setOpen] = useState(true);
 
   return (
-    <AlertDialog open={true}>
+    <AlertDialog open={open}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>
@@ -28,10 +31,17 @@ export function NoStatsModal() {
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogCancel
+            onClick={() => {
+              setOpen(false);
+            }}
+            className="mr-3"
+          >
+            Cancel
+          </AlertDialogCancel>
           <AlertDialogAction
             onClick={() => {
-              router.push("/settings");
+              router.push(`/servers/${params.id}/settings`);
             }}
           >
             Continue to Settings

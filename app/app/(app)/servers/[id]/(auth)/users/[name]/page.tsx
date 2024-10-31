@@ -5,20 +5,21 @@ import { getServer, getUser } from "@/lib/db";
 import { HistoryTable } from "../../history/HistoryTable";
 import { formatDuration } from "@/lib/utils";
 import { WatchTimePerDay } from "./WatchTimePerDay.tsx";
+import { redirect } from "next/navigation";
 
-export default async function User({ params }: { params: { name: string } }) {
-  console.log("name", params.name);
-  const server = await getServer();
+export default async function User({
+  params,
+}: {
+  params: Promise<{ id: string; name: string }>;
+}) {
+  const { id, name } = await params;
+  const server = await getServer(id);
 
   if (!server) {
-    return (
-      <div>
-        <p>Server not found</p>
-      </div>
-    );
+    redirect("/");
   }
 
-  const user = await getUser(params.name, server.id);
+  const user = await getUser(name, server.id);
 
   console.log(user);
 

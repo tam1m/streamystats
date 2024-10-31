@@ -3,7 +3,7 @@ import Config
 # Configure your database
 config :streamystat_server, StreamystatServer.Repo,
   username: "postgres",
-  password: "postgres",
+  password: "Hacker97!",
   hostname: "localhost",
   database: "streamystat_server_dev",
   stacktrace: true,

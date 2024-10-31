@@ -101,7 +101,6 @@ defmodule StreamystatServer.SyncTask do
     {:noreply, state}
   end
 
-  @spec perform_sync(atom(), server_id()) :: sync_result()
   defp perform_sync(sync_type, server_id) do
     with {:ok, server} <- get_server(server_id) do
       try do
@@ -111,7 +110,7 @@ defmodule StreamystatServer.SyncTask do
           :sync_users -> JellyfinSync.sync_users(server)
           :sync_libraries -> JellyfinSync.sync_libraries(server)
           :sync_items -> JellyfinSync.sync_items(server)
-          :sync_playback_stats -> JellyfinSync.sync_playback_stats(server)
+          :sync_playback_stats -> JellyfinSync.sync_playback_stats(server, :partial)
         end
 
         Logger.info("#{sync_type} completed for server #{server.name}")
@@ -136,7 +135,6 @@ defmodule StreamystatServer.SyncTask do
     end
   end
 
-  @spec update_sync_timestamp(server_id(), sync_type(), sync_result()) :: :ok
   defp update_sync_timestamp(server_id, sync_type, {:ok, _}) do
     %SyncLog{}
     |> SyncLog.changeset(%{
@@ -164,21 +162,19 @@ defmodule StreamystatServer.SyncTask do
     Process.send_after(self(), :partial_sync, 60 * 1000)
   end
 
-  @spec perform_full_sync(Servers.Server.t()) :: :ok
   defp perform_full_sync(server) do
     JellyfinSync.sync_users(server)
     JellyfinSync.sync_libraries(server)
     JellyfinSync.sync_items(server)
-    JellyfinSync.sync_playback_stats(server)
+    JellyfinSync.sync_playback_stats(server, :full)
     :ok
   end
 
-  @spec perform_partial_sync(Servers.Server.t()) :: :ok
   defp perform_partial_sync(server) do
     # JellyfinSync.sync_users(server)
     # JellyfinSync.sync_libraries(server)
     # JellyfinSync.sync_recent_items(server)
-    JellyfinSync.sync_playback_stats(server)
+    JellyfinSync.sync_playback_stats(server, :partial)
     :ok
   end
 end

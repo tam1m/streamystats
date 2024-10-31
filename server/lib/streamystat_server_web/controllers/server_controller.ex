@@ -21,4 +21,17 @@ defmodule StreamystatServerWeb.ServerController do
         |> render(:error, changeset: changeset)
     end
   end
+
+  def show(conn, %{"id" => id}) do
+    case Servers.get_server(id) do
+      nil ->
+        conn
+        |> put_status(:not_found)
+        |> put_view(StreamystatServerWeb.ErrorJSON)
+        |> render("404.json", %{})
+
+      server ->
+        render(conn, :show, server: server)
+    end
+  end
 end

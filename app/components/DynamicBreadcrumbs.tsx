@@ -13,8 +13,10 @@ import React from "react";
 
 export const DynamicBreadcrumbs: React.FC = () => {
   const pathname = usePathname();
-  const pathSegments = pathname.split("/").filter((segment) => segment);
-
+  const pathSegments = pathname
+    .split("/")
+    .filter((segment) => segment)
+    .slice(2); // Remove the first two segments (servers/<id>)
   return (
     <Breadcrumb>
       <BreadcrumbList>

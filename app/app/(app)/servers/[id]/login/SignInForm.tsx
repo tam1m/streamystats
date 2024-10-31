@@ -15,42 +15,48 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { toast } from "sonner";
+import { login, Server } from "@/lib/db";
 import { useRouter } from "next/navigation";
-import { createServer } from "@/lib/db";
-import { PageTitle } from "@/components/PageTitle";
+import { toast } from "sonner";
+import { tokenAtom } from "@/lib/atoms/tokenAtom";
+import { useAtom } from "jotai/react";
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
+import { PageTitle } from "@/components/PageTitle";
 
 const FormSchema = z.object({
-  url: z.string().min(2, {
-    message: "Url must be at least 2 characters.",
-  }),
-  apikey: z.string().min(2, {
-    message: "Apikey must be at least 2 characters.",
-  }),
+  username: z.string(),
+  password: z.string().optional(),
 });
 
-export function SetupForm() {
+interface Props {
+  server: Server;
+}
+
+export const SignInForm: React.FC<Props> = ({ server }) => {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const form = useForm<z.infer<typeof FormSchema>>({
     resolver: zodResolver(FormSchema),
     defaultValues: {
-      apikey: "",
-      url: "",
+      username: "",
+      password: "",
     },
   });
 
   async function onSubmit(data: z.infer<typeof FormSchema>) {
     setLoading(true);
     try {
-      const server = await createServer(data.url, data.apikey);
-      router.push(`/servers/${server.id}/login`);
+      await login({
+        serverId: server.id,
+        username: data.username,
+        password: data.password,
+      });
+      router.push(`/servers/${server.id}/dashboard`);
       // You can add a success message or redirect the user here
     } catch (error) {
-      console.error("Error creating server:", error);
-      toast.error("Error creating server");
+      console.error("Error logging in:", error);
+      toast.error("Error logging in");
     } finally {
       setLoading(false);
     }
@@ -59,50 +65,53 @@ export function SetupForm() {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="w-2/3 space-y-6">
-        <PageTitle title="Setup" subtitle="Setup your Jellyfin server" />
+        <PageTitle title="Sign In" subtitle="Sign in to your Jellyfin server" />
         <FormField
           control={form.control}
-          name="url"
+          name="username"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Jellyfin URL</FormLabel>
+              <FormLabel>Username</FormLabel>
               <FormControl>
                 <Input
-                  placeholder="http://your-jellyfin-server:8096"
+                  placeholder="Enter your Jellyfin username"
                   {...field}
+                  autoComplete="username"
                 />
               </FormControl>
-              <FormDescription>
-                Enter the URL of your Jellyfin server
-              </FormDescription>
+              <FormDescription>Enter your Jellyfin username</FormDescription>
               <FormMessage />
             </FormItem>
           )}
         />
         <FormField
           control={form.control}
-          name="apikey"
+          name="password"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Jellyfin Api Key</FormLabel>
+              <FormLabel>Password</FormLabel>
               <FormControl>
-                <Input placeholder="shadcn" {...field} />
+                <Input
+                  type="password"
+                  placeholder="Enter your Jellyfin password"
+                  {...field}
+                  autoComplete="current-password"
+                />
               </FormControl>
-              <FormDescription>
-                Get the api key from the admin dashboard in Jellyfin
-              </FormDescription>
+              <FormDescription>Jellyfin password</FormDescription>
               <FormMessage />
             </FormItem>
           )}
         />
-        <Button type="submit" disabled={loading}>
+
+        <Button type="submit">
           {loading ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           ) : (
-            "Create"
+            "Sign In"
           )}
         </Button>
       </form>
     </Form>
   );
-}
+};

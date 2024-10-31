@@ -29,37 +29,6 @@ defmodule StreamystatServer.JellyfinClient do
     end
   end
 
-  def get_recently_added(server, limit \\ 20) do
-    url = "#{server.url}/Users/#{server.admin_id}/Items/Latest"
-    headers = process_request_headers([], server.api_key)
-
-    params = %{
-      Limit: limit,
-      Fields: "MediaSources,DateCreated"
-    }
-
-    case get(url, headers, params: params) do
-      {:ok, %{status_code: 200, body: body}} ->
-        case Jason.decode(body) do
-          {:ok, items} ->
-            filtered_items = Enum.filter(items, fn item -> item["LocationType"] != "Virtual" end)
-            {:ok, filtered_items}
-
-          {:error, decode_error} ->
-            Logger.error("Failed to decode JSON response: #{inspect(decode_error)}")
-            {:error, "Failed to decode JSON response"}
-        end
-
-      {:ok, %{status_code: status_code}} ->
-        Logger.error("Unexpected status code: #{status_code}")
-        {:error, "Unexpected status code: #{status_code}"}
-
-      {:error, %HTTPoison.Error{reason: reason}} ->
-        Logger.error("HTTP request failed: #{inspect(reason)}")
-        {:error, "HTTP request failed: #{inspect(reason)}"}
-    end
-  end
-
   def get_libraries(server) do
     url = "#{server.url}/Library/MediaFolders"
     headers = process_request_headers([], server.api_key)
@@ -112,7 +81,7 @@ defmodule StreamystatServer.JellyfinClient do
     end
   end
 
-  def get_playback_stats(server, oldest_activity_date) do
+  def get_playback_stats(server, last_synced_id) do
     url = "#{server.url}/user_usage_stats/submit_custom_query"
 
     headers = [
@@ -122,7 +91,7 @@ defmodule StreamystatServer.JellyfinClient do
        "MediaBrowser Client=\"Jellyfin Web\", Device=\"Elixir\", DeviceId=\"StreamystatServer\", Version=\"1.0.0\", Token=\"#{server.api_key}\""}
     ]
 
-    query = build_playback_query(oldest_activity_date, server.last_synced_playback_id)
+    query = build_playback_query(last_synced_id)
 
     body =
       Jason.encode!(%{
@@ -132,13 +101,15 @@ defmodule StreamystatServer.JellyfinClient do
 
     params = [stamp: :os.system_time(:millisecond)]
 
-    Logger.info("Sending request to #{url} with params: #{inspect(params)} and body: #{body}")
+    Logger.info("Sending request to #{url} with query: #{query}")
 
     case post(url, body, headers, params: params) do
       {:ok, %HTTPoison.Response{status_code: 200, body: response_body}} ->
+        Logger.info("Full response body: #{response_body}")
+
         case Jason.decode(response_body) do
           {:ok, %{"results" => results}} when is_list(results) ->
-            Logger.info("Successfully retrieved playback stats: #{inspect(results)}")
+            Logger.info("Retrieved #{length(results)} playback records")
             {:ok, results}
 
           {:ok, decoded_body} ->
@@ -198,31 +169,19 @@ defmodule StreamystatServer.JellyfinClient do
     end
   end
 
-  defp build_playback_query(oldest_activity_date, last_synced_id) do
-    conditions = []
-
-    conditions =
-      if oldest_activity_date do
-        ["DateCreated >= '#{NaiveDateTime.to_string(oldest_activity_date)}'"] ++ conditions
-      else
-        conditions
-      end
-
-    conditions =
-      if last_synced_id && last_synced_id > 0 do
-        ["ROWID > #{last_synced_id}"] ++ conditions
-      else
-        conditions
-      end
-
+  defp build_playback_query(last_synced_id) do
     where_clause =
-      if length(conditions) > 0, do: "WHERE " <> Enum.join(conditions, " AND ") <> "\n", else: ""
+      if last_synced_id && last_synced_id > 0 do
+        "WHERE ROWID > #{last_synced_id}\n"
+      else
+        ""
+      end
 
     """
     SELECT ROWID, *
     FROM PlaybackActivity
     #{where_clause}ORDER BY ROWID ASC
-    LIMIT 1000
+    LIMIT 10000
     """
   end
 end

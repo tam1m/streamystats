@@ -1,7 +1,9 @@
 defmodule StreamystatServerWeb.UserController do
   use StreamystatServerWeb, :controller
-  require Logger
   alias StreamystatServer.Contexts.Users
+  alias StreamystatServer.Auth
+  alias StreamystatServer.Servers
+  require Logger
 
   def index(conn, %{"server_id" => server_id}) do
     users = Users.get_users(server_id)
@@ -35,6 +37,28 @@ defmodule StreamystatServerWeb.UserController do
           watch_stats: watch_stats,
           watch_time_per_day: watch_time_per_day
         )
+    end
+  end
+
+  def me(conn, %{"server_id" => server_id}) do
+    with {:ok, server} <- Servers.get_server(server_id),
+         user_id when is_binary(user_id) <- conn.assigns[:current_user_id],
+         {:ok, user_info} <- Auth.get_user_info(server, user_id) do
+      conn
+      |> put_status(:ok)
+      |> render(:me, user: user_info)
+    else
+      nil ->
+        conn
+        |> put_status(:not_found)
+        |> put_view(json: StreamystatServerWeb.ErrorJSON)
+        |> render(:error, message: "Server not found")
+
+      {:error, reason} ->
+        conn
+        |> put_status(:unauthorized)
+        |> put_view(json: StreamystatServerWeb.ErrorJSON)
+        |> render(:error, message: reason)
     end
   end
 end

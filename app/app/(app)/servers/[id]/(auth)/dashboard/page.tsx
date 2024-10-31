@@ -1,14 +1,18 @@
 import { Container } from "@/components/Container";
 import { PageTitle } from "@/components/PageTitle";
-import { getServers, getStatistics } from "@/lib/db";
-import { WatchTimeGraph } from "./WatchTimeGraph";
+import { getServer, getStatistics } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { MostPopularItem } from "./MostPopularItem";
 import { NoStatsModal } from "./NoStatsModal";
+import { WatchTimeGraph } from "./WatchTimeGraph";
 
-export default async function DashboardPage() {
-  const servers = await getServers();
-  const server = servers?.[0];
+export default async function DashboardPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const server = await getServer(id);
 
   if (!server) {
     // User has not added a server yet
