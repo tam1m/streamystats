@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Server, syncFullTask, syncPartialTask } from "@/lib/db";
+import { Server, syncFullTask } from "@/lib/db";
 import { useCallback } from "react";
 import { toast } from "sonner";
 
