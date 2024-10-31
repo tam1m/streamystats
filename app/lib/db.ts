@@ -1,6 +1,6 @@
 "use server";
 
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 
 export type Server = {
   id: number;
@@ -143,16 +143,22 @@ export const login = async ({
   const token = data.access_token;
   const user = data.user;
 
+  const h = headers();
+
+  const secure = h.get("x-forwarded-proto") === "https";
+
   cookies().set("streamystats-token", token, {
     httpOnly: true,
     sameSite: "lax",
     maxAge: Infinity,
+    secure,
   });
 
   cookies().set("streamystats-user", JSON.stringify(user), {
     httpOnly: true,
     sameSite: "lax",
     maxAge: Infinity,
+    secure,
   });
 };
 
