@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Statistics } from "@/lib/db";
+import { formatDuration } from "@/lib/utils";
 
 const chartConfig = {
   minutes: {
@@ -131,12 +132,12 @@ export const WatchTimeGraph: React.FC<Props> = ({ data }) => {
               cursor={false}
               content={
                 <ChartTooltipContent
-                  labelFormatter={(value) => {
-                    return new Date(value).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                    });
-                  }}
+                  formatter={(m) => (
+                    <div className="flex flex-row items-center justify-between w-full">
+                      <p>Time</p>
+                      <p>{formatDuration(Number(m), "minutes")}</p>
+                    </div>
+                  )}
                   hideLabel
                 />
               }

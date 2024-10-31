@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { MostPopularItem } from "./MostPopularItem";
 import { NoStatsModal } from "./NoStatsModal";
 import { WatchTimeGraph } from "./WatchTimeGraph";
+import { WatchTimePerWeekDay } from "./WatchTimePerWeekDay";
 
 export default async function DashboardPage({
   params,
@@ -28,6 +29,7 @@ export default async function DashboardPage({
         <div className="flex flex-col gap-6">
           <MostPopularItem data={data.most_watched_item} />
           <WatchTimeGraph data={data.watchtime_per_day} />
+          <WatchTimePerWeekDay data={data.average_watchtime_per_week_day} />
         </div>
       ) : (
         <NoStatsModal />

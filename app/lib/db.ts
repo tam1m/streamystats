@@ -24,6 +24,10 @@ export type Statistics = {
       total_duration: number; // in seconds
     }
   ];
+  average_watchtime_per_week_day: {
+    day_of_week: number;
+    average_duration: number;
+  }[];
 };
 
 export type PlaybackActivity = {
@@ -80,14 +84,11 @@ export const getServers = async (): Promise<Server[]> => {
       cache: "no-store",
     });
 
-    console.log(res);
-
     if (!res.ok) {
       return [];
     }
 
     const data = await res.json();
-    console.log("data", data);
     return data.data;
   } catch (e) {
     return [];
@@ -102,14 +103,11 @@ export const getServer = async (
       cache: "no-store",
     });
 
-    console.log(res);
-
     if (!res.ok) {
       return null;
     }
 
     const data = await res.json();
-    console.log("data", data);
     return data.data;
   } catch (e) {
     return null;
@@ -144,8 +142,6 @@ export const login = async ({
   const data = await res.json();
   const token = data.access_token;
   const user = data.user;
-
-  console.log("token", token);
 
   cookies().set("streamystats-token", token, {
     httpOnly: true,
@@ -214,7 +210,6 @@ export const getStatistics = async (
   serverId: number
 ): Promise<Statistics | null> => {
   try {
-    console.log("getStatistics", await getToken());
     const res = await fetch(
       process.env.API_URL + "/servers/" + serverId + "/statistics",
       {
@@ -230,6 +225,7 @@ export const getStatistics = async (
     }
 
     const data = await res.json();
+    console.log("Statistics ~", data.data);
     return data.data as Statistics;
   } catch (e) {
     return null;
@@ -298,8 +294,6 @@ const executeSyncTask = async (
       },
     }
   );
-
-  console.log(res.status, res.statusText);
 
   if (!res.ok) {
     throw new Error("Failed to fetch data");

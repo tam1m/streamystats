@@ -21,8 +21,6 @@ export default async function User({
 
   const user = await getUser(name, server.id);
 
-  console.log(user);
-
   return (
     <Container>
       <PageTitle title={user.name || "N/A"} />

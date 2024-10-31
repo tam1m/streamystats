@@ -20,7 +20,6 @@ export default async function UsersPage({
 
   const users = await getUsers(server.id);
 
-  console.log(users);
   return (
     <Container>
       <PageTitle title="Users" />

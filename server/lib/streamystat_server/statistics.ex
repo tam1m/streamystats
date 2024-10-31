@@ -24,7 +24,8 @@ defmodule StreamystatServer.Statistics do
 
     %{
       most_watched_item: get_most_watched_item(stats),
-      watchtime_per_day: get_watchtime_per_day(stats)
+      watchtime_per_day: get_watchtime_per_day(stats),
+      average_watchtime_per_week_day: get_average_watchtime_per_week_day(stats)
     }
   end
 
@@ -88,5 +89,20 @@ defmodule StreamystatServer.Statistics do
       %{date: Date.to_iso8601(date), total_duration: total_duration}
     end)
     |> Enum.sort_by(& &1.date)
+  end
+
+  defp get_average_watchtime_per_week_day(stats) do
+    stats
+    |> Enum.group_by(&Date.day_of_week(NaiveDateTime.to_date(&1.date_created)))
+    |> Enum.map(fn {day_of_week, items} ->
+      total_duration = Enum.sum(Enum.map(items, &(&1.play_duration || 0)))
+      average_duration = total_duration / length(items)
+
+      %{
+        day_of_week: day_of_week,
+        average_duration: Float.round(average_duration, 2)
+      }
+    end)
+    |> Enum.sort_by(& &1.day_of_week)
   end
 end

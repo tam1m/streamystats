@@ -6,8 +6,6 @@ export default async function Setup() {
   const servers = await getServers();
   const server = servers?.[0];
 
-  console.log(server);
-
   if (server) {
     redirect(`/servers/${servers[0].id}/login`);
   }
