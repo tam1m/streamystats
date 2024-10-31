@@ -1,5 +1,4 @@
 defmodule StreamystatServer.JellyfinSync do
-  import Ecto.Query
   alias StreamystatServer.Repo
   alias StreamystatServer.JellyfinClient
   alias StreamystatServer.Jellyfin.Library
