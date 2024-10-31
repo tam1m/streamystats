@@ -5,7 +5,7 @@ defmodule StreamystatServer.MixProject do
     [
       app: :streamystat_server,
       version: "0.1.0",
-      elixir: "~> 1.14",
+      elixir: "~> 1.17.3",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
@@ -32,6 +32,7 @@ defmodule StreamystatServer.MixProject do
   # Type `mix help deps` for examples and options.
   defp deps do
     [
+      {:mime, "~> 2.0"},
       {:phoenix, "~> 1.7.14"},
       {:phoenix_ecto, "~> 4.5"},
       {:ecto_sql, "~> 3.10"},
