@@ -23,6 +23,7 @@ defmodule StreamystatServerWeb.Router do
     scope "/servers/:server_id", as: :protected do
       pipe_through(:auth)
 
+      delete("/", ServerController, :delete)
       get("/me", UserController, :me)
       post("/sync", SyncController, :partial_sync)
       post("/sync/full", SyncController, :full_sync)

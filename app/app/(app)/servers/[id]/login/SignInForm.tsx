@@ -23,6 +23,7 @@ import { useAtom } from "jotai/react";
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { PageTitle } from "@/components/PageTitle";
+import { Spinner } from "@/components/Spinner";
 
 const FormSchema = z.object({
   username: z.string(),
@@ -104,13 +105,7 @@ export const SignInForm: React.FC<Props> = ({ server }) => {
           )}
         />
 
-        <Button type="submit">
-          {loading ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            "Sign In"
-          )}
-        </Button>
+        <Button type="submit">{loading ? <Spinner /> : "Sign In"}</Button>
       </form>
     </Form>
   );

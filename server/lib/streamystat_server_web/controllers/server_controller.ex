@@ -34,4 +34,16 @@ defmodule StreamystatServerWeb.ServerController do
         render(conn, :show, server: server)
     end
   end
+
+  def delete(conn, %{"server_id" => id}) do
+    case Servers.delete_server(id) do
+      {:ok, _} ->
+        send_resp(conn, :no_content, "")
+
+      {:error, reason} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{error: reason})
+    end
+  end
 end

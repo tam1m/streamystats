@@ -21,6 +21,7 @@ import { createServer } from "@/lib/db";
 import { PageTitle } from "@/components/PageTitle";
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
+import { Spinner } from "@/components/Spinner";
 
 const FormSchema = z.object({
   url: z.string().min(2, {
@@ -96,11 +97,7 @@ export function SetupForm() {
           )}
         />
         <Button type="submit" disabled={loading}>
-          {loading ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            "Create"
-          )}
+          {loading ? <Spinner /> : "Create"}
         </Button>
       </form>
     </Form>

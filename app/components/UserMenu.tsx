@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 import { SidebarMenuButton } from "./ui/sidebar";
+import { Spinner } from "./Spinner";
 
 interface Props {
   me?: { name?: string };
@@ -90,7 +91,7 @@ export const UserMenu: React.FC<Props> = ({ me }) => {
           }}
         >
           <LogOut />
-          {loading ? <Loader2 className="h-8 w-8 animate-spin" /> : "Log out"}
+          {loading ? <Spinner /> : "Log out"}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

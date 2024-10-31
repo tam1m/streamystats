@@ -2,6 +2,10 @@ defmodule StreamystatServer.Servers do
   import Ecto.Query, warn: false
   alias StreamystatServer.Repo
   alias StreamystatServer.Servers.Server
+  alias StreamystatServer.Jellyfin.User
+  alias StreamystatServer.Jellyfin.Library
+  alias StreamystatServer.Jellyfin.Item
+  alias StreamystatServer.Jellyfin.PlaybackActivity
   alias HTTPoison
 
   def list_servers do
@@ -70,5 +74,34 @@ defmodule StreamystatServer.Servers do
 
   def delete_server(%Server{} = server) do
     Repo.delete(server)
+  end
+
+  def delete_server(id) do
+    Repo.transaction(fn ->
+      server = Repo.get!(Server, id)
+
+      # Delete associated data
+      delete_associated_data(server.id)
+
+      # Delete the server
+      case Repo.delete(server) do
+        {:ok, server} -> server
+        {:error, changeset} -> Repo.rollback(changeset)
+      end
+    end)
+  end
+
+  defp delete_associated_data(server_id) do
+    delete_query = from(record in User, where: record.server_id == ^server_id)
+    Repo.delete_all(delete_query)
+
+    delete_query = from(record in Library, where: record.server_id == ^server_id)
+    Repo.delete_all(delete_query)
+
+    delete_query = from(record in Item, where: record.server_id == ^server_id)
+    Repo.delete_all(delete_query)
+
+    delete_query = from(record in PlaybackActivity, where: record.server_id == ^server_id)
+    Repo.delete_all(delete_query)
   end
 end

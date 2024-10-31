@@ -21,6 +21,10 @@ export default async function User({
 
   const user = await getUser(name, server.id);
 
+  if (!user) {
+    redirect("/");
+  }
+
   return (
     <Container>
       <PageTitle title={user.name || "N/A"} />

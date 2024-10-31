@@ -1,13 +1,16 @@
 import { redirect } from "next/navigation";
-import { getServers } from "@/lib/db";
+import { getMe, getServers, getUser } from "@/lib/db";
 import { SetupForm } from "./SetupForm";
 
 export default async function Setup() {
   const servers = await getServers();
   const server = servers?.[0];
 
-  if (server) {
-    redirect(`/servers/${servers[0].id}/login`);
+  const me = await getMe();
+  const user = await getUser(me?.name, server.id);
+
+  if (server && !user?.is_administrator) {
+    redirect(`/`);
   }
 
   return (

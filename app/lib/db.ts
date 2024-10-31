@@ -56,6 +56,7 @@ export type User = {
   watch_stats: { total_watch_time: number; total_plays: number };
   watch_history: any[];
   watch_time_per_day: { date: string; watch_time: number }[];
+  is_administrator: boolean;
 };
 
 export const createServer = async (
@@ -162,10 +163,37 @@ export const login = async ({
   });
 };
 
-// export const getServer = async (serverId: number): Promise<Server | null> => {
-//   const servers = await getServers();
-//   return servers?.[0] || null;
-// };
+export const deleteServer = async (serverId: number): Promise<void> => {
+  const me = await getMe();
+
+  if (!me?.name) throw new Error("Unauthorized: No valid user found");
+
+  const user = await getUser(me?.name, serverId);
+
+  console.log("deleteServer", user);
+
+  if (!user || !user.is_administrator) {
+    throw new Error("Unauthorized: Only administrators can delete servers");
+  }
+
+  const token = await getToken();
+
+  if (!token) {
+    throw new Error("Unauthorized: No valid token found");
+  }
+
+  const res = await fetch(`${process.env.API_URL}/servers/${serverId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error("Failed to delete server");
+  }
+};
 
 export const getUsers = async (serverId: number): Promise<User[]> => {
   const res = await fetch(
@@ -188,9 +216,11 @@ export const getUsers = async (serverId: number): Promise<User[]> => {
 };
 
 export const getUser = async (
-  name: string,
-  serverId: number
-): Promise<User> => {
+  name?: string,
+  serverId?: number
+): Promise<User | null> => {
+  if (!name || !serverId) return null;
+
   const res = await fetch(
     process.env.API_URL + "/servers/" + serverId + "/users/" + name,
     {
@@ -203,7 +233,7 @@ export const getUser = async (
   );
 
   if (!res.ok) {
-    throw new Error("Failed to fetch data");
+    return null;
   }
 
   const data = await res.json();
@@ -229,7 +259,6 @@ export const getStatistics = async (
     }
 
     const data = await res.json();
-    console.log("Statistics ~", data.data);
     return data.data as Statistics;
   } catch (e) {
     return null;

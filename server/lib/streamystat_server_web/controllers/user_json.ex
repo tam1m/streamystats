@@ -31,7 +31,8 @@ defmodule StreamystatServerWeb.UserJSON do
       has_configured_password: user["HasConfiguredPassword"],
       last_login_date: user["LastLoginDate"],
       last_activity_date: user["LastActivityDate"],
-      configuration: user["Configuration"]
+      configuration: user["Configuration"],
+      is_administrator: user["IsAdministrator"]
     }
   end
 
@@ -40,6 +41,7 @@ defmodule StreamystatServerWeb.UserJSON do
       id: user.id,
       jellyfin_id: user.jellyfin_id,
       name: user.name,
+      is_administrator: user.is_administrator,
       watch_stats: %{
         total_watch_time: watch_stats.total_watch_time,
         total_plays: watch_stats.total_plays
@@ -61,6 +63,7 @@ defmodule StreamystatServerWeb.UserJSON do
       id: user.id,
       jellyfin_id: user.jellyfin_id,
       name: user.name,
+      is_administrator: user.is_administrator,
       watch_history: watch_history,
       watch_stats: %{
         total_watch_time: watch_stats.total_watch_time,

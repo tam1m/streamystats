@@ -1,4 +1,5 @@
 "use client";
+
 import React from "react";
 import {
   Sidebar,
@@ -12,7 +13,7 @@ import {
   SidebarMenuItem,
 } from "./ui/sidebar";
 import { useParams } from "next/navigation";
-import { Calendar, Home, Settings, Users } from "lucide-react";
+import { Calendar, Home, PlusIcon, Settings, Users } from "lucide-react";
 import { ServerSelector } from "./ServerSelector";
 import { Server } from "@/lib/db";
 import { UserMenu } from "./UserMenu";
@@ -45,9 +46,14 @@ interface Props {
   me?: {
     name: string;
   };
+  allowedToCreateServer?: boolean;
 }
 
-export const SideBar: React.FC<Props> = ({ servers, me }) => {
+export const SideBar: React.FC<Props> = ({
+  servers,
+  me,
+  allowedToCreateServer = false,
+}) => {
   const params = useParams();
 
   const { id } = params as { id: string };
@@ -56,7 +62,10 @@ export const SideBar: React.FC<Props> = ({ servers, me }) => {
     <Sidebar>
       <SidebarContent>
         <SidebarGroup>
-          <ServerSelector servers={servers} />
+          <ServerSelector
+            servers={servers}
+            allowedToCreateServer={allowedToCreateServer}
+          />
           <SidebarGroupLabel>Streamystat</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>

@@ -1,7 +1,12 @@
 "use client";
 
 import { Server } from "@/lib/db";
-import { Check, ChevronsUpDown, GalleryVerticalEnd } from "lucide-react";
+import {
+  Check,
+  ChevronsUpDown,
+  GalleryVerticalEnd,
+  PlusIcon,
+} from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useMemo } from "react";
 import {
@@ -14,9 +19,13 @@ import { SidebarMenuButton } from "./ui/sidebar";
 
 interface Props {
   servers: Server[];
+  allowedToCreateServer?: boolean;
 }
 
-export const ServerSelector: React.FC<Props> = ({ servers }) => {
+export const ServerSelector: React.FC<Props> = ({
+  servers,
+  allowedToCreateServer = false,
+}) => {
   const params = useParams();
   const { id } = params as { id: string };
 
@@ -57,6 +66,14 @@ export const ServerSelector: React.FC<Props> = ({ servers }) => {
             {server.name} {server === server && <Check className="ml-auto" />}
           </DropdownMenuItem>
         ))}
+        {allowedToCreateServer && (
+          <DropdownMenuItem>
+            <a href={"/setup/"} className="flex flex-row items-center gap-2">
+              <PlusIcon />
+              <span>Add server</span>
+            </a>
+          </DropdownMenuItem>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );
