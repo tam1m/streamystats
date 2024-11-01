@@ -7,6 +7,17 @@ import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface Props {
   server: Server;
@@ -15,25 +26,44 @@ interface Props {
 export const DeleteServer: React.FC<Props> = ({ server }) => {
   const [loading, setLoading] = useState<boolean>(false);
   const router = useRouter();
+
+  const handleDelete = async () => {
+    setLoading(true);
+    try {
+      await deleteServer(server.id);
+      router.push("/");
+      toast.success("Server deleted successfully");
+    } catch (error) {
+      toast.error("Something went wrong");
+      console.log(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className="border p-4 rounded-lg">
-      <Button
-        variant={"destructive"}
-        onClick={async () => {
-          setLoading(true);
-          try {
-            await deleteServer(server.id);
-            router.push("/");
-          } catch (error) {
-            toast.error("Something went wrong");
-            console.log(error);
-          } finally {
-            setLoading(false);
-          }
-        }}
-      >
-        {loading ? <Spinner /> : "Delete Server"}
-      </Button>
+    <div className="border p-4 rounded-lg flex flex-col gap-4 items-start">
+      <p className="text-destructive">Danger area</p>
+      <AlertDialog>
+        <AlertDialogTrigger asChild>
+          <Button variant="destructive">Delete Server</Button>
+        </AlertDialogTrigger>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the
+              server and remove all associated data.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} disabled={loading}>
+              {loading ? <Spinner /> : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
