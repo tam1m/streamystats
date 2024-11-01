@@ -1,34 +1,20 @@
 "use client";
 
+import { getSyncTasks, Server, SyncTask } from "@/lib/db";
 import { Separator } from "@radix-ui/react-separator";
+import { useQuery } from "@tanstack/react-query";
+import { useCallback } from "react";
 import { DeleteServer } from "./DeleteServer";
 import { FullSyncTask } from "./FullSyncTask";
 import { LibrariesSyncTask } from "./LibrariesSyncTask";
 import { PartialSyncTask } from "./PartialSyncTask";
 import { UsersSyncTask } from "./UsersSyncTask";
-import { getSyncTasks, Server, SyncTask } from "@/lib/db";
-import {
-  QueryClient,
-  QueryClientProvider,
-  useQuery,
-} from "@tanstack/react-query";
-import { useCallback, useEffect } from "react";
 
 interface TasksProps {
   server: Server;
 }
 
-const queryClient = new QueryClient();
-
 export const Tasks: React.FC<TasksProps> = ({ server }) => {
-  return (
-    <QueryClientProvider client={queryClient}>
-      <_Tasks server={server} />
-    </QueryClientProvider>
-  );
-};
-
-const _Tasks: React.FC<TasksProps> = ({ server }) => {
   const { data } = useQuery({
     queryKey: ["tasks"],
     queryFn: async () => {
@@ -37,10 +23,6 @@ const _Tasks: React.FC<TasksProps> = ({ server }) => {
     refetchInterval: 1000,
     staleTime: 0,
   });
-
-  useEffect(() => {
-    console.log(data);
-  }, [data]);
 
   const running = useCallback(
     (type: SyncTask["sync_type"]) => {

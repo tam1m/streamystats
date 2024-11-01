@@ -59,6 +59,12 @@ export type User = {
   is_administrator: boolean;
 };
 
+export type UserMe = {
+  id: string;
+  name: string;
+  serverId: number;
+};
+
 export const createServer = async (
   url: string,
   api_key: string
@@ -303,20 +309,14 @@ export const logout = async (): Promise<void> => {
 };
 
 export const getToken = async (): Promise<string | undefined> => {
-  const cookieStore = cookies();
-  const token = cookieStore.get("streamystats-token");
+  const c = cookies();
+  const token = c.get("streamystats-token");
   return token?.value;
 };
 
-type UserMe = {
-  id: string;
-  name: string;
-  serverId: number;
-};
-
 export const getMe = async (): Promise<UserMe | null> => {
-  const cookieStore = cookies();
-  const userStr = cookieStore.get("streamystats-user");
+  const c = cookies();
+  const userStr = c.get("streamystats-user");
   const user = userStr?.value ? JSON.parse(userStr.value) : undefined;
 
   return user ? (user as UserMe) : null;
