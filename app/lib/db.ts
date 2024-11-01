@@ -1,6 +1,8 @@
 "use server";
 
 import { cookies, headers } from "next/headers";
+import { getMe } from "./me";
+import { getToken } from "./token";
 
 export type Server = {
   id: number;
@@ -8,6 +10,15 @@ export type Server = {
   url: string;
   admin_id: string;
   api_key: string;
+};
+
+export type SyncTask = {
+  id: number;
+  server_id: number;
+  sync_type: "partial_sync" | "full_sync";
+  status: "completed" | "failed";
+  sync_started_at: string; // native datetime
+  sync_completed_at: string; // native datetime
 };
 
 export type Statistics = {
@@ -57,12 +68,6 @@ export type User = {
   watch_history: any[];
   watch_time_per_day: { date: string; watch_time: number }[];
   is_administrator: boolean;
-};
-
-export type UserMe = {
-  id: string;
-  name: string;
-  serverId: number;
 };
 
 export const createServer = async (
@@ -306,29 +311,6 @@ export const getStatisticsHistory = async (
 export const logout = async (): Promise<void> => {
   cookies().delete("streamystats-token");
   cookies().delete("streamystats-user");
-};
-
-export const getToken = async (): Promise<string | undefined> => {
-  const c = cookies();
-  const token = c.get("streamystats-token");
-  return token?.value;
-};
-
-export const getMe = async (): Promise<UserMe | null> => {
-  const c = cookies();
-  const userStr = c.get("streamystats-user");
-  const user = userStr?.value ? JSON.parse(userStr.value) : undefined;
-
-  return user ? (user as UserMe) : null;
-};
-
-export type SyncTask = {
-  id: number;
-  server_id: number;
-  sync_type: "partial_sync" | "full_sync";
-  status: "completed" | "failed";
-  sync_started_at: string; // native datetime
-  sync_completed_at: string; // native datetime
 };
 
 export const getSyncTasks = async (serverId: number): Promise<SyncTask[]> => {

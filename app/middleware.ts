@@ -2,7 +2,8 @@
 
 import type { NextRequest } from "next/server";
 import { NextResponse, URLPattern } from "next/server";
-import { getMe, getServer, getServers, getUser } from "./lib/db";
+import { getServer, getServers, getUser } from "./lib/db";
+import { getMe } from "./lib/me";
 
 const PATTERNS = [
   [
@@ -45,7 +46,7 @@ export async function middleware(request: NextRequest) {
 
   // Handle root path "/"
   if (pathname === "/") {
-    if (me?.serverId && me.name) {
+    if (me && me.serverId && me.name) {
       const user = await getUser(me.name, me.serverId);
       if (user) {
         return NextResponse.redirect(

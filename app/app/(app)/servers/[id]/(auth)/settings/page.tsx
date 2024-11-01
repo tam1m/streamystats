@@ -1,15 +1,10 @@
 "use server";
 
 import { Container } from "@/components/Container";
-import { Separator } from "@/components/ui/separator";
-import { getMe, getServer, getUser } from "@/lib/db";
+import { getServer, getUser } from "@/lib/db";
 import { redirect } from "next/navigation";
-import { DeleteServer } from "./DeleteServer";
-import { FullSyncTask } from "./FullSyncTask";
-import { LibrariesSyncTask } from "./LibrariesSyncTask";
-import { PartialSyncTask } from "./PartialSyncTask";
-import { UsersSyncTask } from "./UsersSyncTask";
 import { Tasks } from "./Tasks";
+import { getMe } from "@/lib/me";
 
 export default async function Settings({
   params,

@@ -17,6 +17,7 @@ import { Calendar, Home, PlusIcon, Settings, Users } from "lucide-react";
 import { ServerSelector } from "./ServerSelector";
 import { Server } from "@/lib/db";
 import { UserMenu } from "./UserMenu";
+import { UserMe } from "@/lib/me";
 
 const items = [
   {
@@ -43,9 +44,7 @@ const items = [
 
 interface Props {
   servers: Server[];
-  me?: {
-    name: string;
-  };
+  me?: UserMe;
   allowedToCreateServer?: boolean;
 }
 

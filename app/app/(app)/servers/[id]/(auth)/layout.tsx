@@ -7,7 +7,8 @@ import { SuspenseLoading } from "@/components/SuspenseLoading";
 import { Separator } from "@/components/ui/separator";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { UserMenu } from "@/components/UserMenu";
-import { getMe, getServer, getServers, getUser } from "@/lib/db";
+import { getServer, getServers, getUser } from "@/lib/db";
+import { getMe } from "@/lib/me";
 import { redirect } from "next/navigation";
 import { PropsWithChildren, Suspense } from "react";
 

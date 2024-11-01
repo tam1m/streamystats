@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
-import { getMe, getServers, getUser } from "@/lib/db";
+import { getServers, getUser } from "@/lib/db";
 import { SetupForm } from "./SetupForm";
+import { getMe } from "@/lib/me";
 
 export default async function Setup() {
   const servers = await getServers();
