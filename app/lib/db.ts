@@ -144,8 +144,6 @@ export const login = async ({
   const token = data.access_token;
   const user = data.user;
 
-  console.log(token, user, serverId);
-
   const h = headers();
 
   const secure = h.get("x-forwarded-proto") === "https";
@@ -322,6 +320,40 @@ export const getMe = async (): Promise<UserMe | null> => {
   const user = userStr?.value ? JSON.parse(userStr.value) : undefined;
 
   return user ? (user as UserMe) : null;
+};
+
+export type SyncTask = {
+  id: number;
+  server_id: number;
+  sync_type: "partial_sync" | "full_sync";
+  status: "completed" | "failed";
+  sync_started_at: string; // native datetime
+  sync_completed_at: string; // native datetime
+};
+
+export const getSyncTasks = async (serverId: number): Promise<SyncTask[]> => {
+  return fetch(process.env.API_URL + "/servers/" + serverId + "/sync/tasks", {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${await getToken()}`,
+      "Content-Type": "application/json",
+    },
+  })
+    .then((res) => res.json())
+    .then((data) => data.data);
+};
+
+export const getSyncTask = async (serverId: number, taskId: number) => {
+  return fetch(
+    process.env.API_URL + "/servers/" + serverId + "/sync/tasks/" + taskId,
+    {
+      cache: "no-store",
+      headers: {
+        Authorization: `Bearer ${await getToken()}`,
+        "Content-Type": "application/json",
+      },
+    }
+  ).then((res) => res.json());
 };
 
 const executeSyncTask = async (

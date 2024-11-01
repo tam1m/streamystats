@@ -34,6 +34,8 @@ defmodule StreamystatServerWeb.Router do
       get("/statistics", StatisticsController, :index)
       get("/statistics/history", StatisticsController, :history)
       resources("/users", UserController, only: [:index, :show])
+      get("/sync/tasks", SyncController, :list_tasks)
+      get("/sync/tasks/:task_id", SyncController, :show_task)
     end
   end
 

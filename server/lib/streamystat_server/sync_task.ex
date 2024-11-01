@@ -54,8 +54,7 @@ defmodule StreamystatServer.SyncTask do
              :sync_playback_stats
            ] do
     Task.Supervisor.async_nolink(supervisor, fn ->
-      result = perform_sync(sync_type, server_id)
-      update_sync_timestamp(server_id, Atom.to_string(sync_type), result)
+      perform_sync(sync_type, server_id)
     end)
 
     {:noreply, state}
@@ -63,7 +62,6 @@ defmodule StreamystatServer.SyncTask do
 
   @impl true
   def handle_info({ref, _result}, state) do
-    # We don't care about the result, so we just remove the DOWN message from the mailbox
     Process.demonitor(ref, [:flush])
     {:noreply, state}
   end
@@ -73,8 +71,7 @@ defmodule StreamystatServer.SyncTask do
     Task.Supervisor.async_nolink(supervisor, fn ->
       Servers.list_servers()
       |> Enum.each(fn server ->
-        result = perform_sync(:full_sync, server.id)
-        update_sync_timestamp(server.id, "full", result)
+        perform_sync(:full_sync, server.id)
       end)
     end)
 
@@ -87,8 +84,7 @@ defmodule StreamystatServer.SyncTask do
     Task.Supervisor.async_nolink(supervisor, fn ->
       Servers.list_servers()
       |> Enum.each(fn server ->
-        result = perform_sync(:partial_sync, server.id)
-        update_sync_timestamp(server.id, "partial", result)
+        perform_sync(:partial_sync, server.id)
       end)
     end)
 
@@ -103,6 +99,8 @@ defmodule StreamystatServer.SyncTask do
 
   defp perform_sync(sync_type, server_id) do
     with {:ok, server} <- get_server(server_id) do
+      sync_log = create_sync_log(server_id, Atom.to_string(sync_type))
+
       try do
         case sync_type do
           :partial_sync -> perform_partial_sync(server)
@@ -114,10 +112,12 @@ defmodule StreamystatServer.SyncTask do
         end
 
         Logger.info("#{sync_type} completed for server #{server.name}")
+        update_sync_log(sync_log, :completed)
         {:ok, server}
       rescue
         e ->
           Logger.error("Error during #{sync_type} for server #{server.name}: #{inspect(e)}")
+          update_sync_log(sync_log, :failed)
           {:error, :sync_failed}
       end
     end
@@ -135,21 +135,23 @@ defmodule StreamystatServer.SyncTask do
     end
   end
 
-  defp update_sync_timestamp(server_id, sync_type, {:ok, _}) do
+  defp create_sync_log(server_id, sync_type) do
     %SyncLog{}
     |> SyncLog.changeset(%{
       server_id: server_id,
       sync_type: sync_type,
-      synced_at: NaiveDateTime.utc_now()
+      sync_started_at: NaiveDateTime.utc_now()
     })
-    |> Repo.insert()
-
-    :ok
+    |> Repo.insert!()
   end
 
-  defp update_sync_timestamp(_, _, _) do
-    Logger.warning("Sync failed, not updating timestamp")
-    :ok
+  defp update_sync_log(sync_log, status) do
+    sync_log
+    |> SyncLog.changeset(%{
+      sync_completed_at: NaiveDateTime.utc_now(),
+      status: Atom.to_string(status)
+    })
+    |> Repo.update!()
   end
 
   defp schedule_full_sync do

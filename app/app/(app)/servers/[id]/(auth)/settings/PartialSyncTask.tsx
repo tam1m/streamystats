@@ -1,5 +1,6 @@
 "use client";
 
+import { Spinner } from "@/components/Spinner";
 import { Button } from "@/components/ui/button";
 import { Server, syncFullTask, syncPartialTask } from "@/lib/db";
 import { useCallback } from "react";
@@ -7,9 +8,15 @@ import { toast } from "sonner";
 
 interface Props {
   server: Server;
+  running?: boolean;
+  lastRun?: Date;
 }
 
-export const PartialSyncTask: React.FC<Props> = ({ server }) => {
+export const PartialSyncTask: React.FC<Props> = ({
+  server,
+  running = false,
+  lastRun,
+}) => {
   const action = useCallback(async () => {
     try {
       await syncPartialTask(server.id);
@@ -27,14 +34,18 @@ export const PartialSyncTask: React.FC<Props> = ({ server }) => {
           Syncs all users, libraries and watch statistics from your Jellyfin
           server.
         </p>
+        <p className="text-xs text-neutral-500">
+          Last run: {lastRun?.toLocaleString() ?? "Never"}
+        </p>
       </div>
       <Button
+        disabled={running}
         onClick={() => {
           action();
         }}
         variant={"outline"}
       >
-        Run
+        {running ? <Spinner /> : "Run"}
       </Button>
     </div>
   );

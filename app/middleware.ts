@@ -1,9 +1,41 @@
-import { headers } from "next/headers";
-import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { NextResponse, URLPattern } from "next/server";
 import { getMe, getServer, getServers, getUser } from "./lib/db";
 
+const PATTERNS = [
+  [
+    new URLPattern({ pathname: "/" }),
+    ({ pathname }: { pathname: { groups: {} } }) => pathname.groups,
+  ],
+  [
+    new URLPattern({ pathname: "/servers/:id" }),
+    ({ pathname }: { pathname: { groups: { id: string } } }) => pathname.groups,
+  ],
+  [
+    new URLPattern({ pathname: "/servers/:id/:page" }),
+    ({ pathname }: { pathname: { groups: { id: string } } }) => pathname.groups,
+  ],
+];
+
+const params = (url: string) => {
+  const input = url.split("?")[0];
+  let result: any = {};
+
+  for (const [pattern, handler] of PATTERNS) {
+    // @ts-ignore
+    const patternResult = pattern.exec(input);
+    if (patternResult !== null && "pathname" in patternResult) {
+      // @ts-ignore
+      result = handler(patternResult);
+      break;
+    }
+  }
+  console.log(result);
+  return result;
+};
+
 export async function middleware(request: NextRequest) {
+  const { id } = params(request.url);
   const pathname = request.nextUrl.pathname;
   const pathParts = pathname.split("/").filter(Boolean);
   const servers = await getServers();

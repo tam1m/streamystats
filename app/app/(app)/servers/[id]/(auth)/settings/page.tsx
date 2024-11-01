@@ -1,16 +1,15 @@
 "use server";
 
 import { Container } from "@/components/Container";
-import { Button } from "@/components/ui/button";
-import { getMe, getServer, getServers, getUser, Server } from "@/lib/db";
-import { toast } from "sonner";
-import { FullSyncTask } from "./FullSyncTask";
-import { PartialSyncTask } from "./PartialSyncTask";
-import { UsersSyncTask } from "./UsersSyncTask";
 import { Separator } from "@/components/ui/separator";
-import { LibrariesSyncTask } from "./LibrariesSyncTask";
+import { getMe, getServer, getUser } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { DeleteServer } from "./DeleteServer";
+import { FullSyncTask } from "./FullSyncTask";
+import { LibrariesSyncTask } from "./LibrariesSyncTask";
+import { PartialSyncTask } from "./PartialSyncTask";
+import { UsersSyncTask } from "./UsersSyncTask";
+import { Tasks } from "./Tasks";
 
 export default async function Settings({
   params,
@@ -28,18 +27,10 @@ export default async function Settings({
   }
 
   return (
-    <Container>
+    <Container className="">
       <h1 className="text-3xl font-bold mb-8">Settings</h1>
       {user?.is_administrator ? (
-        <>
-          <FullSyncTask server={server} />
-          <PartialSyncTask server={server} />
-          <Separator className="my-8" />
-          <UsersSyncTask server={server} />
-          <LibrariesSyncTask server={server} />
-          <Separator className="my-8" />
-          <DeleteServer server={server} />
-        </>
+        <Tasks server={server} />
       ) : (
         <p>You are not an administrator of this server.</p>
       )}
