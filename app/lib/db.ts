@@ -144,6 +144,8 @@ export const login = async ({
   const token = data.access_token;
   const user = data.user;
 
+  console.log(token, user, serverId);
+
   const h = headers();
 
   const secure = h.get("x-forwarded-proto") === "https";
@@ -158,13 +160,21 @@ export const login = async ({
     secure,
   });
 
-  cookies().set("streamystats-user", JSON.stringify(user), {
-    httpOnly: true,
-    sameSite: "lax",
-    path: "/",
-    maxAge,
-    secure,
-  });
+  cookies().set(
+    "streamystats-user",
+    JSON.stringify({
+      name: user["Name"],
+      id: user["Id"],
+      serverId,
+    }),
+    {
+      httpOnly: true,
+      sameSite: "lax",
+      path: "/",
+      maxAge,
+      secure,
+    }
+  );
 };
 
 export const deleteServer = async (serverId: number): Promise<void> => {
@@ -300,18 +310,18 @@ export const getToken = async (): Promise<string | undefined> => {
   return token?.value;
 };
 
-export const getMe = async (): Promise<{
+type UserMe = {
+  id: string;
   name: string;
-} | null> => {
+  serverId: number;
+};
+
+export const getMe = async (): Promise<UserMe | null> => {
   const cookieStore = cookies();
   const userStr = cookieStore.get("streamystats-user");
   const user = userStr?.value ? JSON.parse(userStr.value) : undefined;
 
-  return user
-    ? {
-        name: user?.["Name"],
-      }
-    : null;
+  return user ? (user as UserMe) : null;
 };
 
 const executeSyncTask = async (
