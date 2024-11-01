@@ -3,7 +3,8 @@
 import type { NextRequest } from "next/server";
 import { NextResponse, URLPattern } from "next/server";
 import { getServer, getServers, getUser } from "./lib/db";
-import { getMe } from "./lib/me";
+import { getMe, UserMe } from "./lib/me";
+import { cookies } from "next/headers";
 
 const PATTERNS = [
   [
@@ -42,7 +43,9 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const pathParts = pathname.split("/").filter(Boolean);
   const servers = await getServers();
-  const me = await getMe();
+  const c = request.cookies;
+  const userStr = c.get("streamystats-user");
+  const me: UserMe = userStr?.value ? JSON.parse(userStr.value) : undefined;
 
   // Handle root path "/"
   if (pathname === "/") {
