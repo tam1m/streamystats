@@ -390,14 +390,26 @@ defmodule StreamystatServer.JellyfinSync do
   defp map_jellyfin_item(jellyfin_item, library_id, server_id) do
     %{
       jellyfin_id: jellyfin_item["Id"],
-      name: jellyfin_item["Name"],
-      type: jellyfin_item["Type"],
+      name: truncate_string(jellyfin_item["Name"], 255),
+      type: truncate_string(jellyfin_item["Type"], 255),
       library_id: library_id,
       server_id: server_id,
       inserted_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second),
       updated_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
     }
   end
+
+  defp truncate_string(nil, _), do: nil
+
+  defp truncate_string(string, max_length) when is_binary(string) do
+    if String.length(string) > max_length do
+      String.slice(string, 0, max_length)
+    else
+      string
+    end
+  end
+
+  defp truncate_string(value, _), do: to_string(value)
 
   defp map_jellyfin_user(user_data, server_id) do
     %{
