@@ -63,14 +63,15 @@ export const ServerSelector: React.FC<Props> = ({
         className="w-[--radix-dropdown-menu-trigger-width]"
         align="start"
       >
-        {servers.map((server) => (
+        {servers.map((s) => (
           <DropdownMenuItem
-            key={server.id}
+            key={s.id}
             onSelect={() => {
-              router.push(`/servers/${server.id}/login`);
+              router.push(`/servers/${s.id}/login`);
             }}
           >
-            {server.name} {server === server && <Check className="ml-auto" />}
+            {s.name}{" "}
+            {s.id === currentServer?.id && <Check className="ml-auto" />}
           </DropdownMenuItem>
         ))}
         {allowedToCreateServer && (
