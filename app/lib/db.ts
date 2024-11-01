@@ -174,8 +174,6 @@ export const deleteServer = async (serverId: number): Promise<void> => {
 
   const user = await getUser(me?.name, serverId);
 
-  console.log("deleteServer", user);
-
   if (!user || !user.is_administrator) {
     throw new Error("Unauthorized: Only administrators can delete servers");
   }
