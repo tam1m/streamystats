@@ -15,6 +15,7 @@ import {
 } from "./ui/dropdown-menu";
 import { SidebarMenuButton } from "./ui/sidebar";
 import { Spinner } from "./Spinner";
+import { toast } from "sonner";
 
 interface Props {
   me?: { name?: string };
@@ -86,6 +87,7 @@ export const UserMenu: React.FC<Props> = ({ me }) => {
             // Handle logout by removing cookie from server
             // Redirect to login page
             await logout();
+            toast.success("Logged out successfully");
             router.push(`/servers/${id}/login`);
             setLoading(false);
           }}

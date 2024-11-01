@@ -53,11 +53,11 @@ export const SignInForm: React.FC<Props> = ({ server }) => {
         username: data.username,
         password: data.password,
       });
-      router.push(`/servers/${server.id}/dashboard`);
       toast.success("Logged in successfully");
+      router.push(`/servers/${server.id}/dashboard`);
     } catch (error) {
-      console.error("Error logging in:", error);
       toast.error("Error logging in");
+      console.error("Error logging in:", error);
     } finally {
       setLoading(false);
     }
