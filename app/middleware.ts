@@ -3,8 +3,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse, URLPattern } from "next/server";
 import { getServer, getServers, getUser } from "./lib/db";
-import { getMe, UserMe } from "./lib/me";
-import { cookies } from "next/headers";
+import { UserMe } from "./lib/me";
 
 const PATTERNS = [
   [
