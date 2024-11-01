@@ -2,8 +2,7 @@
 
 import type { NextRequest } from "next/server";
 import { NextResponse, URLPattern } from "next/server";
-import { getServer, getServers, getUser } from "./lib/db";
-import { UserMe } from "./lib/me";
+import { getServer, getServers, User } from "./lib/db";
 
 const PATTERNS = [
   [
@@ -44,12 +43,23 @@ export async function middleware(request: NextRequest) {
   const servers = await getServers();
   const c = request.cookies;
   const userStr = c.get("streamystats-user");
-  const me: UserMe = userStr?.value ? JSON.parse(userStr.value) : undefined;
+  const me = userStr?.value ? JSON.parse(userStr.value) : undefined;
 
   // Handle root path "/"
   if (pathname === "/") {
     if (me && me.serverId && me.name) {
-      const user = await getUser(me.name, me.serverId);
+      const user: User = await fetch(
+        process.env.API_URL + "/servers/" + me.serverId + "/users/" + me.name,
+        {
+          cache: "no-store",
+          headers: {
+            Authorization: `Bearer ${c.get("streamystats-token")?.value}`,
+            "Content-Type": "application/json",
+          },
+        }
+      )
+        .then((res) => res.json())
+        .then((res) => res.data);
       if (user) {
         return NextResponse.redirect(
           new URL(`/servers/${me.serverId}/dashboard`, request.url)
@@ -86,7 +96,18 @@ export async function middleware(request: NextRequest) {
     }
 
     if (me?.serverId === serverId && me.name) {
-      const user = await getUser(me.name, serverId);
+      const user: User = await fetch(
+        process.env.API_URL + "/servers/" + me.serverId + "/users/" + me.name,
+        {
+          cache: "no-store",
+          headers: {
+            Authorization: `Bearer ${c.get("streamystats-token")?.value}`,
+            "Content-Type": "application/json",
+          },
+        }
+      )
+        .then((res) => res.json())
+        .then((res) => res.data);
       if (user) {
         // User is authenticated for this server, allow access
         return NextResponse.next();
