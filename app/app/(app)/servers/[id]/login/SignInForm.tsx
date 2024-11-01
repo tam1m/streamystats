@@ -54,7 +54,7 @@ export const SignInForm: React.FC<Props> = ({ server }) => {
         password: data.password,
       });
       router.push(`/servers/${server.id}/dashboard`);
-      // You can add a success message or redirect the user here
+      toast.success("Logged in successfully");
     } catch (error) {
       console.error("Error logging in:", error);
       toast.error("Error logging in");
@@ -65,7 +65,7 @@ export const SignInForm: React.FC<Props> = ({ server }) => {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="w-2/3 space-y-6">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="w-full space-y-6">
         <PageTitle title="Sign In" subtitle="Sign in to your Jellyfin server" />
         <FormField
           control={form.control}
