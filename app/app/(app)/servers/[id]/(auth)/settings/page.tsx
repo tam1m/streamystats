@@ -29,14 +29,20 @@ export default async function Settings({
 
   return (
     <Container>
-      <h1 className="text-3xl font-bold mb-8">Tasks</h1>
-      <FullSyncTask server={server} />
-      <PartialSyncTask server={server} />
-      <Separator className="my-8" />
-      <UsersSyncTask server={server} />
-      <LibrariesSyncTask server={server} />
-      <Separator className="my-8" />
-      {user?.is_administrator && <DeleteServer server={server} />}
+      <h1 className="text-3xl font-bold mb-8">Settings</h1>
+      {user?.is_administrator ? (
+        <>
+          <FullSyncTask server={server} />
+          <PartialSyncTask server={server} />
+          <Separator className="my-8" />
+          <UsersSyncTask server={server} />
+          <LibrariesSyncTask server={server} />
+          <Separator className="my-8" />
+          <DeleteServer server={server} />
+        </>
+      ) : (
+        <p>You are not an administrator of this server.</p>
+      )}
     </Container>
   );
 }
