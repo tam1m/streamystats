@@ -148,17 +148,21 @@ export const login = async ({
 
   const secure = h.get("x-forwarded-proto") === "https";
 
+  const maxAge = 30 * 24 * 60 * 60;
+
   cookies().set("streamystats-token", token, {
     httpOnly: true,
     sameSite: "lax",
-    maxAge: Infinity,
+    path: "/",
+    maxAge,
     secure,
   });
 
   cookies().set("streamystats-user", JSON.stringify(user), {
     httpOnly: true,
     sameSite: "lax",
-    maxAge: Infinity,
+    path: "/",
+    maxAge,
     secure,
   });
 };
