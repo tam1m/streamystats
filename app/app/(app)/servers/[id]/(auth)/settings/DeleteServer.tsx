@@ -49,8 +49,8 @@ export const DeleteServer: React.FC<Props> = ({ server }) => {
           <Button variant="destructive">Delete Server</Button>
         </AlertDialogTrigger>
         <AlertDialogContent>
+          <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
               This action cannot be undone. This will permanently delete the
               server and remove all associated data.
