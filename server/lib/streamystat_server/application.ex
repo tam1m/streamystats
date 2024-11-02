@@ -19,7 +19,8 @@ defmodule StreamystatServer.Application do
       # {StreamystatServer.Worker, arg},
       # Start to serve requests, typically the last entry
       StreamystatServerWeb.Endpoint,
-      StreamystatServer.SyncTask
+      StreamystatServer.SyncTask,
+      {Task, &start_full_sync/0}
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
@@ -34,5 +35,15 @@ defmodule StreamystatServer.Application do
   def config_change(changed, _new, removed) do
     StreamystatServerWeb.Endpoint.config_change(changed, removed)
     :ok
+  end
+
+  defp start_full_sync do
+    # Get all servers
+    servers = StreamystatServer.Servers.list_servers()
+
+    # Start a full sync for each server
+    Enum.each(servers, fn server ->
+      StreamystatServer.SyncTask.full_sync(server.id)
+    end)
   end
 end
