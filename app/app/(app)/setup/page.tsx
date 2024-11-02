@@ -8,7 +8,7 @@ export default async function Setup() {
   const server = servers?.[0];
 
   const me = await getMe();
-  const user = await getUser(me?.name, server.id);
+  const user = await getUser(me?.name, server?.id);
 
   if (server && !user?.is_administrator) {
     redirect(`/`);
