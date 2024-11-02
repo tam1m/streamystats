@@ -5,13 +5,16 @@ import { getMe } from "@/lib/me";
 
 export default async function Setup() {
   const servers = await getServers();
-  const server = servers?.[0];
 
-  const me = await getMe();
-  const user = await getUser(me?.name, server?.id);
+  if (servers.length > 0) {
+    const s = servers[0];
 
-  if (server && !user?.is_administrator) {
-    redirect(`/`);
+    const me = await getMe();
+    const user = await getUser(me?.name, s?.id);
+
+    if (s && !user?.is_administrator) {
+      redirect(`/`);
+    }
   }
 
   return (

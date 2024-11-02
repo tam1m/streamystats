@@ -4,6 +4,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
+import { PageTitle } from "@/components/PageTitle";
+import { Spinner } from "@/components/Spinner";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -15,13 +17,10 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { toast } from "sonner";
-import { useRouter } from "next/navigation";
 import { createServer } from "@/lib/db";
-import { PageTitle } from "@/components/PageTitle";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Loader2 } from "lucide-react";
-import { Spinner } from "@/components/Spinner";
+import { toast } from "sonner";
 
 const FormSchema = z.object({
   url: z.string().min(2, {
@@ -47,6 +46,7 @@ export function SetupForm() {
     setLoading(true);
     try {
       const server = await createServer(data.url, data.apikey);
+      if (!server || !server.id) throw new Error("Server not created");
       router.push(`/servers/${server.id}/login`);
       // You can add a success message or redirect the user here
     } catch (error) {
