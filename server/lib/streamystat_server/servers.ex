@@ -5,6 +5,7 @@ defmodule StreamystatServer.Servers do
   alias StreamystatServer.Jellyfin.User
   alias StreamystatServer.Jellyfin.Library
   alias StreamystatServer.Jellyfin.Item
+  alias StreamystatServer.SyncTask
   alias StreamystatServer.Jellyfin.PlaybackActivity
   alias HTTPoison
 
@@ -64,6 +65,14 @@ defmodule StreamystatServer.Servers do
     %Server{}
     |> Server.changeset(attrs)
     |> Repo.insert()
+    |> case do
+      {:ok, server} ->
+        SyncTask.full_sync(server.id)
+        {:ok, server}
+
+      error ->
+        error
+    end
   end
 
   def update_server(%Server{} = server, attrs) do

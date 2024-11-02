@@ -105,8 +105,6 @@ defmodule StreamystatServer.JellyfinClient do
 
     case post(url, body, headers, params: params) do
       {:ok, %HTTPoison.Response{status_code: 200, body: response_body}} ->
-        Logger.info("Full response body: #{response_body}")
-
         case Jason.decode(response_body) do
           {:ok, %{"results" => results}} when is_list(results) ->
             Logger.info("Retrieved #{length(results)} playback records")
