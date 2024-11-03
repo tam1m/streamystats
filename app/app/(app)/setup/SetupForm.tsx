@@ -46,7 +46,9 @@ export function SetupForm() {
     setLoading(true);
     try {
       const server = await createServer(data.url, data.apikey);
-      if (!server || !server.id) throw new Error("Server not created");
+
+      if (!server || !server?.id) throw new Error("Server not created");
+
       router.push(`/servers/${server.id}/login`);
       // You can add a success message or redirect the user here
     } catch (error) {

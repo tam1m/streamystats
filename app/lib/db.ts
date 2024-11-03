@@ -85,6 +85,10 @@ export const createServer = async (
     }),
   });
 
+  if (!result.ok) {
+    throw new Error("Failed to create server");
+  }
+
   const data = await result.json();
 
   return data.data as Server;
