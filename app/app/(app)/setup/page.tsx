@@ -13,14 +13,23 @@ export default async function Setup() {
   if (servers.length > 0) {
     const s = servers[0];
 
-    console.log("(app)/setup/page.tsx ~ found a server", s);
+    if (s && s.id) {
+      console.log("(app)/setup/page.tsx ~ found a server", s);
 
-    const me = await getMe();
-    console.log("(app)/setup/page.tsx ~ me", me);
-    const user = await getUser(me?.name, s?.id);
+      const me = await getMe();
+      console.log("(app)/setup/page.tsx ~ me", me);
 
-    if (s && !user?.is_administrator) {
-      redirect(`/`);
+      if (me && me.name) {
+        const user = await getUser(me.name, s.id);
+
+        if (user && !user.is_administrator) {
+          redirect(`/`);
+        }
+      } else {
+        console.error("User information is missing or incomplete");
+      }
+    } else {
+      console.error("Server information is missing or incomplete");
     }
   }
 
