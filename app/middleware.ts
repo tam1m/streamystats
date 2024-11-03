@@ -2,20 +2,32 @@
 
 import type { NextRequest } from "next/server";
 import { NextResponse, URLPattern } from "next/server";
-import { getServer, getServers, User } from "./lib/db";
+import { getServers, User } from "./lib/db";
+import { UserMe } from "./lib/me";
+
+enum ResultType {
+  Success = "SUCCESS",
+  Error = "ERROR",
+}
+
+type Result<T> =
+  | {
+      type: ResultType.Success;
+      data: T;
+    }
+  | {
+      type: ResultType.Error;
+      error: string;
+    };
 
 const PATTERNS = [
   [
-    new URLPattern({ pathname: "/" }),
-    ({ pathname }: { pathname: { groups: {} } }) => pathname.groups,
-  ],
-  [
-    new URLPattern({ pathname: "/servers/:id" }),
-    ({ pathname }: { pathname: { groups: { id: string } } }) => pathname.groups,
-  ],
-  [
     new URLPattern({ pathname: "/servers/:id/:page" }),
     ({ pathname }: { pathname: { groups: { id: string } } }) => pathname.groups,
+  ],
+  [
+    new URLPattern({ pathname: "/*" }),
+    ({ pathname }: { pathname: { groups: {} } }) => pathname.groups,
   ],
 ];
 
@@ -32,98 +44,122 @@ const params = (url: string) => {
       break;
     }
   }
-  console.log(result);
   return result;
 };
 
-export async function middleware(request: NextRequest) {
-  const { id } = params(request.url);
-  const pathname = request.nextUrl.pathname;
-  const pathParts = pathname.split("/").filter(Boolean);
-  const servers = await getServers();
+const getMe = async (request: NextRequest): Promise<Result<UserMe>> => {
   const c = request.cookies;
   const userStr = c.get("streamystats-user");
-  const me = userStr?.value ? JSON.parse(userStr.value) : undefined;
 
-  // Handle root path "/"
-  if (pathname === "/") {
-    if (me && me.serverId && me.name) {
-      const user: User = await fetch(
-        process.env.API_URL + "/servers/" + me.serverId + "/users/" + me.name,
-        {
-          cache: "no-store",
-          headers: {
-            Authorization: `Bearer ${c.get("streamystats-token")?.value}`,
-            "Content-Type": "application/json",
-          },
-        }
-      )
-        .then((res) => res.json())
-        .then((res) => res.data);
-      if (user) {
-        return NextResponse.redirect(
-          new URL(`/servers/${me.serverId}/dashboard`, request.url)
-        );
+  try {
+    const me = userStr?.value ? JSON.parse(userStr.value) : undefined;
+    if (me && me.name && me.serverId) {
+      const isValid = await validateUserAuth(request, me);
+
+      if (isValid) {
+        return {
+          type: ResultType.Success,
+          data: me,
+        };
+      } else {
+        return {
+          type: ResultType.Error,
+          error: "Invalid user cookie",
+        };
       }
     }
+  } catch (e) {
+    console.error(
+      "Failed to parse user cookie. The cookie probably has incorrect information.",
+      e
+    );
+  }
 
-    if (servers.length > 0) {
+  return {
+    type: ResultType.Error,
+    error: "Invalid user cookie",
+  };
+};
+
+/**
+ * @param me The user object from the cookie
+ * Validates that the user stored in the cokkie is valid and has access to the server.
+ */
+const validateUserAuth = async (request: NextRequest, me: UserMe) => {
+  const c = request.cookies;
+  try {
+    const user: User = await fetch(
+      process.env.API_URL + "/servers/" + me.serverId + "/users/" + me.name,
+      {
+        cache: "no-store",
+        headers: {
+          Authorization: `Bearer ${c.get("streamystats-token")?.value}`,
+          "Content-Type": "application/json",
+        },
+      }
+    )
+      .then((res) => res.json())
+      .then((res) => res.data);
+
+    if (user) return true;
+  } catch (e) {
+    console.error("Failed to validate user auth", e);
+  }
+
+  return false;
+};
+
+export async function middleware(request: NextRequest) {
+  const response = NextResponse.next();
+
+  const { id, page } = params(request.url);
+
+  const servers = await getServers();
+
+  // If there are no servers, redirect to /setup
+  if (servers.length === 0) {
+    console.log("No servers found, redirecting to /setup");
+    return NextResponse.redirect(new URL("/setup", request.url));
+  }
+
+  // If the server does not exist
+  if (!servers.some((s) => Number(s.id) === Number(id))) {
+    return NextResponse.redirect(
+      new URL(`/servers/${servers[0].id}/login`, request.url)
+    );
+  }
+
+  // Validate auth for secure pages
+  if (page && id && page !== "login") {
+    // Get user from cookies if exists
+    const meResult = await getMe(request);
+
+    // If the user is not logged in
+    if (meResult.type === ResultType.Error) {
+      console.error("User is not logged in, removing cookies");
+      response.cookies.delete("streamystats-user");
+      response.cookies.delete("streamystats-token");
+
       return NextResponse.redirect(
         new URL(`/servers/${servers[0].id}/login`, request.url)
       );
     }
 
-    return NextResponse.redirect(new URL("/setup", request.url));
-  }
-
-  // Handle "/servers" path
-  if (pathname === "/servers") {
-    if (servers.length > 0) {
-      return NextResponse.redirect(
-        new URL(`/servers/${servers[0].id}/dashboard`, request.url)
-      );
-    }
-    return NextResponse.redirect(new URL("/setup", request.url));
-  }
-
-  // Handle "/servers/:id" paths
-  if (pathParts[0] === "servers" && pathParts[1]) {
-    const serverId = Number(pathParts[1]);
-    const server = await getServer(serverId);
-
-    if (!server) {
-      return NextResponse.redirect(new URL("/", request.url));
-    }
-
-    if (me?.serverId === serverId && me.name) {
-      const user: User = await fetch(
-        process.env.API_URL + "/servers/" + me.serverId + "/users/" + me.name,
-        {
-          cache: "no-store",
-          headers: {
-            Authorization: `Bearer ${c.get("streamystats-token")?.value}`,
-            "Content-Type": "application/json",
-          },
-        }
-      )
-        .then((res) => res.json())
-        .then((res) => res.data);
-      if (user) {
-        // User is authenticated for this server, allow access
-        return NextResponse.next();
+    // If the user is trying to access a server they are not a member of
+    if (meResult.type === ResultType.Success) {
+      if (Number(meResult.data.serverId) !== Number(id)) {
+        console.log(
+          "User is trying to access a server they are not a member of"
+        );
+        return NextResponse.redirect(
+          new URL(`/servers/${id}/login`, request.url)
+        );
       }
-    }
-
-    // User is not authenticated for this server
-    if (pathParts[2] !== "login") {
-      return NextResponse.redirect(
-        new URL(`/servers/${serverId}/login`, request.url)
-      );
     }
   }
 
   // For all other cases, allow the request to proceed
-  return NextResponse.next();
+  return response;
 }
 
 export const config = {

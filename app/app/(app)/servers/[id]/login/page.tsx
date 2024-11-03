@@ -14,7 +14,7 @@ export default async function Setup({
   const server = await getServer(id);
 
   if (!server) {
-    redirect("/");
+    redirect("/not-found");
   }
 
   return (
