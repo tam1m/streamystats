@@ -1,10 +1,8 @@
 import { Container } from "@/components/Container";
-import { getServer, getUsers } from "@/lib/db";
-import { formatDuration } from "@/lib/utils";
-import Link from "next/link";
-import { UserTable } from "./UserTable";
 import { PageTitle } from "@/components/PageTitle";
+import { getServer, getUsers } from "@/lib/db";
 import { redirect } from "next/navigation";
+import { UserTable } from "./UserTable";
 
 export default async function UsersPage({
   params,
