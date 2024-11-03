@@ -22,6 +22,10 @@ type Result<T> =
 
 const PATTERNS = [
   [
+    new URLPattern({ pathname: "/servers/:id/users/:name" }),
+    ({ pathname }: { pathname: { groups: { id: string } } }) => pathname.groups,
+  ],
+  [
     new URLPattern({ pathname: "/servers/:id/:page" }),
     ({ pathname }: { pathname: { groups: { id: string } } }) => pathname.groups,
   ],
