@@ -9,6 +9,7 @@ Streamystats is a statistics service for Jellyfin, providing analytics and data 
 - 🌟 Most popular item tracking
 - ⏱️ Watch time graphs
 - 🔄 Full and partial sync options with Jellyfin server
+- 🏠 Multi-server and user support
 
 ## 🚀 Getting started
 
@@ -20,12 +21,14 @@ Streamystats is a statistics service for Jellyfin, providing analytics and data 
 6. Follow the setup wizard to connect your Jellyfin server.
 
 ## 📸 Screenshots
+<img width="1545" alt="Screenshot 2024-11-03 at 10 56 53" src="https://github.com/user-attachments/assets/4abec082-95e4-4cd6-b1fe-e0dd43213e6e">
+<img width="1545" alt="Screenshot 2024-11-03 at 11 11 55" src="https://github.com/user-attachments/assets/34488f6c-8c2d-4888-a38f-6e314b0f253c">
 
-<img width="1420" alt="Screenshot 2024-10-29 at 23 08 14" src="https://github.com/user-attachments/assets/ec942b14-4935-4024-950b-bd2a3dd8c331">
-<img width="1420" alt="Screenshot 2024-10-29 at 23 08 20" src="https://github.com/user-attachments/assets/bd0a71f5-8ee6-481a-b51f-a430458cba1c">
-<img width="1420" alt="Screenshot 2024-10-29 at 23 08 27" src="https://github.com/user-attachments/assets/18d7364d-5feb-4589-b65d-1c4ce7e7b8f8">
-<img width="1420" alt="Screenshot 2024-10-29 at 23 08 32" src="https://github.com/user-attachments/assets/7fb03f9a-54c7-4abb-8ced-97b022f03a4c">
-<img width="1420" alt="Screenshot 2024-10-29 at 23 08 36" src="https://github.com/user-attachments/assets/4292f8de-54b5-4486-8171-fe78ece71616">
+<img width="1545" alt="Screenshot 2024-11-03 at 10 57 04" src="https://github.com/user-attachments/assets/3dbbc7b0-2f64-44de-9b0c-a524de1a660d">
+<img width="1545" alt="Screenshot 2024-11-03 at 10 57 35" src="https://github.com/user-attachments/assets/9dac59d8-54eb-4474-bc21-caf782492c14">
+
+<img width="356" alt="Screenshot 2024-11-03 at 10 57 43" src="https://github.com/user-attachments/assets/b5988b08-8ba6-4fca-99d2-8e221016fcc9">
+<img width="357" alt="Screenshot 2024-11-03 at 10 57 46" src="https://github.com/user-attachments/assets/34db1a56-dc05-4c87-b0c7-290e23be6d8c">
 
 ## 🛠️ Tech Stack
 
