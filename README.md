@@ -11,6 +11,13 @@ Streamystats is a statistics service for Jellyfin, providing analytics and data 
 - 🔄 Full and partial sync options with Jellyfin server
 - 🏠 Multi-server and user support
 
+## Roadmap
+
+- [ ] Individual item statistics
+- [ ] More statistics about unwatched items and maybe the possibility to remove old or unwatched items
+- [ ] More granular sync options
+- [ ] Personal statistics only visible to that user
+
 ## 🚀 Getting started
 
 1. Install the Playback Reporting Plugin on your Jellyfin server
