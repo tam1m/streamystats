@@ -101,13 +101,10 @@ defmodule StreamystatServer.JellyfinClient do
 
     params = [stamp: :os.system_time(:millisecond)]
 
-    Logger.info("Sending request to #{url} with query: #{query}")
-
     case post(url, body, headers, params: params) do
       {:ok, %HTTPoison.Response{status_code: 200, body: response_body}} ->
         case Jason.decode(response_body) do
           {:ok, %{"results" => results}} when is_list(results) ->
-            Logger.info("Retrieved #{length(results)} playback records")
             {:ok, results}
 
           {:ok, decoded_body} ->

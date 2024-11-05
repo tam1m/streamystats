@@ -1,6 +1,8 @@
 defmodule StreamystatServer.Auth do
   alias StreamystatServer.Servers.Server
+  alias StreamystatServer.Jellyfin.User
   alias StreamystatServer.HttpClient
+  alias StreamystatServer.Repo
   require Logger
 
   def authenticate_user(%Server{} = server, username, password) do
@@ -43,8 +45,15 @@ defmodule StreamystatServer.Auth do
     case HttpClient.get(url, headers) do
       {:ok, %{status_code: 200, body: response_body}} ->
         {:ok, parsed_body} = Jason.decode(response_body)
-        user_id = Map.get(parsed_body, "Id")
-        {:ok, user_id}
+        user_jellyfin_id = Map.get(parsed_body, "Id")
+
+        case Repo.get_by(User, jellyfin_id: user_jellyfin_id) do
+          nil ->
+            {:error, "User not found in the database"}
+
+          user ->
+            {:ok, user.id}
+        end
 
       {:ok, %{status_code: 401}} ->
         {:error, "Invalid token"}
@@ -58,7 +67,8 @@ defmodule StreamystatServer.Auth do
   end
 
   def get_user_info(%Server{} = server, user_id) do
-    url = "#{server.url}/Users/#{user_id}"
+    user = Repo.get_by(User, id: user_id)
+    url = "#{server.url}/Users/#{user.jellyfin_id}"
 
     headers = [
       {"X-Emby-Token", server.api_key},
@@ -69,7 +79,6 @@ defmodule StreamystatServer.Auth do
 
     case HttpClient.get(url, headers) do
       {:ok, %{status_code: 200, body: response_body}} ->
-        Logger.debug("User info fetch successful. Response body: #{inspect(response_body)}")
         {:ok, Jason.decode!(response_body)}
 
       {:ok, %{status_code: status_code}} ->

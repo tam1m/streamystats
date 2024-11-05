@@ -1,5 +1,7 @@
 defmodule StreamystatServerWeb.Router do
   use StreamystatServerWeb, :router
+  import Phoenix.LiveDashboard.Router
+  import Phoenix.LiveDashboard.Router
 
   pipeline :api do
     plug(:accepts, ["json"])
@@ -7,6 +9,15 @@ defmodule StreamystatServerWeb.Router do
 
   pipeline :auth do
     plug(StreamystatServerWeb.AuthPlug)
+  end
+
+  pipeline :admin_auth do
+    plug(StreamystatServerWeb.AdminAuthPlug)
+  end
+
+  scope "/" do
+    pipe_through([:fetch_session, :protect_from_forgery])
+    live_dashboard("/dashboard", metrics: StreamystatServerWeb.Telemetry)
   end
 
   scope "/api", StreamystatServerWeb do
@@ -19,34 +30,30 @@ defmodule StreamystatServerWeb.Router do
     get("/servers/:id", ServerController, :show)
     post("/servers", ServerController, :create)
 
+    # Admin routes
+    scope "/admin", as: :admin do
+      pipe_through(:admin_auth)
+
+      delete("/servers/:server_id", ServerController, :delete)
+      post("/servers/:server_id/sync", SyncController, :partial_sync)
+      post("/servers/:server_id/sync/full", SyncController, :full_sync)
+      post("/servers/:server_id/sync/users", SyncController, :sync_users)
+      post("/servers/:server_id/sync/libraries", SyncController, :sync_libraries)
+      post("/servers/:server_id/sync/items", SyncController, :sync_items)
+      post("/servers/:server_id/sync/playback-statistics", SyncController, :sync_playback_stats)
+      get("/servers/:server_id/sync/tasks", SyncController, :list_tasks)
+      get("/servers/:server_id/sync/tasks/:task_id", SyncController, :show_task)
+    end
+
     # Protected routes
     scope "/servers/:server_id", as: :protected do
       pipe_through(:auth)
 
-      delete("/", ServerController, :delete)
       get("/me", UserController, :me)
-      post("/sync", SyncController, :partial_sync)
-      post("/sync/full", SyncController, :full_sync)
-      post("/sync/users", SyncController, :sync_users)
-      post("/sync/libraries", SyncController, :sync_libraries)
-      post("/sync/items", SyncController, :sync_items)
-      post("/sync/playback-statistics", SyncController, :sync_playback_stats)
-      get("/statistics", StatisticsController, :index)
-      get("/statistics/history", StatisticsController, :history)
       resources("/users", UserController, only: [:index, :show])
-      get("/sync/tasks", SyncController, :list_tasks)
-      get("/sync/tasks/:task_id", SyncController, :show_task)
-    end
-  end
-
-  if Application.compile_env(:streamystat_server, :dev_routes) do
-    import Phoenix.LiveDashboard.Router
-
-    scope "/dev" do
-      pipe_through([:fetch_session, :protect_from_forgery])
-
-      live_dashboard("/dashboard", metrics: StreamystatServerWeb.Telemetry)
-      forward("/mailbox", Plug.Swoosh.MailboxPreview)
+      get("/statistics", UserStatisticsController, :index)
+      get("/statistics/history", UserStatisticsController, :history)
+      get("/statistics/items", UserStatisticsController, :items)
     end
   end
 end

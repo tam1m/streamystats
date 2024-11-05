@@ -1,4 +1,4 @@
-defmodule StreamystatServerWeb.StatisticsJSON do
+defmodule StreamystatServerWeb.UserStatisticsJSON do
   def index(%{statistics: statistics}) do
     %{data: statistics}
   end
@@ -24,6 +24,29 @@ defmodule StreamystatServerWeb.StatisticsJSON do
         name: activity.user.name,
         jellyfin_id: activity.user.jellyfin_id
       }
+    }
+  end
+
+  def items(%{item_stats: item_stats}) do
+    %{
+      data: Enum.map(item_stats.items, &item_data/1),
+      page: item_stats.page,
+      per_page: item_stats.per_page,
+      total_items: item_stats.total_items,
+      total_pages: item_stats.total_pages
+    }
+  end
+
+  defp item_data(item) do
+    %{
+      item_id: item.item_id,
+      item: %{
+        id: item.item.id,
+        name: item.item.name,
+        type: item.item.type
+      },
+      watch_count: item.watch_count,
+      total_watch_time: item.total_watch_time
     }
   end
 end

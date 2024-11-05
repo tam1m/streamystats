@@ -47,7 +47,6 @@ defmodule StreamystatServer.JellyfinSync do
 
     case JellyfinClient.get_libraries(server) do
       {:ok, jellyfin_libraries} ->
-        Logger.info("Received #{length(jellyfin_libraries)} libraries from Jellyfin")
         libraries = Enum.map(jellyfin_libraries, &map_jellyfin_library(&1, server.id))
 
         result =
@@ -120,16 +119,12 @@ defmodule StreamystatServer.JellyfinSync do
 
     with {:ok, jellyfin_items} <- JellyfinClient.get_items(server, jellyfin_library_id),
          {:ok, library} <- get_library_by_jellyfin_id(jellyfin_library_id, server.id) do
-      Logger.info(
-        "Received #{length(jellyfin_items)} items from Jellyfin for library #{library.name}"
-      )
-
       items = Enum.map(jellyfin_items, &map_jellyfin_item(&1, library.id, server.id))
 
       try do
-        # Insert items in batches of 5000
+        # Insert items in batches of 1000
         {total_count, _} =
-          Enum.chunk_every(items, 5000)
+          Enum.chunk_every(items, 1000)
           |> Enum.reduce({0, nil}, fn batch, {acc_count, _} ->
             {count, _} =
               Repo.insert_all(
@@ -175,8 +170,6 @@ defmodule StreamystatServer.JellyfinSync do
         # For partial sync, use the last synced ID from the server record
         last_synced_id = if sync_type == :full, do: 0, else: server.last_synced_playback_id || 0
 
-        Logger.info("Last synced playback ID: #{last_synced_id}")
-
         case fetch_and_sync_playback_data(server, last_synced_id) do
           {:ok, total_count} ->
             Logger.info("Successfully synced #{total_count} playback records")
@@ -198,8 +191,6 @@ defmodule StreamystatServer.JellyfinSync do
   end
 
   defp fetch_and_sync_playback_data(server, last_synced_id, acc \\ 0) do
-    Logger.info("Fetching batch of playback data after ID #{last_synced_id}")
-
     case JellyfinClient.get_playback_stats(server, last_synced_id) do
       {:ok, []} ->
         # No more data to sync
@@ -258,8 +249,6 @@ defmodule StreamystatServer.JellyfinSync do
   end
 
   defp insert_playback_data(playback_data, server) do
-    Logger.info("Processing #{length(playback_data)} playback records")
-
     mapped_data = Enum.map(playback_data, &map_playback_data(&1, server))
 
     Repo.transaction(fn ->
@@ -293,8 +282,6 @@ defmodule StreamystatServer.JellyfinSync do
 
   defp update_server_last_synced_id(server, max_rowid)
        when is_integer(max_rowid) and max_rowid > 0 do
-    Logger.info("Updating server's last synced playback ID to #{max_rowid}")
-
     server
     |> Server.changeset(%{last_synced_playback_id: max_rowid})
     |> Repo.update()
@@ -319,7 +306,7 @@ defmodule StreamystatServer.JellyfinSync do
     %{
       rowid: parse_integer(rowid),
       server_id: server.id,
-      date_created: parse_datetime(date_created),
+      date_created: parse_datetime_to_utc(date_created),
       user_id: user.id,
       item_id: item_id,
       item_type: item_type,
@@ -334,15 +321,14 @@ defmodule StreamystatServer.JellyfinSync do
   end
 
   defp get_user(server, name) do
-    Logger.info("Getting user with name #{name} for server #{server.id}")
-
-    case Repo.get_by(User, name: name, server_id: server.id) do
+    User
+    |> Repo.get_by(name: name, server_id: server.id)
+    |> case do
       nil ->
         Logger.warning("User not found: #{name}")
-        nil
+        %User{name: name, server_id: server.id}
 
       user ->
-        Logger.info("User found: #{user.name}")
         user
     end
   end
@@ -358,18 +344,20 @@ defmodule StreamystatServer.JellyfinSync do
     end
   end
 
-  defp parse_datetime(nil), do: nil
-  defp parse_datetime(""), do: nil
+  defp parse_datetime_to_utc(nil), do: nil
+  defp parse_datetime_to_utc(""), do: nil
 
-  defp parse_datetime(datetime_string) when is_binary(datetime_string) do
-    case NaiveDateTime.from_iso8601(datetime_string) do
-      {:ok, datetime} ->
-        NaiveDateTime.truncate(datetime, :second)
+  defp parse_datetime_to_utc(datetime_string) when is_binary(datetime_string) do
+    case DateTime.from_iso8601(datetime_string) do
+      {:ok, datetime, _offset} ->
+        DateTime.truncate(datetime, :second)
 
       {:error, _} ->
-        case NaiveDateTime.from_iso8601(datetime_string <> "Z") do
-          {:ok, datetime} ->
-            NaiveDateTime.truncate(datetime, :second)
+        case NaiveDateTime.from_iso8601(datetime_string) do
+          {:ok, naive_datetime} ->
+            naive_datetime
+            |> DateTime.from_naive!("Etc/UTC")
+            |> DateTime.truncate(:second)
 
           {:error, _} ->
             Logger.warning("Failed to parse datetime: #{datetime_string}")
@@ -378,7 +366,7 @@ defmodule StreamystatServer.JellyfinSync do
     end
   end
 
-  defp parse_datetime(_), do: nil
+  defp parse_datetime_to_utc(_), do: nil
 
   defp get_library_by_jellyfin_id(jellyfin_library_id, server_id) do
     case Repo.get_by(Library, jellyfin_id: jellyfin_library_id, server_id: server_id) do
@@ -390,26 +378,52 @@ defmodule StreamystatServer.JellyfinSync do
   defp map_jellyfin_item(jellyfin_item, library_id, server_id) do
     %{
       jellyfin_id: jellyfin_item["Id"],
-      name: truncate_string(jellyfin_item["Name"], 255),
-      type: truncate_string(jellyfin_item["Type"], 255),
+      name: jellyfin_item["Name"],
+      type: jellyfin_item["Type"],
+      original_title: jellyfin_item["OriginalTitle"],
+      etag: jellyfin_item["Etag"],
+      date_created: parse_datetime_to_utc(jellyfin_item["DateCreated"]),
+      container: jellyfin_item["Container"],
+      sort_name: jellyfin_item["SortName"],
+      premiere_date: parse_datetime_to_utc(jellyfin_item["PremiereDate"]),
+      external_urls: jellyfin_item["ExternalUrls"],
+      path: jellyfin_item["Path"],
+      official_rating: jellyfin_item["OfficialRating"],
+      overview: jellyfin_item["Overview"],
+      genres: jellyfin_item["Genres"],
+      community_rating: parse_float(jellyfin_item["CommunityRating"]),
+      runtime_ticks: jellyfin_item["RunTimeTicks"],
+      production_year: jellyfin_item["ProductionYear"],
+      is_folder: jellyfin_item["IsFolder"],
+      parent_id: jellyfin_item["ParentId"],
+      media_type: jellyfin_item["MediaType"],
+      width: jellyfin_item["Width"],
+      height: jellyfin_item["Height"],
       library_id: library_id,
       server_id: server_id,
+      series_name: jellyfin_item["SeriesName"],
+      series_id: jellyfin_item["SeriesId"],
+      season_id: jellyfin_item["SeasonId"],
+      series_primary_image_tag: jellyfin_item["SeriesPrimaryImageTag"],
+      season_name: jellyfin_item["SeasonName"],
+      series_studio: jellyfin_item["SeriesStudio"],
       inserted_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second),
       updated_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
     }
   end
 
-  defp truncate_string(nil, _), do: nil
+  defp parse_float(nil), do: nil
 
-  defp truncate_string(string, max_length) when is_binary(string) do
-    if String.length(string) > max_length do
-      String.slice(string, 0, max_length)
-    else
-      string
+  defp parse_float(string) when is_binary(string) do
+    case Float.parse(string) do
+      {float, _} -> float
+      :error -> nil
     end
   end
 
-  defp truncate_string(value, _), do: to_string(value)
+  defp parse_float(number) when is_integer(number), do: number / 1
+  defp parse_float(number) when is_float(number), do: number
+  defp parse_float(_), do: nil
 
   defp map_jellyfin_user(user_data, server_id) do
     %{
@@ -420,8 +434,8 @@ defmodule StreamystatServer.JellyfinSync do
       has_configured_password: user_data["HasConfiguredPassword"],
       has_configured_easy_password: user_data["HasConfiguredEasyPassword"],
       enable_auto_login: user_data["EnableAutoLogin"],
-      last_login_date: parse_datetime(user_data["LastLoginDate"]),
-      last_activity_date: parse_datetime(user_data["LastActivityDate"]),
+      last_login_date: parse_datetime_to_utc(user_data["LastLoginDate"]),
+      last_activity_date: parse_datetime_to_utc(user_data["LastActivityDate"]),
       is_administrator: user_data["Policy"]["IsAdministrator"],
       is_hidden: user_data["Policy"]["IsHidden"],
       is_disabled: user_data["Policy"]["IsDisabled"],

@@ -1,6 +1,7 @@
 defmodule StreamystatServer.Statistics do
   import Ecto.Query, warn: false
   alias StreamystatServer.Jellyfin.PlaybackActivity
+  alias StreamystatServer.Jellyfin.Item
   alias StreamystatServer.Repo
   require Logger
 
@@ -10,7 +11,6 @@ defmodule StreamystatServer.Statistics do
     |> Repo.insert()
     |> case do
       {:ok, stat} ->
-        Logger.info("Created playback stat: #{inspect(stat)}")
         {:ok, stat}
 
       {:error, changeset} ->
@@ -19,8 +19,8 @@ defmodule StreamystatServer.Statistics do
     end
   end
 
-  def get_formatted_stats(start_date, end_date, server_id) do
-    stats = get_stats(start_date, end_date, server_id)
+  def get_formatted_stats(start_date, end_date, server_id, user_id \\ nil) do
+    stats = get_stats(start_date, end_date, server_id, user_id)
 
     %{
       most_watched_item: get_most_watched_item(stats),
@@ -29,7 +29,53 @@ defmodule StreamystatServer.Statistics do
     }
   end
 
-  defp get_stats(start_date, end_date, server_id) do
+  def get_item_statistics(server_id, page \\ 1, per_page \\ 20) do
+    query =
+      from(pa in PlaybackActivity,
+        join: i in Item,
+        on: pa.item_id == i.jellyfin_id and pa.server_id == i.server_id,
+        where: pa.server_id == ^server_id,
+        group_by: [i.id, i.jellyfin_id, i.name, i.type],
+        select: %{
+          item_id: i.jellyfin_id,
+          item: %{
+            id: i.id,
+            name: i.name,
+            type: i.type
+          },
+          watch_count: count(pa.id),
+          total_watch_time: sum(pa.play_duration)
+        },
+        order_by: [desc: sum(pa.play_duration)]
+      )
+
+    total_query =
+      from(pa in PlaybackActivity,
+        join: i in Item,
+        on: pa.item_id == i.jellyfin_id and pa.server_id == i.server_id,
+        where: pa.server_id == ^server_id,
+        select: count(i.id, :distinct)
+      )
+
+    total_items = Repo.one(total_query) || 0
+    total_pages = if per_page > 0, do: ceil(total_items / per_page), else: 0
+
+    items =
+      query
+      |> limit(^per_page)
+      |> offset(^((page - 1) * per_page))
+      |> Repo.all()
+
+    %{
+      items: items,
+      page: page,
+      per_page: per_page,
+      total_items: total_items,
+      total_pages: total_pages
+    }
+  end
+
+  defp get_stats(start_date, end_date, server_id, user_id) do
     start_datetime = to_naive_datetime(start_date)
     end_datetime = to_naive_datetime(end_date, :end_of_day)
 
@@ -41,6 +87,7 @@ defmodule StreamystatServer.Statistics do
       )
 
     query = if server_id, do: query |> where([pa], pa.server_id == ^server_id), else: query
+    query = if user_id, do: query |> where([pa], pa.user_id == ^user_id), else: query
 
     Repo.all(query)
   end
