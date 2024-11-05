@@ -40,10 +40,8 @@ export const GenreStatsGraph: React.FC<Props> = ({
   return (
     <Card {...props} className={cn("", className)}>
       <CardHeader className="items-center pb-4">
-        <CardTitle>Radar Chart</CardTitle>
-        <CardDescription>
-          Showing total visitors for the last 6 genres
-        </CardDescription>
+        <CardTitle>Most Watched Genres</CardTitle>
+        {/* <CardDescription>Showing most watched genres</CardDescription> */}
       </CardHeader>
       <CardContent className="pb-0">
         <ChartContainer config={chartConfig} className="mx-auto max-h-[250px]">
@@ -59,14 +57,6 @@ export const GenreStatsGraph: React.FC<Props> = ({
           </RadarChart>
         </ChartContainer>
       </CardContent>
-      <CardFooter className="flex-col gap-2 text-sm">
-        <div className="flex items-center gap-2 font-medium leading-none">
-          Trending up by 5.2% this genre <TrendingUp className="h-4 w-4" />
-        </div>
-        <div className="flex items-center gap-2 leading-none text-muted-foreground">
-          January - June 2024
-        </div>
-      </CardFooter>
     </Card>
   );
 };
