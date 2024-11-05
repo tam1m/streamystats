@@ -1,6 +1,11 @@
 "use client";
 
-import React from "react";
+import { Server } from "@/lib/db";
+import { UserMe } from "@/lib/me";
+import { Calendar, Home, Layers, Settings, User, Users } from "lucide-react";
+import { useParams } from "next/navigation";
+import React, { useMemo } from "react";
+import { ServerSelector } from "./ServerSelector";
 import {
   Sidebar,
   SidebarContent,
@@ -12,37 +17,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "./ui/sidebar";
-import { useParams } from "next/navigation";
-import {
-  Calendar,
-  Home,
-  Layers,
-  PlusIcon,
-  Settings,
-  Users,
-} from "lucide-react";
-import { ServerSelector } from "./ServerSelector";
-import { Server } from "@/lib/db";
 import { UserMenu } from "./UserMenu";
-import { UserMe } from "@/lib/me";
-
-const items = [
-  {
-    title: "Dashboard",
-    url: "/dashboard",
-    icon: Home,
-  },
-  {
-    title: "History",
-    url: "/history",
-    icon: Calendar,
-  },
-  {
-    title: "Items",
-    url: "/items",
-    icon: Layers,
-  },
-];
 
 const admin_items = [
   {
@@ -71,6 +46,31 @@ export const SideBar: React.FC<Props> = ({
   const params = useParams();
 
   const { id } = params as { id: string };
+
+  const items = useMemo(() => {
+    return [
+      {
+        title: "Dashboard",
+        url: "/dashboard",
+        icon: Home,
+      },
+      {
+        title: "History",
+        url: "/history",
+        icon: Calendar,
+      },
+      {
+        title: "Items",
+        url: "/items",
+        icon: Layers,
+      },
+      {
+        title: "Me",
+        url: "/users/" + me?.name,
+        icon: User,
+      },
+    ];
+  }, [me]);
 
   return (
     <Sidebar>

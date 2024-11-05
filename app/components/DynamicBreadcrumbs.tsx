@@ -11,6 +11,8 @@ import {
 import { House, Slash } from "lucide-react";
 import React from "react";
 
+const dynamicSegments = ["users", "items", "history", "dashboard", "settings"];
+
 export const DynamicBreadcrumbs: React.FC = () => {
   const params = useParams();
 
@@ -20,7 +22,7 @@ export const DynamicBreadcrumbs: React.FC = () => {
   const pathSegments = pathname
     .split("/")
     .filter((segment) => segment)
-    .slice(2); // Remove the first two segments (servers/<id>)
+    .slice(2);
 
   return (
     <Breadcrumb>
@@ -39,7 +41,9 @@ export const DynamicBreadcrumbs: React.FC = () => {
               <BreadcrumbSeparator />
               <BreadcrumbItem>
                 <BreadcrumbLink href={url}>
-                  {segment.charAt(0).toUpperCase() + segment.slice(1)}
+                  {dynamicSegments.includes(segment)
+                    ? segment.charAt(0).toUpperCase() + segment.slice(1)
+                    : segment}
                 </BreadcrumbLink>
               </BreadcrumbItem>
             </React.Fragment>

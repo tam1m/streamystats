@@ -62,10 +62,26 @@ defmodule StreamystatServer.JellyfinClient do
     url = "#{server.url}/Items"
     headers = process_request_headers([], server.api_key)
 
+    fields = [
+      "DateCreated",
+      "Etag",
+      "ExternalUrls",
+      "Genres",
+      "OriginalTitle",
+      "Overview",
+      "ParentId",
+      "Path",
+      "PrimaryImageAspectRatio",
+      "ProductionYear",
+      "SortName",
+      "Width",
+      "Height"
+    ]
+
     params = %{
       ParentId: library_id,
       Recursive: true,
-      Fields: "Path"
+      Fields: Enum.join(fields, ",")
     }
 
     case get(url, headers, params: params) do

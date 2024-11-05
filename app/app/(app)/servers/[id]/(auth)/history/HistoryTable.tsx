@@ -90,7 +90,7 @@ export function HistoryTable({ data, server }: HistoryTableProps) {
       header: () => <div className="text-right">Play Duration</div>,
       cell: ({ row }) => {
         const playDuration = row.getValue("play_duration") as number | null;
-        const formatted = playDuration ? formatDuration(playDuration) : "N/A";
+        const formatted = playDuration ? formatDuration(playDuration) : "-";
         return <div className="text-right font-medium">{formatted}</div>;
       },
     },
@@ -143,7 +143,7 @@ export function HistoryTable({ data, server }: HistoryTableProps) {
                   );
                 }}
               >
-                View item details
+                Open item in Jellyfin
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => {

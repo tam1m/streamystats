@@ -6,6 +6,7 @@ import { HistoryTable } from "../../history/HistoryTable";
 import { formatDuration } from "@/lib/utils";
 import { WatchTimePerDay } from "./WatchTimePerDay.tsx";
 import { redirect } from "next/navigation";
+import { GenreStatsGraph } from "./GenreStatsGraph";
 
 export default async function User({
   params,
@@ -24,6 +25,8 @@ export default async function User({
   if (!user) {
     redirect("/");
   }
+
+  console.log("genre_stats", user.genre_stats);
 
   return (
     <Container>
@@ -48,6 +51,10 @@ export default async function User({
               {formatDuration(user.watch_stats.total_watch_time)}
             </p>
           </div>
+        </div>
+        <div className="grid grid-rows-2 md:grid-rows-1 md:grid-cols-2 items-center gap-2">
+          <GenreStatsGraph data={user.genre_stats} className="w-full" />
+          <div></div>
         </div>
       </div>
       <HistoryTable

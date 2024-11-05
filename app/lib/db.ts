@@ -60,6 +60,11 @@ export type PlaybackActivity = {
   updated_at: string;
 };
 
+export type GenreStat = {
+  genre: string;
+  watch_time: number;
+};
+
 export type User = {
   id: string;
   name: string | null;
@@ -68,6 +73,7 @@ export type User = {
   watch_history: any[];
   watch_time_per_day: { date: string; watch_time: number }[];
   is_administrator: boolean;
+  genre_stats: GenreStat[];
 };
 
 export const createServer = async (

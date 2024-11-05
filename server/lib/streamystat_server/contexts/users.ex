@@ -2,6 +2,7 @@ defmodule StreamystatServer.Contexts.Users do
   alias StreamystatServer.Repo
   alias StreamystatServer.Jellyfin.User
   alias StreamystatServer.Jellyfin.PlaybackActivity
+  alias StreamystatServer.Jellyfin.Item
   import Ecto.Query
 
   def get_users(server_id) do
@@ -63,5 +64,23 @@ defmodule StreamystatServer.Contexts.Users do
         watch_time: watch_time
       }
     end)
+  end
+
+  @spec get_user_genre_watch_time(integer(), integer()) :: list()
+  def get_user_genre_watch_time(server_id, user_id) do
+    query =
+      from(pa in PlaybackActivity,
+        join: i in Item,
+        on: pa.item_id == i.jellyfin_id,
+        where: pa.server_id == ^server_id and pa.user_id == ^user_id,
+        left_lateral_join: g in fragment("SELECT unnest(?) AS genre", i.genres),
+        group_by: g.genre,
+        select: %{
+          genre: g.genre,
+          watch_time: sum(pa.play_duration)
+        }
+      )
+
+    Repo.all(query)
   end
 end

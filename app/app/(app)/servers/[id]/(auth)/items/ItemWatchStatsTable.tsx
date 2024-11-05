@@ -13,13 +13,16 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { ArrowUpDown, ChevronDown } from "lucide-react";
+import { ArrowUpDown, ChevronDown, MoreHorizontal } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
@@ -37,6 +40,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Spinner } from "@/components/Spinner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDebounce } from "use-debounce";
+import router from "next/router";
 
 export interface ItemWatchStatsTableProps {
   server: Server;
@@ -109,16 +113,16 @@ export function ItemWatchStatsTable({ server }: ItemWatchStatsTableProps) {
       cell: ({ row }) => <div>{row.getValue("production_year")}</div>,
     },
     {
-      accessorFn: (row) => row.item.season_name,
-      id: "season_name",
-      header: "Season",
-      cell: ({ row }) => <div>{row.getValue("season_name") || "N/A"}</div>,
-    },
-    {
       accessorFn: (row) => row.item.series_name,
       id: "series_name",
       header: "Series",
-      cell: ({ row }) => <div>{row.getValue("series_name") || "N/A"}</div>,
+      cell: ({ row }) => <div>{row.getValue("series_name") || "-"}</div>,
+    },
+    {
+      accessorFn: (row) => row.item.season_name,
+      id: "season_name",
+      header: "Season",
+      cell: ({ row }) => <div>{row.getValue("season_name") || "-"}</div>,
     },
     {
       accessorKey: "watch_count",
@@ -170,6 +174,38 @@ export function ItemWatchStatsTable({ server }: ItemWatchStatsTableProps) {
         const totalWatchTime = row.getValue("total_watch_time") as number;
         const formatted = formatDuration(totalWatchTime);
         return <div className="text-right font-medium">{formatted}</div>;
+      },
+    },
+    {
+      id: "actions",
+      enableHiding: false,
+      cell: ({ row }) => {
+        const playbackActivity = row.original;
+
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="h-8 w-8 p-0">
+                <span className="sr-only">Open menu</span>
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => {
+                  window.open(
+                    `${server.url}/web/#/details?id=${playbackActivity.item_id}`,
+                    "_blank"
+                  );
+                }}
+              >
+                Open item in Jellyfin
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        );
       },
     },
   ];

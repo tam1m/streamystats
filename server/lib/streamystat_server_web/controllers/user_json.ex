@@ -9,12 +9,18 @@ defmodule StreamystatServerWeb.UserJSON do
         user: user,
         watch_history: watch_history,
         watch_stats: watch_stats,
-        watch_time_per_day: watch_time_per_day
+        watch_time_per_day: watch_time_per_day,
+        genre_stats: genre_stats
       }) do
     %{
       data:
         data(
-          %{user: user, watch_stats: watch_stats, watch_time_per_day: watch_time_per_day},
+          %{
+            user: user,
+            watch_stats: watch_stats,
+            watch_time_per_day: watch_time_per_day,
+            genre_stats: genre_stats
+          },
           :show,
           watch_history
         )
@@ -54,7 +60,8 @@ defmodule StreamystatServerWeb.UserJSON do
          %{
            user: %User{} = user,
            watch_stats: watch_stats,
-           watch_time_per_day: watch_time_per_day
+           watch_time_per_day: watch_time_per_day,
+           genre_stats: genre_stats
          },
          :show,
          watch_history
@@ -69,7 +76,8 @@ defmodule StreamystatServerWeb.UserJSON do
         total_watch_time: watch_stats.total_watch_time,
         total_plays: watch_stats.total_plays
       },
-      watch_time_per_day: watch_time_per_day
+      watch_time_per_day: watch_time_per_day,
+      genre_stats: genre_stats
     }
   end
 end

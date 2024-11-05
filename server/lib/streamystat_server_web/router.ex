@@ -50,10 +50,10 @@ defmodule StreamystatServerWeb.Router do
       pipe_through(:auth)
 
       get("/me", UserController, :me)
-      resources("/users", UserController, only: [:index, :show])
       get("/statistics", UserStatisticsController, :index)
       get("/statistics/history", UserStatisticsController, :history)
       get("/statistics/items", UserStatisticsController, :items)
+      resources("/users", UserController, only: [:index, :show])
     end
   end
 end
