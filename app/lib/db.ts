@@ -207,7 +207,7 @@ export const deleteServer = async (serverId: number): Promise<void> => {
     throw new Error("Unauthorized: No valid token found");
   }
 
-  const res = await fetch(`${process.env.API_URL}/servers/${serverId}`, {
+  const res = await fetch(`${process.env.API_URL}/admin/servers/${serverId}`, {
     method: "DELETE",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -312,26 +312,61 @@ export const getStatisticsHistory = async (
   return data.data;
 };
 
+export const getStatisticsItems = async (
+  serverId: number,
+  page = 1
+): Promise<PlaybackActivity[]> => {
+  const res = await fetch(
+    process.env.API_URL +
+      "/servers/" +
+      serverId +
+      "/statistics/items?page=" +
+      page,
+    {
+      cache: "no-store",
+      headers: {
+        Authorization: `Bearer ${await getToken()}`,
+        "Content-Type": "application/json",
+      },
+    }
+  );
+
+  if (!res.ok) {
+    return [];
+  }
+
+  const data = await res.json();
+  console.log("getStatisticsItems ~", data.data, data.data[0]);
+  return data.data;
+};
+
 export const logout = async (): Promise<void> => {
   cookies().delete("streamystats-token");
   cookies().delete("streamystats-user");
 };
 
 export const getSyncTasks = async (serverId: number): Promise<SyncTask[]> => {
-  return fetch(process.env.API_URL + "/servers/" + serverId + "/sync/tasks", {
-    cache: "no-store",
-    headers: {
-      Authorization: `Bearer ${await getToken()}`,
-      "Content-Type": "application/json",
-    },
-  })
+  return fetch(
+    process.env.API_URL + "/admin/servers/" + serverId + "/sync/tasks",
+    {
+      cache: "no-store",
+      headers: {
+        Authorization: `Bearer ${await getToken()}`,
+        "Content-Type": "application/json",
+      },
+    }
+  )
     .then((res) => res.json())
     .then((data) => data.data);
 };
 
 export const getSyncTask = async (serverId: number, taskId: number) => {
   return fetch(
-    process.env.API_URL + "/servers/" + serverId + "/sync/tasks/" + taskId,
+    process.env.API_URL +
+      "/admin/servers/" +
+      serverId +
+      "/sync/tasks/" +
+      taskId,
     {
       cache: "no-store",
       headers: {
@@ -347,7 +382,7 @@ const executeSyncTask = async (
   endpoint: string
 ): Promise<void> => {
   const res = await fetch(
-    `${process.env.API_URL}/servers/${serverId}/sync${endpoint}`,
+    `${process.env.API_URL}/admin/servers/${serverId}/sync${endpoint}`,
     {
       method: "POST",
       headers: {

@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { SyncTask } from "./db";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -30,3 +31,40 @@ export function formatDuration(
 
   return formattedDuration.trim();
 }
+
+export const isTaskRunning = (
+  data?: SyncTask[] | null,
+  type?: SyncTask["sync_type"] | null
+): boolean => {
+  if (!type) return false;
+  if (!data) return false;
+
+  return data?.some((task) => {
+    if (!task.sync_started_at) return false;
+
+    const taskStartTime = new Date(task.sync_started_at);
+    const currentTime = new Date();
+
+    return (
+      taskStartTime.getTime() <= currentTime.getTime() &&
+      task.sync_type === type &&
+      !task.sync_completed_at
+    );
+  });
+};
+
+export const taskLastRunAt = (
+  data?: SyncTask[] | null,
+  type?: SyncTask["sync_type"] | null
+): string => {
+  if (!type) return "Never";
+  if (!data) return "Never";
+
+  const d = data?.find((task) => task.sync_type === type)?.sync_completed_at;
+  if (!d) return "Never";
+
+  const utcDate = new Date(d);
+  return new Date(
+    utcDate.getTime() - utcDate.getTimezoneOffset() * 60000
+  ).toLocaleString();
+};

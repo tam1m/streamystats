@@ -2,21 +2,34 @@
 
 import { Spinner } from "@/components/Spinner";
 import { Button } from "@/components/ui/button";
-import { Server, syncFullTask, syncPartialTask } from "@/lib/db";
-import { useCallback } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { getSyncTasks, Server, syncFullTask, syncPartialTask } from "@/lib/db";
+import { isTaskRunning, taskLastRunAt } from "@/lib/utils";
+import { useQuery } from "@tanstack/react-query";
+import { useCallback, useMemo } from "react";
 import { toast } from "sonner";
 
 interface Props {
   server: Server;
-  running?: boolean;
-  lastRun?: Date;
 }
 
-export const PartialSyncTask: React.FC<Props> = ({
-  server,
-  running = false,
-  lastRun,
-}) => {
+export const PartialSyncTask: React.FC<Props> = ({ server }) => {
+  const { data, isLoading } = useQuery({
+    queryKey: ["tasks", server.id],
+    queryFn: async () => {
+      return await getSyncTasks(server.id);
+    },
+    refetchInterval: 2000,
+    staleTime: 2000,
+  });
+
+  const running = useMemo(
+    () => isTaskRunning(data, "full_sync") || false,
+    [data]
+  );
+
+  const lastRun = useMemo(() => taskLastRunAt(data, "full_sync"), [data]);
+
   const action = useCallback(async () => {
     try {
       await syncPartialTask(server.id);
@@ -25,6 +38,8 @@ export const PartialSyncTask: React.FC<Props> = ({
       toast.error("Failed to start task");
     }
   }, [server]);
+
+  if (isLoading) return <Skeleton className="w-full h-[76px] rounded-lg" />;
 
   return (
     <div className="flex flex-row items-center justify-between mb-4 gap-4">

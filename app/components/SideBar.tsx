@@ -13,7 +13,14 @@ import {
   SidebarMenuItem,
 } from "./ui/sidebar";
 import { useParams } from "next/navigation";
-import { Calendar, Home, PlusIcon, Settings, Users } from "lucide-react";
+import {
+  Calendar,
+  Home,
+  Layers,
+  PlusIcon,
+  Settings,
+  Users,
+} from "lucide-react";
 import { ServerSelector } from "./ServerSelector";
 import { Server } from "@/lib/db";
 import { UserMenu } from "./UserMenu";
@@ -30,6 +37,14 @@ const items = [
     url: "/history",
     icon: Calendar,
   },
+  {
+    title: "Items",
+    url: "/items",
+    icon: Layers,
+  },
+];
+
+const admin_items = [
   {
     title: "Users",
     url: "/users",
@@ -65,7 +80,9 @@ export const SideBar: React.FC<Props> = ({
             servers={servers}
             allowedToCreateServer={allowedToCreateServer}
           />
-          <SidebarGroupLabel>Streamystat</SidebarGroupLabel>
+        </SidebarGroup>
+        <SidebarGroup>
+          <SidebarGroupLabel>Home</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {items.map((item) => (
@@ -81,6 +98,25 @@ export const SideBar: React.FC<Props> = ({
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+        {allowedToCreateServer && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Admin</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {admin_items.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild>
+                      <a href={"/servers/" + id + item.url}>
+                        <item.icon />
+                        <span>{item.title}</span>
+                      </a>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
       <SidebarFooter>
         <UserMenu me={me} />

@@ -1,11 +1,11 @@
 import { Container } from "@/components/Container";
 import { PageTitle } from "@/components/PageTitle";
-import { getServer, getStatistics } from "@/lib/db";
+import { getServer, getStatistics, getUser } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { MostPopularItem } from "./MostPopularItem";
-import { NoStatsModal } from "./NoStatsModal";
 import { WatchTimeGraph } from "./WatchTimeGraph";
 import { WatchTimePerWeekDay } from "./WatchTimePerWeekDay";
+import { getMe } from "@/lib/me";
 
 export default async function DashboardPage({
   params,
@@ -14,6 +14,8 @@ export default async function DashboardPage({
 }) {
   const { id } = await params;
   const server = await getServer(id);
+  const me = await getMe();
+  const user = await getUser(me?.name, server?.id);
 
   if (!server) {
     // User has not added a server yet
@@ -32,7 +34,19 @@ export default async function DashboardPage({
           <WatchTimePerWeekDay data={data.average_watchtime_per_week_day} />
         </div>
       ) : (
-        <NoStatsModal />
+        <div>
+          <p>You don't have any statistics yet.</p>
+          {user?.is_administrator ? (
+            <p>
+              If you know that you have watch statistics please run the full
+              sync task from the settings.
+            </p>
+          ) : (
+            <p className="text-neutral-500">
+              Watch some movies or tv-shows first!
+            </p>
+          )}
+        </div>
       )}
     </Container>
   );
