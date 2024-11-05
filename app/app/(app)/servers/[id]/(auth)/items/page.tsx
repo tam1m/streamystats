@@ -2,6 +2,7 @@ import { Container } from "@/components/Container";
 import { PageTitle } from "@/components/PageTitle";
 import { getServer, getStatisticsItems } from "@/lib/db";
 import { redirect } from "next/navigation";
+import { ItemWatchStatsTable } from "./ItemWatchStatsTable";
 
 export default async function DashboardPage({
   params,
@@ -15,12 +16,10 @@ export default async function DashboardPage({
     redirect("/not-found");
   }
 
-  const items = await getStatisticsItems(server?.id);
-
   return (
     <Container>
       <PageTitle title="Items" />
-      <p className="text-neutral-500">Coming soon...</p>
+      <ItemWatchStatsTable server={server} />
     </Container>
   );
 }

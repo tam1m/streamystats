@@ -43,7 +43,10 @@ defmodule StreamystatServerWeb.UserStatisticsJSON do
       item: %{
         id: item.item.id,
         name: item.item.name,
-        type: item.item.type
+        type: item.item.type,
+        season_name: item.item.season_name,
+        series_name: item.item.series_name,
+        production_year: item.item.production_year
       },
       watch_count: item.watch_count,
       total_watch_time: item.total_watch_time

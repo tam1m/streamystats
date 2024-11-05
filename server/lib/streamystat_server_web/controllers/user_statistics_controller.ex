@@ -4,6 +4,7 @@ defmodule StreamystatServerWeb.UserStatisticsController do
   alias StreamystatServer.Jellyfin.PlaybackActivity
   alias StreamystatServer.Repo
   import Ecto.Query
+  require Logger
 
   def index(conn, params) do
     end_date = params["end_date"] || Date.utc_today() |> Date.to_iso8601()
@@ -71,9 +72,38 @@ defmodule StreamystatServerWeb.UserStatisticsController do
   end
 
   def items(conn, %{"server_id" => server_id} = params) do
-    page = String.to_integer(params["page"] || "1")
+    page =
+      case Integer.parse(params["page"] || "1") do
+        {page, _} when page > 0 -> page
+        _ -> 1
+      end
 
-    item_stats = Statistics.get_item_statistics(server_id, page)
+    search =
+      case params["search"] do
+        nil -> nil
+        "" -> nil
+        search -> String.trim(search)
+      end
+
+    sort_by =
+      case params["sort_by"] do
+        "watch_count" -> :watch_count
+        "total_watch_time" -> :total_watch_time
+        _ -> :total_watch_time
+      end
+
+    sort_order =
+      case params["sort_order"] do
+        "asc" -> :asc
+        "desc" -> :desc
+        _ -> :desc
+      end
+
+    Logger.debug(
+      "Page: #{page}, Search: #{inspect(search)}, ID: #{inspect(server_id)}, Sort By: #{sort_by}, Sort Order: #{sort_order}"
+    )
+
+    item_stats = Statistics.get_item_statistics(server_id, page, search, sort_by, sort_order)
     render(conn, :items, item_stats: item_stats)
   end
 

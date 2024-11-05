@@ -29,49 +29,123 @@ defmodule StreamystatServer.Statistics do
     }
   end
 
-  def get_item_statistics(server_id, page \\ 1, per_page \\ 20) do
-    query =
-      from(pa in PlaybackActivity,
-        join: i in Item,
+  def get_item_statistics(
+        server_id,
+        page \\ 1,
+        search \\ nil,
+        sort_by \\ :total_watch_time,
+        sort_order \\ :desc
+      ) do
+    per_page = 20
+
+    # Validate and normalize sort parameters
+    sort_by =
+      case sort_by do
+        :watch_count -> :watch_count
+        :total_watch_time -> :total_watch_time
+        _ -> :total_watch_time
+      end
+
+    sort_order =
+      case sort_order do
+        :asc -> :asc
+        :desc -> :desc
+        _ -> :desc
+      end
+
+    # Base query for items of type "Movie" and "Episode"
+    base_query =
+      from(i in Item,
+        left_join: pa in PlaybackActivity,
         on: pa.item_id == i.jellyfin_id and pa.server_id == i.server_id,
-        where: pa.server_id == ^server_id,
+        where: i.server_id == ^server_id and i.type in ["Movie", "Episode"],
         group_by: [i.id, i.jellyfin_id, i.name, i.type],
         select: %{
           item_id: i.jellyfin_id,
-          item: %{
-            id: i.id,
-            name: i.name,
-            type: i.type
-          },
-          watch_count: count(pa.id),
-          total_watch_time: sum(pa.play_duration)
-        },
-        order_by: [desc: sum(pa.play_duration)]
+          item: i,
+          watch_count: coalesce(count(pa.id), 0),
+          total_watch_time: coalesce(sum(pa.play_duration), 0)
+        }
       )
 
-    total_query =
-      from(pa in PlaybackActivity,
-        join: i in Item,
-        on: pa.item_id == i.jellyfin_id and pa.server_id == i.server_id,
-        where: pa.server_id == ^server_id,
-        select: count(i.id, :distinct)
-      )
+    # Apply search filter if provided
+    query =
+      if search do
+        search_term = "%#{search}%"
 
-    total_items = Repo.one(total_query) || 0
-    total_pages = if per_page > 0, do: ceil(total_items / per_page), else: 0
+        where(
+          base_query,
+          [i, pa],
+          ilike(i.name, ^search_term) or
+            ilike(fragment("?::text", i.production_year), ^search_term) or
+            ilike(i.season_name, ^search_term) or
+            ilike(i.series_name, ^search_term)
+        )
+      else
+        base_query
+      end
+
+    # Apply sorting
+    query =
+      case {sort_by, sort_order} do
+        {:watch_count, :asc} ->
+          order_by(query, [i, pa], asc: coalesce(count(pa.id), 0))
+
+        {:watch_count, :desc} ->
+          order_by(query, [i, pa], desc: coalesce(count(pa.id), 0))
+
+        {:total_watch_time, :asc} ->
+          order_by(query, [i, pa], asc: coalesce(sum(pa.play_duration), 0))
+
+        {:total_watch_time, :desc} ->
+          order_by(query, [i, pa], desc: coalesce(sum(pa.play_duration), 0))
+      end
+
+    # Paginate items
+    offset = (page - 1) * per_page
 
     items =
       query
       |> limit(^per_page)
-      |> offset(^((page - 1) * per_page))
+      |> offset(^offset)
       |> Repo.all()
+
+    # Count total items
+    total_items_query =
+      from(i in Item,
+        where: i.server_id == ^server_id and i.type in ["Movie", "Episode"],
+        select: i.id
+      )
+
+    # Apply the same search filter to the count query
+    total_items_query =
+      if search do
+        search_term = "%#{search}%"
+
+        where(
+          total_items_query,
+          [i],
+          ilike(i.name, ^search_term) or
+            ilike(fragment("?::text", i.production_year), ^search_term) or
+            ilike(i.season_name, ^search_term) or
+            ilike(i.series_name, ^search_term)
+        )
+      else
+        total_items_query
+      end
+
+    # Fetch total item count
+    total_items = total_items_query |> Repo.aggregate(:count, :id)
+    total_pages = div(total_items + per_page - 1, per_page)
 
     %{
       items: items,
       page: page,
       per_page: per_page,
       total_items: total_items,
-      total_pages: total_pages
+      total_pages: total_pages,
+      sort_by: sort_by,
+      sort_order: sort_order
     }
   end
 

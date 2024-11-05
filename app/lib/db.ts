@@ -312,16 +312,37 @@ export const getStatisticsHistory = async (
   return data.data;
 };
 
+export type ItemWatchStats = {
+  item: {
+    id: number;
+    name: string;
+    type: "Episode" | "Movie";
+    production_year: number;
+    season_name?: string | null;
+    series_name?: string | null;
+  };
+  item_id: string;
+  total_watch_time: number;
+  watch_count: number;
+};
+
 export const getStatisticsItems = async (
   serverId: number,
-  page = 1
-): Promise<PlaybackActivity[]> => {
+  page = 1,
+  search?: string
+): Promise<ItemWatchStats[]> => {
+  const queryParams = new URLSearchParams({
+    page: page.toString(),
+  });
+
+  if (search) {
+    queryParams.append("search", search);
+  }
+
   const res = await fetch(
-    process.env.API_URL +
-      "/servers/" +
-      serverId +
-      "/statistics/items?page=" +
-      page,
+    `${
+      process.env.API_URL
+    }/servers/${serverId}/statistics/items?${queryParams.toString()}`,
     {
       cache: "no-store",
       headers: {
@@ -336,7 +357,7 @@ export const getStatisticsItems = async (
   }
 
   const data = await res.json();
-  console.log("getStatisticsItems ~", data.data, data.data[0]);
+  console.log("getStatisticsItems ~", data.data[0]);
   return data.data;
 };
 
