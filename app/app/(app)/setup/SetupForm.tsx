@@ -21,6 +21,13 @@ import { createServer } from "@/lib/db";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+} from "@/components/ui/card";
 
 const FormSchema = z.object({
   url: z.string().min(2, {
@@ -60,48 +67,59 @@ export function SetupForm() {
   }
 
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="w-2/3 space-y-6">
-        <PageTitle title="Setup" subtitle="Setup your Jellyfin server" />
-        <FormField
-          control={form.control}
-          name="url"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Jellyfin URL</FormLabel>
-              <FormControl>
-                <Input
-                  placeholder="http://your-jellyfin-server:8096"
-                  {...field}
-                />
-              </FormControl>
-              <FormDescription>
-                Enter the URL of your Jellyfin server
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="apikey"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Jellyfin Api Key</FormLabel>
-              <FormControl>
-                <Input placeholder="shadcn" {...field} />
-              </FormControl>
-              <FormDescription>
-                Get the api key from the admin dashboard in Jellyfin
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <Button type="submit" disabled={loading}>
-          {loading ? <Spinner /> : "Create"}
-        </Button>
-      </form>
-    </Form>
+    <div className="flex h-screen w-full items-center justify-center px-4">
+      <Card className="mx-auto lg:min-w-[400px]">
+        <CardHeader>
+          <CardTitle className="text-2xl">Set up</CardTitle>
+          <CardDescription>
+            Setup Streamystats by adding a Jellyfin server
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <FormField
+                control={form.control}
+                name="url"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Jellyfin URL</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="http://your-jellyfin-server:8096"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Enter the URL of your Jellyfin server
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="apikey"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Jellyfin Api Key</FormLabel>
+                    <FormControl>
+                      <Input placeholder="shadcn" {...field} />
+                    </FormControl>
+                    <FormDescription>
+                      Get the api key from the admin dashboard in Jellyfin
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Button type="submit" disabled={loading}>
+                {loading ? <Spinner /> : "Create"}
+              </Button>
+            </form>
+          </Form>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

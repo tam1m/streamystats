@@ -17,18 +17,5 @@ export default async function Setup({
     redirect("/not-found");
   }
 
-  return (
-    <div className="grid md:grid-cols-2 h-screen w-screen">
-      <Container className="justify-center bg-neutral-900 hidden md:flex">
-        <h1 className="font-bold text-5xl bg-clip-text text-transparent bg-gradient-to-r from-blue-500 via-teal-500 to-purple-500 leading-[100px]">
-          Streamystats
-        </h1>
-        <p>Track your Jellyfin stats and view them in a dashboard.</p>
-      </Container>
-      <Container className="md:justify-center">
-        <ServerSelector servers={servers} className="mb-4 max-w-64" />
-        <SignInForm server={server} />
-      </Container>
-    </div>
-  );
+  return <SignInForm server={server} />;
 }
