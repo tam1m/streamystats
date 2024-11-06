@@ -407,6 +407,7 @@ defmodule StreamystatServer.JellyfinSync do
       series_primary_image_tag: jellyfin_item["SeriesPrimaryImageTag"],
       season_name: jellyfin_item["SeasonName"],
       series_studio: jellyfin_item["SeriesStudio"],
+      index_number: jellyfin_item["IndexNumber"],
       inserted_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second),
       updated_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
     }

@@ -34,6 +34,7 @@ defmodule StreamystatServer.Jellyfin.Item do
     field(:series_primary_image_tag, :string)
     field(:season_name, :string)
     field(:series_studio, :string)
+    field(:index_number, :integer)
     belongs_to(:library, Library)
     belongs_to(:server, Server)
 
@@ -72,6 +73,7 @@ defmodule StreamystatServer.Jellyfin.Item do
       :season_id,
       :series_primary_image_tag,
       :season_name,
+      :index_number,
       :series_studio
     ])
     |> validate_required([:jellyfin_id, :name, :type, :library_id, :server_id])

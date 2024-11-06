@@ -21,14 +21,23 @@ export type SyncTask = {
   sync_completed_at: string; // native datetime
 };
 
+export type MostWatchedItem = {
+  id: number;
+  name: string;
+  type: "Episode" | "Movie";
+  index_number: number | null;
+  production_year: number;
+  season_name: string | null;
+  series_name: string | null;
+  total_play_count: number;
+  total_play_duration: number;
+  jellyfin_id: string;
+};
 export type Statistics = {
-  most_watched_item: {
-    item_id: string;
-    item_name: string;
-    item_type: "Episode" | "Movie";
-    total_play_count: number;
-    total_play_duration: number; // in seconds
-  } | null;
+  most_watched_items: {
+    Movie: MostWatchedItem[];
+    Episode: MostWatchedItem[];
+  };
   watchtime_per_day: [
     {
       date: string;

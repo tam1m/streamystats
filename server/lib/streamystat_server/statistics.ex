@@ -25,7 +25,7 @@ defmodule StreamystatServer.Statistics do
     stats = get_stats(start_date, end_date, server_id, user_id)
 
     %{
-      most_watched_item: get_most_watched_item(stats),
+      most_watched_items: get_top_watched_items(stats),
       watchtime_per_day: get_watchtime_per_day(stats),
       average_watchtime_per_week_day: get_average_watchtime_per_week_day(stats)
     }
@@ -204,28 +204,49 @@ defmodule StreamystatServer.Statistics do
     end)
   end
 
-  defp get_most_watched_item([]), do: nil
+  defp get_top_watched_items(stats) do
+    alias StreamystatServer.Jellyfin.Item
+    alias StreamystatServer.Repo
+    import Ecto.Query
 
-  defp get_most_watched_item(stats) do
     stats
-    |> Enum.group_by(& &1.item_id)
-    |> Enum.max_by(
-      fn {_, items} ->
-        Enum.sum(Enum.map(items, & &1.play_duration))
-      end,
-      fn -> {nil, []} end
-    )
-    |> then(fn {item_id, items} ->
-      first_item = List.first(items)
+    |> Enum.group_by(& &1.item_type)
+    |> Enum.map(fn {item_type, type_stats} ->
+      top_items =
+        type_stats
+        |> Enum.group_by(& &1.item_id)
+        |> Enum.map(fn {item_id, items} ->
+          total_play_count = length(items)
+          total_play_duration = Enum.sum(Enum.map(items, & &1.play_duration))
 
-      %{
-        item_id: item_id,
-        item_name: first_item.item_name,
-        item_type: first_item.item_type,
-        total_play_count: length(items),
-        total_play_duration: Enum.sum(Enum.map(items, & &1.play_duration))
-      }
+          item_query =
+            from(i in Item,
+              where: i.jellyfin_id == ^item_id,
+              select: %{
+                id: i.id,
+                name: i.name,
+                type: i.type,
+                production_year: i.production_year,
+                series_name: i.series_name,
+                season_name: i.season_name,
+                index_number: i.index_number,
+                jellyfin_id: i.jellyfin_id
+              }
+            )
+
+          item_data = Repo.one(item_query)
+
+          Map.merge(item_data, %{
+            total_play_count: total_play_count,
+            total_play_duration: total_play_duration
+          })
+        end)
+        |> Enum.sort_by(& &1.total_play_duration, :desc)
+        |> Enum.take(10)
+
+      {item_type, top_items}
     end)
+    |> Enum.into(%{})
   end
 
   defp get_watchtime_per_day([]), do: []

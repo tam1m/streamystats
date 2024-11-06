@@ -2,7 +2,7 @@ import { Container } from "@/components/Container";
 import { PageTitle } from "@/components/PageTitle";
 import { getServer, getStatistics, getUser } from "@/lib/db";
 import { redirect } from "next/navigation";
-import { MostPopularItem } from "./MostPopularItem";
+import { MostPopularItems } from "./MostPopularItems";
 import { WatchTimeGraph } from "./WatchTimeGraph";
 import { WatchTimePerWeekDay } from "./WatchTimePerWeekDay";
 import { getMe } from "@/lib/me";
@@ -24,12 +24,14 @@ export default async function DashboardPage({
 
   const data = await getStatistics(server.id);
 
+  console.log(data?.most_watched_items);
+
   return (
     <Container>
       <PageTitle title="Statistics" />
-      {data?.most_watched_item && data.watchtime_per_day ? (
+      {data?.most_watched_items && data.watchtime_per_day ? (
         <div className="flex flex-col gap-6">
-          <MostPopularItem data={data.most_watched_item} />
+          <MostPopularItems data={data.most_watched_items} server={server} />
           <WatchTimeGraph data={data.watchtime_per_day} />
           <WatchTimePerWeekDay data={data.average_watchtime_per_week_day} />
         </div>
