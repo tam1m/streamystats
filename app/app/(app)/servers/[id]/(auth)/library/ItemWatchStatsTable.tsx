@@ -201,7 +201,7 @@ export function ItemWatchStatsTable({ server }: ItemWatchStatsTableProps) {
                   );
                 }}
               >
-                Open item in Jellyfin
+                Open in Jellyfin
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

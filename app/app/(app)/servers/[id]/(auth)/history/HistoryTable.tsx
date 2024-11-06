@@ -143,7 +143,7 @@ export function HistoryTable({ data, server }: HistoryTableProps) {
                   );
                 }}
               >
-                Open item in Jellyfin
+                Open in Jellyfin
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => {
