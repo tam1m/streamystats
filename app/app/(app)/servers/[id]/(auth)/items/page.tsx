@@ -18,7 +18,10 @@ export default async function DashboardPage({
 
   return (
     <Container>
-      <PageTitle title="Items" />
+      <PageTitle
+        title="Items"
+        subtitle="Search for any movie or episode on your server."
+      />
       <ItemWatchStatsTable server={server} />
     </Container>
   );
