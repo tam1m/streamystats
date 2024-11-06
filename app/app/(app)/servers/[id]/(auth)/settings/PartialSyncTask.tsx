@@ -28,7 +28,7 @@ export const PartialSyncTask: React.FC<Props> = ({ server }) => {
     [data]
   );
 
-  const lastRun = useMemo(() => taskLastRunAt(data, "full_sync"), [data]);
+  const lastRun = useMemo(() => taskLastRunAt(data, "partial_sync"), [data]);
 
   const action = useCallback(async () => {
     try {
