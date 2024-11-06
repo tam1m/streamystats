@@ -30,13 +30,13 @@ interface Props {
   data: Statistics["average_watchtime_per_week_day"];
 }
 
-const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 export const WatchTimePerWeekDay: React.FC<Props> = ({ data }) => {
   const formattedData = React.useMemo(() => {
     return data
       .map((item) => ({
-        day: dayNames[item.day_of_week],
+        day: dayNames[item.day_of_week - 1],
         minutes: Math.floor(item.average_duration / 60),
         dayNumber: item.day_of_week,
       }))
