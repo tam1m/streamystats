@@ -37,7 +37,7 @@ export async function GET(
     }/servers/${id}/statistics/items?${queryParams.toString()}`,
     {
       next: {
-        revalidate: 0,
+        revalidate: 60 * 1, // 1 minutes
       },
       headers: {
         Authorization: `Bearer ${await getToken()}`,
