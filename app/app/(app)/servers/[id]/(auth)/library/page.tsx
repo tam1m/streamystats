@@ -24,7 +24,7 @@ export default async function DashboardPage({
   return (
     <Container>
       <PageTitle
-        title="Items"
+        title="Library"
         subtitle="Search for any movie or episode on your server."
       />
       <LibraryStatisticsCards data={libraryStats} />

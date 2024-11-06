@@ -15,7 +15,7 @@ export const LibraryStatisticsCards: React.FC<Props> = ({ data }) => {
     { title: "Users", value: data.users_count, icon: Users },
   ];
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 md:pr-64 xl:pr-0">
       {stats.map((item) => (
         <Card key={item.title}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">

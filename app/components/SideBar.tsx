@@ -2,7 +2,15 @@
 
 import { Server } from "@/lib/db";
 import { UserMe } from "@/lib/me";
-import { Calendar, Home, Layers, Settings, User, Users } from "lucide-react";
+import {
+  BookOpen,
+  Calendar,
+  Home,
+  Layers,
+  Settings,
+  User,
+  Users,
+} from "lucide-react";
 import { useParams } from "next/navigation";
 import React, { useMemo } from "react";
 import { ServerSelector } from "./ServerSelector";
@@ -60,9 +68,9 @@ export const SideBar: React.FC<Props> = ({
         icon: Calendar,
       },
       {
-        title: "Items",
-        url: "/items",
-        icon: Layers,
+        title: "Library",
+        url: "/library",
+        icon: BookOpen,
       },
       {
         title: "Me",
