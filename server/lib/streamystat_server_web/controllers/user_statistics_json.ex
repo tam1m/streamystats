@@ -37,6 +37,10 @@ defmodule StreamystatServerWeb.UserStatisticsJSON do
     }
   end
 
+  def library_stats(%{stats: stats}) do
+    %{data: stats}
+  end
+
   defp item_data(item) do
     %{
       item_id: item.item_id,

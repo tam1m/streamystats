@@ -1,8 +1,9 @@
 import { Container } from "@/components/Container";
 import { PageTitle } from "@/components/PageTitle";
-import { getServer, getStatisticsItems } from "@/lib/db";
+import { getServer, getStatisticsItems, getStatisticsLibrary } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { ItemWatchStatsTable } from "./ItemWatchStatsTable";
+import { LibraryStatisticsCards } from "./LibraryStatisticsCards";
 
 export default async function DashboardPage({
   params,
@@ -16,12 +17,17 @@ export default async function DashboardPage({
     redirect("/not-found");
   }
 
+  const libraryStats = await getStatisticsLibrary(server.id);
+
+  console.log(libraryStats);
+
   return (
     <Container>
       <PageTitle
         title="Items"
         subtitle="Search for any movie or episode on your server."
       />
+      <LibraryStatisticsCards data={libraryStats} />
       <ItemWatchStatsTable server={server} />
     </Container>
   );

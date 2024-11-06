@@ -296,6 +296,42 @@ export const getStatistics = async (
   }
 };
 
+export type LibraryStatistics = {
+  movies_count: number;
+  episodes_count: number;
+  series_count: number;
+  libraries_count: number;
+  users_count: number;
+};
+
+export const getStatisticsLibrary = async (
+  serverId: number
+): Promise<LibraryStatistics> => {
+  const res = await fetch(
+    process.env.API_URL + "/servers/" + serverId + "/statistics/library",
+    {
+      cache: "no-store",
+      headers: {
+        Authorization: `Bearer ${await getToken()}`,
+        "Content-Type": "application/json",
+      },
+    }
+  );
+
+  if (!res.ok) {
+    return {
+      movies_count: 0,
+      episodes_count: 0,
+      series_count: 0,
+      libraries_count: 0,
+      users_count: 0,
+    };
+  }
+
+  const data = await res.json();
+  return data.data;
+};
+
 export const getStatisticsHistory = async (
   serverId: number
 ): Promise<PlaybackActivity[]> => {

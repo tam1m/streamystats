@@ -107,6 +107,11 @@ defmodule StreamystatServerWeb.UserStatisticsController do
     render(conn, :items, item_stats: item_stats)
   end
 
+  def library_stats(conn, %{"server_id" => server_id}) do
+    stats = Statistics.get_library_statistics(server_id)
+    render(conn, :library_stats, stats: stats)
+  end
+
   defp is_admin?(user) do
     user["Policy"]["IsAdministrator"] == true
   end

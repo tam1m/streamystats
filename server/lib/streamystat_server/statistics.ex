@@ -2,6 +2,8 @@ defmodule StreamystatServer.Statistics do
   import Ecto.Query, warn: false
   alias StreamystatServer.Jellyfin.PlaybackActivity
   alias StreamystatServer.Jellyfin.Item
+  alias StreamystatServer.Jellyfin.Library
+  alias StreamystatServer.Jellyfin.User
   alias StreamystatServer.Repo
   require Logger
 
@@ -26,6 +28,32 @@ defmodule StreamystatServer.Statistics do
       most_watched_item: get_most_watched_item(stats),
       watchtime_per_day: get_watchtime_per_day(stats),
       average_watchtime_per_week_day: get_average_watchtime_per_week_day(stats)
+    }
+  end
+
+  def get_library_statistics(server_id) do
+    %{
+      movies_count:
+        Repo.one(
+          from(i in Item, where: i.server_id == ^server_id and i.type == "Movie", select: count())
+        ),
+      episodes_count:
+        Repo.one(
+          from(i in Item,
+            where: i.server_id == ^server_id and i.type == "Episode",
+            select: count()
+          )
+        ),
+      series_count:
+        Repo.one(
+          from(i in Item,
+            where: i.server_id == ^server_id and i.type == "Series",
+            select: count()
+          )
+        ),
+      libraries_count:
+        Repo.one(from(l in Library, where: l.server_id == ^server_id, select: count())),
+      users_count: Repo.one(from(u in User, where: u.server_id == ^server_id, select: count()))
     }
   end
 

@@ -53,6 +53,8 @@ defmodule StreamystatServerWeb.Router do
       get("/statistics", UserStatisticsController, :index)
       get("/statistics/history", UserStatisticsController, :history)
       get("/statistics/items", UserStatisticsController, :items)
+      get("/statistics/library", UserStatisticsController, :library_stats)
+
       resources("/users", UserController, only: [:index, :show])
     end
   end
