@@ -10,6 +10,8 @@ export function formatDuration(
   t: number,
   unit: "seconds" | "minutes" = "seconds"
 ): string {
+  if (t === 0) return "0m";
+
   let totalSeconds = unit === "minutes" ? t * 60 : t;
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);

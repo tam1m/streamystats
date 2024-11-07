@@ -24,8 +24,6 @@ export default async function DashboardPage({
 
   const data = await getStatistics(server.id);
 
-  console.log(data?.most_watched_items);
-
   return (
     <Container>
       <PageTitle title="Statistics" />

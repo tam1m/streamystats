@@ -41,7 +41,10 @@ export type Statistics = {
   watchtime_per_day: [
     {
       date: string;
-      total_duration: number; // in seconds
+      watchtime_by_type: {
+        item_type: string;
+        total_duration: number;
+      }[];
     }
   ];
   average_watchtime_per_week_day: {
@@ -299,6 +302,7 @@ export const getStatistics = async (
     }
 
     const data = await res.json();
+    console.log("statistics ~", data.data.watchtime_per_day[9]);
     return data.data as Statistics;
   } catch (e) {
     return null;
@@ -408,7 +412,7 @@ export const getActivities = async (
 
   if (!res.ok) {
     return {
-      items: [],
+      data: [],
       page: 1,
       per_page: 0,
       total_pages: 1,
@@ -465,7 +469,6 @@ export const getStatisticsItems = async (
   }
 
   const data = await res.json();
-  console.log("getStatisticsItems ~", data.data[0]);
   return data.data;
 };
 
