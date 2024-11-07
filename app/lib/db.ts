@@ -34,9 +34,9 @@ export type MostWatchedItem = {
   jellyfin_id: string;
 };
 export type Statistics = {
-  most_watched_items: {
-    Movie: MostWatchedItem[];
-    Episode: MostWatchedItem[];
+  most_watched_items?: {
+    Movie?: MostWatchedItem[];
+    Episode?: MostWatchedItem[];
   };
   watchtime_per_day: [
     {

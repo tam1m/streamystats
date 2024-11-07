@@ -20,7 +20,7 @@ export const MostPopularItems: React.FC<Props> = ({ data, server }) => {
     <div>
       <h2 className="text-xl font-bold mb-4">Most Watched {type}s</h2>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {items.slice(0, 3).map((item) => (
+        {items?.slice(0, 3).map((item) => (
           <Card key={item.id}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative">
               <CardTitle>
@@ -80,8 +80,8 @@ export const MostPopularItems: React.FC<Props> = ({ data, server }) => {
 
   return (
     <div className="flex flex-col gap-4">
-      {renderItems(data.Movie, "Movie")}
-      {renderItems(data.Episode, "Episode")}
+      {renderItems(data?.Movie || [], "Movie")}
+      {renderItems(data?.Episode || [], "Episode")}
     </div>
   );
 };
