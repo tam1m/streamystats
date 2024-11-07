@@ -43,6 +43,7 @@ defmodule StreamystatServerWeb.Router do
       post("/servers/:server_id/sync/playback-statistics", SyncController, :sync_playback_stats)
       get("/servers/:server_id/sync/tasks", SyncController, :list_tasks)
       get("/servers/:server_id/sync/tasks/:task_id", SyncController, :show_task)
+      get("/servers/:server_id/activities", ActivityController, :index)
     end
 
     # Protected routes

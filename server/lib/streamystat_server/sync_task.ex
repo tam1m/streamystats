@@ -39,6 +39,14 @@ defmodule StreamystatServer.SyncTask do
   @spec sync_items(server_id()) :: :ok
   def sync_items(server_id), do: GenServer.cast(__MODULE__, {:sync_items, server_id})
 
+  @spec sync_recent_activities(server_id()) :: :ok
+  def sync_recent_activities(server_id),
+    do: GenServer.cast(__MODULE__, {:sync_recent_activities, server_id})
+
+  @spec sync_activities(server_id()) :: :ok
+  def sync_activities(server_id),
+    do: GenServer.cast(__MODULE__, {:sync_activities, server_id})
+
   @spec sync_playback_stats(server_id()) :: :ok
   def sync_playback_stats(server_id),
     do: GenServer.cast(__MODULE__, {:sync_playback_stats, server_id})
@@ -51,7 +59,9 @@ defmodule StreamystatServer.SyncTask do
              :sync_users,
              :sync_libraries,
              :sync_items,
-             :sync_playback_stats
+             :sync_playback_stats,
+             :sync_recent_activities,
+             :sync_activities
            ] do
     Task.Supervisor.async_nolink(supervisor, fn ->
       perform_sync(sync_type, server_id)
@@ -100,15 +110,38 @@ defmodule StreamystatServer.SyncTask do
   defp perform_sync(sync_type, server_id) do
     with {:ok, server} <- get_server(server_id) do
       sync_log = create_sync_log(server_id, Atom.to_string(sync_type))
+      Logger.info("#{sync_type} started for server #{server.name}")
 
       try do
         case sync_type do
-          :partial_sync -> perform_partial_sync(server)
-          :full_sync -> perform_full_sync(server)
-          :sync_users -> JellyfinSync.sync_users(server)
-          :sync_libraries -> JellyfinSync.sync_libraries(server)
-          :sync_items -> JellyfinSync.sync_items(server)
-          :sync_playback_stats -> JellyfinSync.sync_playback_stats(server, :partial)
+          :partial_sync ->
+            perform_partial_sync(server)
+
+          :full_sync ->
+            perform_full_sync(server)
+
+          :sync_users ->
+            JellyfinSync.sync_users(server)
+
+          :sync_libraries ->
+            JellyfinSync.sync_libraries(server)
+
+          :sync_items ->
+            JellyfinSync.sync_items(server)
+
+          :sync_playback_stats ->
+            JellyfinSync.sync_playback_stats(server, :partial)
+
+          :sync_activities ->
+            JellyfinSync.sync_activities(server)
+
+          :sync_recent_activities ->
+            JellyfinSync.sync_recent_activities(server)
+
+          _ ->
+            Logger.error("Unknown sync type: #{sync_type}")
+            update_sync_log(sync_log, :failed)
+            {:error, :unknown_sync_type}
         end
 
         Logger.info("#{sync_type} completed for server #{server.name}")
@@ -169,6 +202,7 @@ defmodule StreamystatServer.SyncTask do
     JellyfinSync.sync_libraries(server)
     JellyfinSync.sync_items(server)
     JellyfinSync.sync_playback_stats(server, :full)
+    JellyfinSync.sync_activities(server)
     :ok
   end
 
@@ -176,6 +210,7 @@ defmodule StreamystatServer.SyncTask do
     # JellyfinSync.sync_users(server)
     # JellyfinSync.sync_libraries(server)
     # JellyfinSync.sync_recent_items(server)
+    JellyfinSync.sync_recent_activities(server)
     JellyfinSync.sync_playback_stats(server, :partial)
     :ok
   end

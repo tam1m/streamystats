@@ -41,7 +41,10 @@ export type Statistics = {
   watchtime_per_day: [
     {
       date: string;
-      total_duration: number; // in seconds
+      watchtime_by_type: {
+        item_type: string;
+        total_duration: number;
+      }[];
     }
   ];
   average_watchtime_per_week_day: {
@@ -299,6 +302,7 @@ export const getStatistics = async (
     }
 
     const data = await res.json();
+    console.log("statistics ~", data.data.watchtime_per_day[9]);
     return data.data as Statistics;
   } catch (e) {
     return null;
@@ -363,6 +367,63 @@ export const getStatisticsHistory = async (
   return data.data;
 };
 
+export type ActivityLogEntry = {
+  id: number;
+  name: string;
+  type: string;
+  date: string;
+  severity: string;
+  server_id: number;
+  jellyfin_id: number;
+  short_overview: string;
+  user_id: number;
+};
+
+export type ActivitiesResponse = {
+  data: ActivityLogEntry[];
+  page: number;
+  per_page: number;
+  total_pages: number;
+  total_items: number;
+};
+
+export const getActivities = async (
+  serverId: number,
+  page = 1
+): Promise<ActivitiesResponse> => {
+  const queryParams = new URLSearchParams({
+    page: page.toString(),
+  });
+
+  const res = await fetch(
+    `${
+      process.env.API_URL
+    }/admin/servers/${serverId}/activities?${queryParams.toString()}`,
+    {
+      next: {
+        revalidate: 0,
+      },
+      headers: {
+        Authorization: `Bearer ${await getToken()}`,
+        "Content-Type": "application/json",
+      },
+    }
+  );
+
+  if (!res.ok) {
+    return {
+      data: [],
+      page: 1,
+      per_page: 0,
+      total_pages: 1,
+      total_items: 0,
+    };
+  }
+
+  const data = await res.json();
+  return data;
+};
+
 export type ItemWatchStats = {
   item: {
     id: number;
@@ -408,7 +469,6 @@ export const getStatisticsItems = async (
   }
 
   const data = await res.json();
-  console.log("getStatisticsItems ~", data.data[0]);
   return data.data;
 };
 

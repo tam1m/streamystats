@@ -120,14 +120,25 @@ export async function middleware(request: NextRequest) {
 
   const servers = await getServers();
 
+  if (!id && !page) {
+    return response;
+  }
+
   // If there are no servers, redirect to /setup
   if (servers.length === 0) {
     console.log("No servers found, redirecting to /setup");
     return NextResponse.redirect(new URL("/setup", request.url));
   }
 
+  if (page && id === "undefined") {
+    return NextResponse.redirect(new URL(`/not-found`, request.url));
+  }
+
   // If the server does not exist
   if (!servers.some((s) => Number(s.id) === Number(id))) {
+    console.log(
+      `Server ${id} not found, redirecting to /servers/` + servers[0].id
+    );
     return NextResponse.redirect(
       new URL(`/servers/${servers[0].id}/login`, request.url)
     );
@@ -165,7 +176,3 @@ export async function middleware(request: NextRequest) {
   // For all other cases, allow the request to proceed
   return response;
 }
-
-export const config = {
-  matcher: ["/", "/servers", "/servers/:id", "/servers/:id/:path*"],
-};

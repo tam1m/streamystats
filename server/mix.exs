@@ -46,7 +46,8 @@ defmodule StreamystatServer.MixProject do
       {:jason, "~> 1.2"},
       {:dns_cluster, "~> 0.1.1"},
       {:bandit, "~> 1.5"},
-      {:httpoison, "~> 2.0"}
+      {:httpoison, "~> 2.0"},
+      {:scrivener_ecto, "~> 3.0.1"}
     ]
   end
 

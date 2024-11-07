@@ -27,9 +27,13 @@ import { Statistics } from "@/lib/db";
 import { formatDuration } from "@/lib/utils";
 
 const chartConfig = {
-  minutes: {
-    label: "Minutes",
+  Episode: {
+    label: "Episodes",
     color: "hsl(var(--chart-1))",
+  },
+  Movie: {
+    label: "Movies",
+    color: "hsl(var(--chart-5))",
   },
 } satisfies ChartConfig;
 
@@ -43,7 +47,14 @@ export const WatchTimeGraph: React.FC<Props> = ({ data }) => {
   const filteredData = React.useMemo(() => {
     const formattedData = data.map((item) => ({
       date: new Date(item.date).toISOString().split("T")[0],
-      minutes: Math.floor(item.total_duration / 60),
+      Movie: Math.floor(
+        (item.watchtime_by_type.find((i) => i.item_type === "Movie")
+          ?.total_duration || 0) / 60
+      ),
+      Episode: Math.floor(
+        (item.watchtime_by_type.find((i) => i.item_type === "Episode")
+          ?.total_duration || 0) / 60
+      ),
     }));
 
     const now = new Date();
@@ -87,6 +98,17 @@ export const WatchTimeGraph: React.FC<Props> = ({ data }) => {
             Showing total watch time for the selected period
           </CardDescription>
         </div>
+        <div className="mr-4">
+          {Object.entries(chartConfig).map(([key, config]) => (
+            <div key={key} className="flex items-center gap-2">
+              <div
+                className="w-2 h-2 rounded-[2px] mr-2"
+                style={{ backgroundColor: config.color }}
+              ></div>
+              <p className="text-xs">{config.label}</p>
+            </div>
+          ))}
+        </div>
         <Select value={timeRange} onValueChange={setTimeRange}>
           <SelectTrigger
             className="w-[160px] rounded-lg sm:ml-auto"
@@ -128,21 +150,47 @@ export const WatchTimeGraph: React.FC<Props> = ({ data }) => {
                 });
               }}
             />
-            <ChartTooltip
+            {/* <ChartTooltip
               cursor={false}
               content={
                 <ChartTooltipContent
-                  formatter={(m) => (
+                  formatter={(value, name) => (
                     <div className="flex flex-row items-center justify-between w-full">
-                      <p>Time</p>
-                      <p>{formatDuration(Number(m), "minutes")}</p>
+                      <p>{name}</p>
+                      <p>{formatDuration(Number(value), "minutes")}</p>
                     </div>
                   )}
-                  hideLabel
                 />
               }
+            /> */}
+            <ChartTooltip
+              cursor={false}
+              formatter={(value, name, item) => (
+                <div className="flex flex-row items-center w-full">
+                  <div
+                    className="w-2 h-2 rounded-[2px] mr-2"
+                    style={{ backgroundColor: item.color }}
+                  ></div>
+                  <p className="">{name}</p>
+                  <p className="ml-auto">
+                    {formatDuration(Number(value), "minutes")}
+                  </p>
+                </div>
+              )}
+              content={<ChartTooltipContent indicator="dashed" />}
             />
-            <Bar dataKey="minutes" fill="#2761D9" radius={8} name="Minutes" />
+            <Bar
+              dataKey="Episode"
+              fill={chartConfig.Episode.color}
+              radius={[4, 4, 0, 0]}
+              name="Episode"
+            />
+            <Bar
+              dataKey="Movie"
+              fill={chartConfig.Movie.color}
+              radius={[4, 4, 0, 0]}
+              name="Movie"
+            />
           </BarChart>
         </ChartContainer>
       </CardContent>
