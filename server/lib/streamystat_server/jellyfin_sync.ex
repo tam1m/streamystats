@@ -6,7 +6,7 @@ defmodule StreamystatServer.JellyfinSync do
   alias StreamystatServer.Servers.Server
   alias StreamystatServer.Jellyfin.User
   alias StreamystatServer.Jellyfin.PlaybackActivity
-  # alias StreamystatServer.Jellyfin.Activity
+  alias StreamystatServer.Jellyfin.Activity
   require Logger
 
   def sync_users(server) do
@@ -115,30 +115,30 @@ defmodule StreamystatServer.JellyfinSync do
     end
   end
 
-  # def sync_activities(server, batch_size \\ 5000) do
-  #   Logger.info("Starting full activity sync for server #{server.name}")
-  #   result = sync_activities_batch(server, 0, batch_size, 0)
-  #   Logger.info("Finished full activity sync for server #{server.name}")
-  #   result
-  # end
+  def sync_activities(server, batch_size \\ 5000) do
+    Logger.info("Starting full activity sync for server #{server.name}")
+    result = sync_activities_batch(server, 0, batch_size, 0)
+    Logger.info("Finished full activity sync for server #{server.name}")
+    result
+  end
 
-  # def sync_recent_activities(server) do
-  #   Logger.info("Starting recent activity sync for server #{server.name}")
+  def sync_recent_activities(server) do
+    Logger.info("Starting recent activity sync for server #{server.name}")
 
-  #   result =
-  #     case JellyfinClient.get_activities(server, 0, 25) do
-  #       {:ok, activities} ->
-  #         new_activities = Enum.map(activities, &map_activity(&1, server))
-  #         {inserted, _} = Repo.insert_all(Activity, new_activities, on_conflict: :nothing)
-  #         {:ok, inserted}
+    result =
+      case JellyfinClient.get_activities(server, 0, 25) do
+        {:ok, activities} ->
+          new_activities = Enum.map(activities, &map_activity(&1, server))
+          {inserted, _} = Repo.insert_all(Activity, new_activities, on_conflict: :nothing)
+          {:ok, inserted}
 
-  #       {:error, reason} ->
-  #         {:error, reason}
-  #     end
+        {:error, reason} ->
+          {:error, reason}
+      end
 
-  #   Logger.info("Finished recent activity sync for server #{server.name}")
-  #   result
-  # end
+    Logger.info("Finished recent activity sync for server #{server.name}")
+    result
+  end
 
   def sync_playback_stats(server, sync_type) when sync_type in [:full, :partial] do
     Logger.info("Starting #{sync_type} playback stats sync for server #{server.name}")
@@ -169,30 +169,30 @@ defmodule StreamystatServer.JellyfinSync do
     end
   end
 
-  # defp sync_activities_batch(server, start_index, batch_size, total_synced) do
-  #   case JellyfinClient.get_activities(server, start_index, batch_size) do
-  #     {:ok, []} ->
-  #       {:ok, total_synced}
+  defp sync_activities_batch(server, start_index, batch_size, total_synced) do
+    case JellyfinClient.get_activities(server, start_index, batch_size) do
+      {:ok, []} ->
+        {:ok, total_synced}
 
-  #     {:ok, activities} ->
-  #       new_activities = Enum.map(activities, &map_activity(&1, server))
-  #       {inserted, _} = Repo.insert_all(Activity, new_activities, on_conflict: :nothing)
+      {:ok, activities} ->
+        new_activities = Enum.map(activities, &map_activity(&1, server))
+        {inserted, _} = Repo.insert_all(Activity, new_activities, on_conflict: :nothing)
 
-  #       if length(activities) < batch_size do
-  #         {:ok, total_synced + inserted}
-  #       else
-  #         sync_activities_batch(
-  #           server,
-  #           start_index + batch_size,
-  #           batch_size,
-  #           total_synced + inserted
-  #         )
-  #       end
+        if length(activities) < batch_size do
+          {:ok, total_synced + inserted}
+        else
+          sync_activities_batch(
+            server,
+            start_index + batch_size,
+            batch_size,
+            total_synced + inserted
+          )
+        end
 
-  #     {:error, reason} ->
-  #       {:error, reason}
-  #   end
-  # end
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
 
   defp sync_library_items(server, jellyfin_library_id) do
     Logger.info("Starting item sync for Jellyfin library #{jellyfin_library_id}")
@@ -338,36 +338,36 @@ defmodule StreamystatServer.JellyfinSync do
     |> Repo.update()
   end
 
-  # defp map_activity(activity, server) do
-  #   %{
-  #     jellyfin_id: activity["Id"],
-  #     name: activity["Name"],
-  #     short_overview: activity["ShortOverview"],
-  #     type: activity["Type"],
-  #     date: parse_datetime_to_utc(activity["Date"]),
-  #     user_id: get_user_id(server, activity["UserId"]),
-  #     server_id: server.id,
-  #     severity: activity["Severity"],
-  #     inserted_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second),
-  #     updated_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
-  #   }
-  # end
+  defp map_activity(activity, server) do
+    %{
+      jellyfin_id: activity["Id"],
+      name: activity["Name"],
+      short_overview: activity["ShortOverview"],
+      type: activity["Type"],
+      date: parse_datetime_to_utc(activity["Date"]),
+      user_id: get_user_id(server, activity["UserId"]),
+      server_id: server.id,
+      severity: activity["Severity"],
+      inserted_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second),
+      updated_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+    }
+  end
 
-  # defp get_user_id(server, jellyfin_user_id) do
-  #   case jellyfin_user_id do
-  #     "00000000000000000000000000000000" ->
-  #       nil
+  defp get_user_id(server, jellyfin_user_id) do
+    case jellyfin_user_id do
+      "00000000000000000000000000000000" ->
+        nil
 
-  #     nil ->
-  #       nil
+      nil ->
+        nil
 
-  #     id ->
-  #       case Repo.get_by(User, jellyfin_id: id, server_id: server.id) do
-  #         nil -> nil
-  #         user -> user.id
-  #       end
-  #   end
-  # end
+      id ->
+        case Repo.get_by(User, jellyfin_id: id, server_id: server.id) do
+          nil -> nil
+          user -> user.id
+        end
+    end
+  end
 
   defp map_playback_data(data, server) do
     [

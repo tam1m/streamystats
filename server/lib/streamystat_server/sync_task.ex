@@ -39,13 +39,13 @@ defmodule StreamystatServer.SyncTask do
   @spec sync_items(server_id()) :: :ok
   def sync_items(server_id), do: GenServer.cast(__MODULE__, {:sync_items, server_id})
 
-  # @spec sync_recent_activities(server_id()) :: :ok
-  # def sync_recent_activities(server_id),
-  #   do: GenServer.cast(__MODULE__, {:sync_recent_activities, server_id})
+  @spec sync_recent_activities(server_id()) :: :ok
+  def sync_recent_activities(server_id),
+    do: GenServer.cast(__MODULE__, {:sync_recent_activities, server_id})
 
-  # @spec sync_activities(server_id()) :: :ok
-  # def sync_activities(server_id),
-  #   do: GenServer.cast(__MODULE__, {:sync_activities, server_id})
+  @spec sync_activities(server_id()) :: :ok
+  def sync_activities(server_id),
+    do: GenServer.cast(__MODULE__, {:sync_activities, server_id})
 
   @spec sync_playback_stats(server_id()) :: :ok
   def sync_playback_stats(server_id),
@@ -59,9 +59,9 @@ defmodule StreamystatServer.SyncTask do
              :sync_users,
              :sync_libraries,
              :sync_items,
-             :sync_playback_stats
-             #  :sync_recent_activities,
-             #  :sync_activities
+             :sync_playback_stats,
+             :sync_recent_activities,
+             :sync_activities
            ] do
     Task.Supervisor.async_nolink(supervisor, fn ->
       perform_sync(sync_type, server_id)
@@ -132,11 +132,11 @@ defmodule StreamystatServer.SyncTask do
           :sync_playback_stats ->
             JellyfinSync.sync_playback_stats(server, :partial)
 
-          # :sync_activities ->
-          #   JellyfinSync.sync_activities(server)
+          :sync_activities ->
+            JellyfinSync.sync_activities(server)
 
-          # :sync_recent_activities ->
-          #   JellyfinSync.sync_recent_activities(server)
+          :sync_recent_activities ->
+            JellyfinSync.sync_recent_activities(server)
 
           _ ->
             Logger.error("Unknown sync type: #{sync_type}")
@@ -202,7 +202,7 @@ defmodule StreamystatServer.SyncTask do
     JellyfinSync.sync_libraries(server)
     JellyfinSync.sync_items(server)
     JellyfinSync.sync_playback_stats(server, :full)
-    # JellyfinSync.sync_activities(server)
+    JellyfinSync.sync_activities(server)
     :ok
   end
 
@@ -210,7 +210,7 @@ defmodule StreamystatServer.SyncTask do
     # JellyfinSync.sync_users(server)
     # JellyfinSync.sync_libraries(server)
     # JellyfinSync.sync_recent_items(server)
-    # JellyfinSync.sync_recent_activities(server)
+    JellyfinSync.sync_recent_activities(server)
     JellyfinSync.sync_playback_stats(server, :partial)
     :ok
   end
