@@ -51,6 +51,7 @@ export type Statistics = {
     day_of_week: number;
     average_duration: number;
   }[];
+  total_watch_time: number;
 };
 
 export type PlaybackActivity = {
@@ -86,6 +87,7 @@ export type User = {
   watch_time_per_day: { date: string; watch_time: number }[];
   is_administrator: boolean;
   genre_stats: GenreStat[];
+  longest_streak: number; // days
 };
 
 export const createServer = async (
@@ -108,6 +110,8 @@ export const createServer = async (
   }
 
   const data = await result.json();
+
+  console.log("User: ", data);
 
   return data.data as Server;
 };
@@ -302,7 +306,6 @@ export const getStatistics = async (
     }
 
     const data = await res.json();
-    console.log("statistics ~", data.data.watchtime_per_day[9]);
     return data.data as Statistics;
   } catch (e) {
     return null;

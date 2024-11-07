@@ -27,7 +27,8 @@ defmodule StreamystatServer.Statistics do
     %{
       most_watched_items: get_top_watched_items(stats),
       watchtime_per_day: get_watchtime_per_day(stats),
-      average_watchtime_per_week_day: get_average_watchtime_per_week_day(stats)
+      average_watchtime_per_week_day: get_average_watchtime_per_week_day(stats),
+      total_watch_time: get_total_watch_time(stats)
     }
   end
 
@@ -211,6 +212,13 @@ defmodule StreamystatServer.Statistics do
     |> then(fn
       naive_dt when time == :end_of_day -> NaiveDateTime.add(naive_dt, 86399, :second)
       naive_dt -> naive_dt
+    end)
+  end
+
+  defp get_total_watch_time(stats) do
+    stats
+    |> Enum.reduce(0, fn stat, acc ->
+      acc + (stat.play_duration || 0)
     end)
   end
 

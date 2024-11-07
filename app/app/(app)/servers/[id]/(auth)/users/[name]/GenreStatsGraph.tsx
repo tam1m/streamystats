@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/chart";
 import { GenreStat } from "@/lib/db";
 import { extend } from "lodash";
-import { cn } from "@/lib/utils";
+import { cn, formatDuration } from "@/lib/utils";
 
 const chartConfig = {
   watch_time: {
@@ -46,7 +46,15 @@ export const GenreStatsGraph: React.FC<Props> = ({
       <CardContent className="pb-0">
         <ChartContainer config={chartConfig} className="mx-auto max-h-[250px]">
           <RadarChart data={data}>
-            <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
+            <ChartTooltip
+              formatter={(val) => (
+                <div>
+                  <p>{formatDuration(Number(val))}</p>
+                </div>
+              )}
+              cursor={false}
+              content={<ChartTooltipContent />}
+            />
             <PolarAngleAxis dataKey="genre" />
             <PolarGrid />
             <Radar

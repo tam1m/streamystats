@@ -8,30 +8,40 @@ export function cn(...inputs: ClassValue[]) {
 
 export function formatDuration(
   t: number,
-  unit: "seconds" | "minutes" = "seconds"
+  unit: "seconds" | "minutes" | "hours" | "days" = "seconds"
 ): string {
   if (t === 0) return "0m";
 
-  let totalSeconds = unit === "minutes" ? t * 60 : t;
-  const hours = Math.floor(totalSeconds / 3600);
+  let totalSeconds = t;
+  switch (unit) {
+    case "minutes":
+      totalSeconds *= 60;
+      break;
+    case "hours":
+      totalSeconds *= 3600;
+      break;
+    case "days":
+      totalSeconds *= 86400;
+      break;
+  }
+  const years = Math.floor(totalSeconds / 31536000);
+  const months = Math.floor((totalSeconds % 31536000) / 2592000);
+  const days = Math.floor((totalSeconds % 2592000) / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = Math.floor(totalSeconds % 60);
 
-  let formattedDuration = "";
+  const parts: string[] = [];
 
-  if (hours > 0) {
-    formattedDuration += `${hours}h `;
-  }
+  if (years > 0) parts.push(`${years}y`);
+  if (months > 0) parts.push(`${months}mo`);
+  if (days > 0) parts.push(`${days}d`);
+  if (hours > 0) parts.push(`${hours}h`);
+  if (minutes > 0) parts.push(`${minutes}m`);
+  if (seconds > 0 && years === 0 && months === 0 && days === 0 && hours === 0)
+    parts.push(`${seconds}s`);
 
-  if (hours > 0 || minutes > 0) {
-    formattedDuration += `${minutes}m`;
-  }
-
-  if (unit === "seconds" && hours === 0 && minutes === 0) {
-    formattedDuration += `${seconds}s`;
-  }
-
-  return formattedDuration.trim();
+  return parts.join(" ") || "0m";
 }
 
 export const isTaskRunning = (

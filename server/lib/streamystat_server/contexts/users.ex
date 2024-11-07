@@ -83,4 +83,41 @@ defmodule StreamystatServer.Contexts.Users do
 
     Repo.all(query)
   end
+
+  def get_user_longest_streak(user_id) do
+    query =
+      from(pa in PlaybackActivity,
+        where: pa.user_id == ^user_id,
+        select: pa.date_created,
+        order_by: [asc: pa.date_created]
+      )
+
+    dates = Repo.all(query)
+
+    dates
+    |> Enum.map(&NaiveDateTime.to_date/1)
+    |> Enum.uniq()
+    |> calculate_longest_streak()
+  end
+
+  defp calculate_longest_streak(dates) do
+    dates
+    |> Enum.reduce({0, 0, nil}, fn date, {max_streak, current_streak, last_date} ->
+      case last_date do
+        nil ->
+          {1, 1, date}
+
+        _ ->
+          days_diff = Date.diff(date, last_date)
+
+          if days_diff == 1 do
+            new_streak = current_streak + 1
+            {max(max_streak, new_streak), new_streak, date}
+          else
+            {max(max_streak, current_streak), 1, date}
+          end
+      end
+    end)
+    |> elem(0)
+  end
 end

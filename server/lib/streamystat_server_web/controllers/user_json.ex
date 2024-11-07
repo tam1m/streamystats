@@ -5,26 +5,8 @@ defmodule StreamystatServerWeb.UserJSON do
     %{data: for(user_data <- users_with_details, do: data(user_data, :index))}
   end
 
-  def show(%{
-        user: user,
-        watch_history: watch_history,
-        watch_stats: watch_stats,
-        watch_time_per_day: watch_time_per_day,
-        genre_stats: genre_stats
-      }) do
-    %{
-      data:
-        data(
-          %{
-            user: user,
-            watch_stats: watch_stats,
-            watch_time_per_day: watch_time_per_day,
-            genre_stats: genre_stats
-          },
-          :show,
-          watch_history
-        )
-    }
+  def show(params) do
+    %{data: data(params, :show)}
   end
 
   def me(%{user: user}) do
@@ -42,42 +24,40 @@ defmodule StreamystatServerWeb.UserJSON do
     }
   end
 
-  defp data(%{user: %User{} = user, watch_stats: watch_stats}, :index) do
+  defp data(params, view) do
+    base_data(params)
+    |> add_view_specific_data(params, view)
+  end
+
+  defp base_data(%{user: %User{} = user}) do
     %{
       id: user.id,
       jellyfin_id: user.jellyfin_id,
       name: user.name,
-      is_administrator: user.is_administrator,
-      watch_stats: %{
-        total_watch_time: watch_stats.total_watch_time,
-        total_plays: watch_stats.total_plays
-      },
-      watch_history: []
+      is_administrator: user.is_administrator
     }
   end
 
-  defp data(
-         %{
-           user: %User{} = user,
-           watch_stats: watch_stats,
-           watch_time_per_day: watch_time_per_day,
-           genre_stats: genre_stats
-         },
-         :show,
-         watch_history
-       ) do
+  defp add_view_specific_data(base, params, :index) do
+    base
+    |> Map.put(:watch_stats, watch_stats(params))
+  end
+
+  defp add_view_specific_data(base, params, :show) do
+    base
+    |> Map.put(:watch_stats, watch_stats(params))
+    |> Map.put(:watch_history, params[:watch_history] || [])
+    |> Map.put(:watch_time_per_day, params[:watch_time_per_day] || [])
+    |> Map.put(:genre_stats, params[:genre_stats] || [])
+    |> Map.put(:longest_streak, params[:longest_streak] || 0)
+  end
+
+  defp watch_stats(%{watch_stats: watch_stats}) do
     %{
-      id: user.id,
-      jellyfin_id: user.jellyfin_id,
-      name: user.name,
-      is_administrator: user.is_administrator,
-      watch_history: watch_history,
-      watch_stats: %{
-        total_watch_time: watch_stats.total_watch_time,
-        total_plays: watch_stats.total_plays
-      },
-      watch_time_per_day: watch_time_per_day,
-      genre_stats: genre_stats
+      total_watch_time: watch_stats.total_watch_time,
+      total_plays: watch_stats.total_plays
     }
   end
+
+  defp watch_stats(_), do: %{total_watch_time: 0, total_plays: 0}
 end

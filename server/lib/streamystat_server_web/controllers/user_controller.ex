@@ -31,13 +31,15 @@ defmodule StreamystatServerWeb.UserController do
         watch_stats = Users.get_user_watch_stats(server_id, user.id)
         watch_time_per_day = Users.get_user_watch_time_per_day(server_id, user.id)
         genre_stats = Users.get_user_genre_watch_time(server_id, user.id)
+        longest_streak = Users.get_user_longest_streak(user.id)
 
         render(conn, :show,
           user: user,
           watch_history: watch_history,
           watch_stats: watch_stats,
           watch_time_per_day: watch_time_per_day,
-          genre_stats: genre_stats
+          genre_stats: genre_stats,
+          longest_streak: longest_streak
         )
     end
   end

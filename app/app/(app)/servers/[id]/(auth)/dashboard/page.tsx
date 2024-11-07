@@ -6,6 +6,7 @@ import { MostPopularItems } from "./MostPopularItems";
 import { WatchTimeGraph } from "./WatchTimeGraph";
 import { WatchTimePerWeekDay } from "./WatchTimePerWeekDay";
 import { getMe } from "@/lib/me";
+import TotalWatchTime from "./TotalWatchTime";
 
 export default async function DashboardPage({
   params,
@@ -29,6 +30,7 @@ export default async function DashboardPage({
       <PageTitle title="Statistics" />
       {data?.most_watched_items && data.watchtime_per_day ? (
         <div className="flex flex-col gap-6">
+          <TotalWatchTime data={data.total_watch_time} />
           <MostPopularItems data={data.most_watched_items} server={server} />
           <WatchTimeGraph data={data.watchtime_per_day} />
           <WatchTimePerWeekDay data={data.average_watchtime_per_week_day} />
