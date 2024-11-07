@@ -120,11 +120,9 @@ export async function middleware(request: NextRequest) {
 
   const servers = await getServers();
 
-  console.log(
-    servers.map((s) => ({ id: s.id, name: s.name })),
-    page,
-    id
-  );
+  if (!id && !page) {
+    return response;
+  }
 
   // If there are no servers, redirect to /setup
   if (servers.length === 0) {

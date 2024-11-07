@@ -3,11 +3,15 @@
 import { Server } from "@/lib/db";
 import { UserMe } from "@/lib/me";
 import {
+  ActivitySquare,
+  Bookmark,
   BookOpen,
   Calendar,
   Home,
   Layers,
+  Library,
   Settings,
+  TrendingUp,
   User,
   Users,
 } from "lucide-react";
@@ -60,7 +64,12 @@ export const SideBar: React.FC<Props> = ({
       {
         title: "Dashboard",
         url: "/dashboard",
-        icon: Home,
+        icon: TrendingUp,
+      },
+      {
+        title: "Library",
+        url: "/library",
+        icon: Library,
       },
       {
         title: "History",
@@ -68,9 +77,9 @@ export const SideBar: React.FC<Props> = ({
         icon: Calendar,
       },
       {
-        title: "Library",
-        url: "/library",
-        icon: BookOpen,
+        title: "Activity Log",
+        url: "/activities",
+        icon: ActivitySquare,
       },
       {
         title: "Me",

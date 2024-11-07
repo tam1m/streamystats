@@ -363,10 +363,30 @@ export const getStatisticsHistory = async (
   return data.data;
 };
 
+export type ActivityLogEntry = {
+  id: number;
+  name: string;
+  type: string;
+  date: string;
+  severity: string;
+  server_id: number;
+  jellyfin_id: number;
+  short_overview: string;
+  user_id: number;
+};
+
+export type ActivitiesResponse = {
+  data: ActivityLogEntry[];
+  page: number;
+  per_page: number;
+  total_pages: number;
+  total_items: number;
+};
+
 export const getActivities = async (
   serverId: number,
   page = 1
-): Promise<PlaybackActivity[]> => {
+): Promise<ActivitiesResponse> => {
   const queryParams = new URLSearchParams({
     page: page.toString(),
   });
@@ -374,7 +394,7 @@ export const getActivities = async (
   const res = await fetch(
     `${
       process.env.API_URL
-    }/servers/${serverId}/activities?${queryParams.toString()}`,
+    }/admin/servers/${serverId}/activities?${queryParams.toString()}`,
     {
       next: {
         revalidate: 0,
@@ -387,11 +407,17 @@ export const getActivities = async (
   );
 
   if (!res.ok) {
-    return [];
+    return {
+      items: [],
+      page: 1,
+      per_page: 0,
+      total_pages: 1,
+      total_items: 0,
+    };
   }
 
   const data = await res.json();
-  return data.data;
+  return data;
 };
 
 export type ItemWatchStats = {
