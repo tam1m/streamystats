@@ -180,6 +180,26 @@ defmodule StreamystatServer.JellyfinClient do
     end
   end
 
+  def get_activities(server, start_index, limit) do
+    url = "#{server.url}/System/ActivityLog/Entries"
+    headers = process_request_headers([], server.api_key)
+    params = [startIndex: start_index, limit: limit]
+
+    case get(url, headers, params: params) do
+      {:ok, %{status_code: 200, body: body}} ->
+        case Jason.decode(body) do
+          {:ok, %{"Items" => items}} -> {:ok, items}
+          {:error, decode_error} -> {:error, "JSON decode error: #{decode_error}"}
+        end
+
+      {:ok, %{status_code: status_code}} ->
+        {:error, "Unexpected status code: #{status_code}"}
+
+      {:error, %HTTPoison.Error{reason: reason}} ->
+        {:error, "HTTP request failed: #{reason}"}
+    end
+  end
+
   defp build_playback_query(last_synced_id) do
     where_clause =
       if last_synced_id && last_synced_id > 0 do

@@ -363,6 +363,37 @@ export const getStatisticsHistory = async (
   return data.data;
 };
 
+export const getActivities = async (
+  serverId: number,
+  page = 1
+): Promise<PlaybackActivity[]> => {
+  const queryParams = new URLSearchParams({
+    page: page.toString(),
+  });
+
+  const res = await fetch(
+    `${
+      process.env.API_URL
+    }/servers/${serverId}/activities?${queryParams.toString()}`,
+    {
+      next: {
+        revalidate: 0,
+      },
+      headers: {
+        Authorization: `Bearer ${await getToken()}`,
+        "Content-Type": "application/json",
+      },
+    }
+  );
+
+  if (!res.ok) {
+    return [];
+  }
+
+  const data = await res.json();
+  return data.data;
+};
+
 export type ItemWatchStats = {
   item: {
     id: number;
