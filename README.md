@@ -2,6 +2,8 @@
 
 Streamystats is a statistics service for Jellyfin, providing analytics and data visualization. 📈 Built with modern advanced frameworks. 
 
+> This is a small hobby project of mine. Don't expect fast development. Most of my time goes towards Streamyfin. 
+
 ## ✨ Features
 
 - 🖥️ Dashboard with overview statistics
