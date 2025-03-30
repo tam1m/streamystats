@@ -74,6 +74,7 @@ defmodule StreamystatServer.Contexts.Users do
         on: pa.item_id == i.jellyfin_id,
         where: pa.server_id == ^server_id and pa.user_id == ^user_id,
         left_lateral_join: g in fragment("SELECT unnest(?) AS genre", i.genres),
+        on: true,
         group_by: g.genre,
         select: %{
           genre: g.genre,
