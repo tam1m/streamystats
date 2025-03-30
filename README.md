@@ -1,6 +1,6 @@
 # Streamystats
 
-Streamystats is a statistics service for Jellyfin, providing analytics and data visualization. 📈 Built with modern advanced frameworks. 
+Streamystats is a statistics service for Jellyfin, providing analytics and data visualization. 📈 Built with modern advanced frameworks.
 
 > ⚠️ This is a small hobby project of mine to learn Phoenix. Don't expect fast development. Most of my time goes towards Streamyfin. 
 
@@ -16,19 +16,25 @@ Streamystats is a statistics service for Jellyfin, providing analytics and data 
 
 ## Roadmap
 
+- [x] Personal statistics only visible to that user
+- [x] Remove the use of the playback reporting plugin
 - [ ] Individual item statistics
 - [ ] More statistics about unwatched items and maybe the possibility to remove old or unwatched items
 - [ ] More granular sync options
-- [x] Personal statistics only visible to that user
 
 ## 🚀 Getting started
 
-1. Install the Playback Reporting Plugin on your Jellyfin server
-2. Install Docker and Docker Compose if you haven't already.
-3. Copy the `docker-compose.yml` file to your desired location. Change any ports if needed. Default web port is 3000.
-4. Start the application with `docker-compose up -d`
-5. Open your browser and navigate to `http://localhost:3000`
-6. Follow the setup wizard to connect your Jellyfin server.
+> Playback reporting plugin is no longer needed and Streamystats soely relies on the Jellyfin API for statistics.
+
+1. Install Docker and Docker Compose if you haven't already.
+2. Copy the `docker-compose.yml` file to your desired location. 
+3. Change any ports if needed. Default web port is `3000`.
+4. Change the `SECRET_KEY_BASE` in the `docker-compose.yml` file to a random string. You can generate one with `openssl rand -hex 64`.
+5. Start the application with `docker-compose up -d`
+6. Open your browser and navigate to `http://localhost:3000`
+7. Follow the setup wizard to connect your Jellyfin server.
+
+First time load can take a while, depending on the size of your library.
 
 ## 📸 Screenshots
 <img width="1545" alt="Screenshot 2024-11-06 at 21 29 48" src="https://github.com/user-attachments/assets/78c5843a-7dc4-4485-bfeb-841725b133e7">
