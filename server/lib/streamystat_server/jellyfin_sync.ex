@@ -3,7 +3,6 @@ defmodule StreamystatServer.JellyfinSync do
   alias StreamystatServer.JellyfinClient
   alias StreamystatServer.Jellyfin.Library
   alias StreamystatServer.Jellyfin.Item
-  alias StreamystatServer.Servers.Server
   alias StreamystatServer.Jellyfin.User
   alias StreamystatServer.Jellyfin.Activity
   require Logger
@@ -283,30 +282,6 @@ defmodule StreamystatServer.JellyfinSync do
           nil -> nil
           user -> user.id
         end
-    end
-  end
-
-  defp get_user(server, name) do
-    User
-    |> Repo.get_by(name: name, server_id: server.id)
-    |> case do
-      nil ->
-        Logger.warning("User not found: #{name}")
-        %User{name: name, server_id: server.id}
-
-      user ->
-        user
-    end
-  end
-
-  defp parse_integer(string) do
-    case Integer.parse(string) do
-      {int, _} ->
-        int
-
-      :error ->
-        Logger.warning("Failed to parse integer: #{string}")
-        0
     end
   end
 
