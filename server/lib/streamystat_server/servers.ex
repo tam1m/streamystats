@@ -109,8 +109,5 @@ defmodule StreamystatServer.Servers do
 
     delete_query = from(record in Item, where: record.server_id == ^server_id)
     Repo.delete_all(delete_query)
-
-    delete_query = from(record in PlaybackActivity, where: record.server_id == ^server_id)
-    Repo.delete_all(delete_query)
   end
 end

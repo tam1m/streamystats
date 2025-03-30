@@ -97,51 +97,6 @@ defmodule StreamystatServer.JellyfinClient do
     end
   end
 
-  def get_playback_stats(server, last_synced_id) do
-    url = "#{server.url}/user_usage_stats/submit_custom_query"
-
-    headers = [
-      {"accept", "application/json"},
-      {"content-type", "application/json"},
-      {"authorization",
-       "MediaBrowser Client=\"Jellyfin Web\", Device=\"Elixir\", DeviceId=\"StreamystatServer\", Version=\"1.0.0\", Token=\"#{server.api_key}\""}
-    ]
-
-    query = build_playback_query(last_synced_id)
-
-    body =
-      Jason.encode!(%{
-        "CustomQueryString" => query,
-        "ReplaceUserId" => true
-      })
-
-    params = [stamp: :os.system_time(:millisecond)]
-
-    case post(url, body, headers, params: params) do
-      {:ok, %HTTPoison.Response{status_code: 200, body: response_body}} ->
-        case Jason.decode(response_body) do
-          {:ok, %{"results" => results}} when is_list(results) ->
-            {:ok, results}
-
-          {:ok, decoded_body} ->
-            Logger.warning("Unexpected response format: #{inspect(decoded_body)}")
-            {:error, :unexpected_format}
-
-          {:error, decode_error} ->
-            Logger.error("Failed to decode JSON response: #{inspect(decode_error)}")
-            {:error, "Failed to decode JSON response"}
-        end
-
-      {:ok, %HTTPoison.Response{status_code: status_code}} ->
-        Logger.error("Unexpected status code: #{status_code}")
-        {:error, "Unexpected status code: #{status_code}"}
-
-      {:error, %HTTPoison.Error{reason: reason}} ->
-        Logger.error("HTTP request failed: #{inspect(reason)}")
-        {:error, "HTTP request failed: #{inspect(reason)}"}
-    end
-  end
-
   def get_installed_plugins(server) do
     url = "#{server.url}/Plugins"
     headers = process_request_headers([], server.api_key)
@@ -198,21 +153,5 @@ defmodule StreamystatServer.JellyfinClient do
       {:error, %HTTPoison.Error{reason: reason}} ->
         {:error, "HTTP request failed: #{reason}"}
     end
-  end
-
-  defp build_playback_query(last_synced_id) do
-    where_clause =
-      if last_synced_id && last_synced_id > 0 do
-        "WHERE ROWID > #{last_synced_id}\n"
-      else
-        ""
-      end
-
-    """
-    SELECT ROWID, *
-    FROM PlaybackActivity
-    #{where_clause}ORDER BY ROWID ASC
-    LIMIT 10000
-    """
   end
 end

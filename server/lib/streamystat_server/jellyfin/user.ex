@@ -41,7 +41,6 @@ defmodule StreamystatServer.Jellyfin.User do
     field(:sync_play_access, :string)
 
     belongs_to(:server, StreamystatServer.Servers.Server)
-    has_many(:playback_activities, StreamystatServer.Jellyfin.PlaybackActivity)
 
     timestamps()
   end
