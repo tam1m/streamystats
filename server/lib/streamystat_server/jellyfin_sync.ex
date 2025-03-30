@@ -164,31 +164,75 @@ defmodule StreamystatServer.JellyfinSync do
     end
   end
 
+  # Add sanitization helper functions at the top
+  defp sanitize_string(nil), do: nil
+
+  defp sanitize_string(str) when is_binary(str) do
+    str
+    # Remove null bytes
+    |> String.replace(<<0>>, "")
+    # Remove control characters
+    |> String.replace(~r/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/, "")
+  end
+
+  defp sanitize_string(other), do: other
+
+  # Add retry mechanism for HTTP requests
+  defp with_retry(fun, attempts \\ 3, delay \\ 1000) do
+    try do
+      fun.()
+    rescue
+      e ->
+        if attempts > 1 do
+          Logger.warning(
+            "Request failed, retrying in #{delay}ms... (#{attempts - 1} attempts left)"
+          )
+
+          Process.sleep(delay)
+          with_retry(fun, attempts - 1, delay * 2)
+        else
+          Logger.error("Request failed after all retry attempts: #{inspect(e)}")
+          {:error, e}
+        end
+    end
+  end
+
   defp sync_library_items(server, jellyfin_library_id) do
     Logger.info("Starting item sync for Jellyfin library #{jellyfin_library_id}")
 
-    with {:ok, jellyfin_items} <- JellyfinClient.get_items(server, jellyfin_library_id),
-         {:ok, library} <- get_library_by_jellyfin_id(jellyfin_library_id, server.id) do
+    with {:ok, library} <- get_library_by_jellyfin_id(jellyfin_library_id, server.id),
+         {:ok, jellyfin_items} <-
+           with_retry(fn -> JellyfinClient.get_items(server, jellyfin_library_id) end) do
       items = Enum.map(jellyfin_items, &map_jellyfin_item(&1, library.id, server.id))
 
       try do
         # Insert items in batches of 1000
-        {total_count, _} =
+        {total_count, errors} =
           Enum.chunk_every(items, 1000)
-          |> Enum.reduce({0, nil}, fn batch, {acc_count, _} ->
-            {count, _} =
-              Repo.insert_all(
-                Item,
-                batch,
-                on_conflict: {:replace_all_except, [:id]},
-                conflict_target: [:jellyfin_id, :library_id]
-              )
-
-            {acc_count + count, nil}
+          |> Enum.reduce({0, []}, fn batch, {acc_count, acc_errors} ->
+            case Repo.insert_all(
+                   Item,
+                   batch,
+                   on_conflict: {:replace_all_except, [:id]},
+                   conflict_target: [:jellyfin_id, :library_id]
+                 ) do
+              {count, nil} -> {acc_count + count, acc_errors}
+              {_, error} -> {acc_count, [error | acc_errors]}
+            end
           end)
 
-        Logger.info("Synced #{total_count} items for library #{library.name}")
-        {:ok, total_count, []}
+        case errors do
+          [] ->
+            Logger.info("Synced #{total_count} items for library #{library.name}")
+            {:ok, total_count, []}
+
+          _ ->
+            Logger.warning(
+              "Synced #{total_count} items for library #{library.name} with #{length(errors)} errors"
+            )
+
+            {:partial, total_count, errors}
+        end
       rescue
         e ->
           Logger.error("Error syncing items for library #{library.name}: #{inspect(e)}")
@@ -207,7 +251,7 @@ defmodule StreamystatServer.JellyfinSync do
           "Failed to sync items for Jellyfin library #{jellyfin_library_id}: #{inspect(reason)}"
         )
 
-        {:error, 0, [reason]}
+        {:error, 0, [inspect(reason)]}
     end
   end
 
@@ -300,35 +344,35 @@ defmodule StreamystatServer.JellyfinSync do
   defp map_jellyfin_item(jellyfin_item, library_id, server_id) do
     %{
       jellyfin_id: jellyfin_item["Id"],
-      name: jellyfin_item["Name"],
-      type: jellyfin_item["Type"],
-      original_title: jellyfin_item["OriginalTitle"],
-      etag: jellyfin_item["Etag"],
+      name: sanitize_string(jellyfin_item["Name"]),
+      type: sanitize_string(jellyfin_item["Type"]),
+      original_title: sanitize_string(jellyfin_item["OriginalTitle"]),
+      etag: sanitize_string(jellyfin_item["Etag"]),
       date_created: parse_datetime_to_utc(jellyfin_item["DateCreated"]),
-      container: jellyfin_item["Container"],
-      sort_name: jellyfin_item["SortName"],
+      container: sanitize_string(jellyfin_item["Container"]),
+      sort_name: sanitize_string(jellyfin_item["SortName"]),
       premiere_date: parse_datetime_to_utc(jellyfin_item["PremiereDate"]),
       external_urls: jellyfin_item["ExternalUrls"],
-      path: jellyfin_item["Path"],
-      official_rating: jellyfin_item["OfficialRating"],
-      overview: jellyfin_item["Overview"],
+      path: sanitize_string(jellyfin_item["Path"]),
+      official_rating: sanitize_string(jellyfin_item["OfficialRating"]),
+      overview: sanitize_string(jellyfin_item["Overview"]),
       genres: jellyfin_item["Genres"],
       community_rating: parse_float(jellyfin_item["CommunityRating"]),
       runtime_ticks: jellyfin_item["RunTimeTicks"],
       production_year: jellyfin_item["ProductionYear"],
       is_folder: jellyfin_item["IsFolder"],
       parent_id: jellyfin_item["ParentId"],
-      media_type: jellyfin_item["MediaType"],
+      media_type: sanitize_string(jellyfin_item["MediaType"]),
       width: jellyfin_item["Width"],
       height: jellyfin_item["Height"],
       library_id: library_id,
       server_id: server_id,
-      series_name: jellyfin_item["SeriesName"],
+      series_name: sanitize_string(jellyfin_item["SeriesName"]),
       series_id: jellyfin_item["SeriesId"],
       season_id: jellyfin_item["SeasonId"],
-      series_primary_image_tag: jellyfin_item["SeriesPrimaryImageTag"],
-      season_name: jellyfin_item["SeasonName"],
-      series_studio: jellyfin_item["SeriesStudio"],
+      series_primary_image_tag: sanitize_string(jellyfin_item["SeriesPrimaryImageTag"]),
+      season_name: sanitize_string(jellyfin_item["SeasonName"]),
+      series_studio: sanitize_string(jellyfin_item["SeriesStudio"]),
       index_number: jellyfin_item["IndexNumber"],
       inserted_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second),
       updated_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
@@ -394,10 +438,12 @@ defmodule StreamystatServer.JellyfinSync do
   end
 
   defp map_jellyfin_library(jellyfin_library, server_id) do
+    type = jellyfin_library["CollectionType"] || "unknown"
+
     %{
       jellyfin_id: jellyfin_library["Id"],
-      name: jellyfin_library["Name"],
-      type: jellyfin_library["CollectionType"],
+      name: sanitize_string(jellyfin_library["Name"]),
+      type: sanitize_string(type),
       server_id: server_id,
       inserted_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second),
       updated_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
