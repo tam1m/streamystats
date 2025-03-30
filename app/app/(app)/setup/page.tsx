@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getServers, getUser } from "@/lib/db";
 import { SetupForm } from "./SetupForm";
 import { getMe } from "@/lib/me";
+import { Spinner } from "@/components/Spinner";
 
 export default async function Setup() {
   console.log("(app)/setup/page.tsx ~ Setup");
@@ -26,7 +27,10 @@ export default async function Setup() {
           redirect(`/`);
         }
       } else {
-        console.error("User information is missing or incomplete");
+        console.warn(
+          "User is not logged in or user information is missing, redirecting to login..."
+        );
+        redirect(`/servers/${s.id}/login`);
       }
     } else {
       console.error("Server information is missing or incomplete");
