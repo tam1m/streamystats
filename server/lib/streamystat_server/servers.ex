@@ -6,7 +6,6 @@ defmodule StreamystatServer.Servers do
   alias StreamystatServer.Jellyfin.Library
   alias StreamystatServer.Jellyfin.Item
   alias StreamystatServer.SyncTask
-  alias StreamystatServer.Jellyfin.PlaybackActivity
   alias HTTPoison
 
   def list_servers do

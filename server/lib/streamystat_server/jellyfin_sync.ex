@@ -5,7 +5,6 @@ defmodule StreamystatServer.JellyfinSync do
   alias StreamystatServer.Jellyfin.Item
   alias StreamystatServer.Servers.Server
   alias StreamystatServer.Jellyfin.User
-  alias StreamystatServer.Jellyfin.PlaybackActivity
   alias StreamystatServer.Jellyfin.Activity
   require Logger
 
