@@ -200,19 +200,22 @@ defmodule StreamystatServer.Contexts.Users do
 
   defp calculate_longest_streak(dates) do
     dates
-    |> Enum.chunk_by(fn date ->
-      previous =
-        Enum.find_index(dates, fn d -> Date.compare(d, date) == :eq end)
-        |> then(fn idx -> idx - 1 end)
-        |> then(fn idx -> if idx >= 0, do: Enum.at(dates, idx), else: nil end)
+    |> Enum.reduce({0, 0, nil}, fn date, {max_streak, current_streak, prev_date} ->
+      case prev_date do
+        nil ->
+          {1, 1, date}
 
-      if previous do
-        Date.diff(date, previous) == 1
-      else
-        0
+        _ ->
+          if Date.diff(date, prev_date) == 1 do
+            new_streak = current_streak + 1
+            {max(max_streak, new_streak), new_streak, date}
+          else
+            {max(max_streak, current_streak), 1, date}
+          end
       end
     end)
-    |> Enum.map(&length/1)
-    |> Enum.max(fn -> 0 end)
+    |> then(fn {max_streak, current_streak, _} ->
+      max(max_streak, current_streak)
+    end)
   end
 end
