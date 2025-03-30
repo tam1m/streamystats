@@ -55,16 +55,6 @@ defmodule StreamystatServerWeb.SyncController do
     |> json(%{message: "Items sync task initiated for server #{server_id}"})
   end
 
-  def sync_playback_stats(conn, %{"server_id" => server_id}) do
-    Task.start(fn ->
-      SyncTask.sync_playback_stats(server_id)
-    end)
-
-    conn
-    |> put_status(:accepted)
-    |> json(%{message: "Playback stats sync task initiated for server #{server_id}"})
-  end
-
   @spec list_tasks(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def list_tasks(conn, %{"server_id" => server_id}) do
     tasks_query =

@@ -547,7 +547,3 @@ export const syncUsersTask = (serverId: number): Promise<void> => {
 export const syncLibrariesTask = (serverId: number): Promise<void> => {
   return executeSyncTask(serverId, "/libraries");
 };
-
-export const syncPlaybackStatisticsTask = (serverId: number): Promise<void> => {
-  return executeSyncTask(serverId, "/playback-statistics");
-};

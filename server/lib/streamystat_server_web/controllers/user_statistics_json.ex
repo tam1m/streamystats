@@ -10,20 +10,40 @@ defmodule StreamystatServerWeb.UserStatisticsJSON do
   defp data(activity) do
     %{
       id: activity.id,
-      date_created: activity.date_created,
-      item_id: activity.item_id,
-      item_type: activity.item_type,
+      date_created: activity.inserted_at || activity.start_time,
+      item_id: activity.item_jellyfin_id,
+      item_type: get_item_type(activity),
       item_name: activity.item_name,
       client_name: activity.client_name,
       device_name: activity.device_name,
       play_method: activity.play_method,
       play_duration: activity.play_duration,
+      percent_complete: activity.percent_complete || 0,
+      completed: activity.completed || false,
+      series_name: activity.series_name,
       server_id: activity.server_id,
-      user: %{
-        id: activity.user.id,
-        name: activity.user.name,
-        jellyfin_id: activity.user.jellyfin_id
-      }
+      user: get_user_data(activity)
+    }
+  end
+
+  defp get_item_type(%{series_jellyfin_id: series_id}) when not is_nil(series_id), do: "Episode"
+  defp get_item_type(_), do: "Movie"
+
+  defp get_user_data(%{user: %{id: id, name: name, jellyfin_id: jellyfin_id}})
+       when not is_nil(id) do
+    %{
+      id: id,
+      name: name,
+      jellyfin_id: jellyfin_id
+    }
+  end
+
+  defp get_user_data(activity) do
+    # Fallback for when the user relationship isn't preloaded or doesn't exist
+    %{
+      id: nil,
+      name: activity.user_jellyfin_id,
+      jellyfin_id: activity.user_jellyfin_id
     }
   end
 

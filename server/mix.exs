@@ -5,7 +5,7 @@ defmodule StreamystatServer.MixProject do
     [
       app: :streamystat_server,
       version: "0.1.0",
-      elixir: "~> 1.17.3",
+      elixir: "~> 1.18",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),

@@ -47,10 +47,6 @@ defmodule StreamystatServer.SyncTask do
   def sync_activities(server_id),
     do: GenServer.cast(__MODULE__, {:sync_activities, server_id})
 
-  @spec sync_playback_stats(server_id()) :: :ok
-  def sync_playback_stats(server_id),
-    do: GenServer.cast(__MODULE__, {:sync_playback_stats, server_id})
-
   @impl true
   def handle_cast({sync_type, server_id}, %{task_supervisor: supervisor} = state)
       when sync_type in [
@@ -59,7 +55,6 @@ defmodule StreamystatServer.SyncTask do
              :sync_users,
              :sync_libraries,
              :sync_items,
-             :sync_playback_stats,
              :sync_recent_activities,
              :sync_activities
            ] do
@@ -129,9 +124,6 @@ defmodule StreamystatServer.SyncTask do
           :sync_items ->
             JellyfinSync.sync_items(server)
 
-          :sync_playback_stats ->
-            JellyfinSync.sync_playback_stats(server, :partial)
-
           :sync_activities ->
             JellyfinSync.sync_activities(server)
 
@@ -193,15 +185,14 @@ defmodule StreamystatServer.SyncTask do
   end
 
   defp schedule_partial_sync do
-    # Run every hour
-    Process.send_after(self(), :partial_sync, 60 * 1000)
+    # Run every 5 minutes
+    Process.send_after(self(), :partial_sync, 60 * 5 * 1000)
   end
 
   defp perform_full_sync(server) do
     JellyfinSync.sync_users(server)
     JellyfinSync.sync_libraries(server)
     JellyfinSync.sync_items(server)
-    JellyfinSync.sync_playback_stats(server, :full)
     JellyfinSync.sync_activities(server)
     :ok
   end
@@ -211,7 +202,6 @@ defmodule StreamystatServer.SyncTask do
     # JellyfinSync.sync_libraries(server)
     # JellyfinSync.sync_recent_items(server)
     JellyfinSync.sync_recent_activities(server)
-    JellyfinSync.sync_playback_stats(server, :partial)
     :ok
   end
 end

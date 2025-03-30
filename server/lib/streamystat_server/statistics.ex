@@ -1,6 +1,6 @@
 defmodule StreamystatServer.Statistics do
   import Ecto.Query, warn: false
-  alias StreamystatServer.Jellyfin.PlaybackActivity
+  alias StreamystatServer.Jellyfin.PlaybackSession
   alias StreamystatServer.Jellyfin.Item
   alias StreamystatServer.Jellyfin.Library
   alias StreamystatServer.Jellyfin.User
@@ -8,17 +8,9 @@ defmodule StreamystatServer.Statistics do
   require Logger
 
   def create_playback_stat(attrs \\ %{}) do
-    %PlaybackActivity{}
-    |> PlaybackActivity.changeset(attrs)
-    |> Repo.insert()
-    |> case do
-      {:ok, stat} ->
-        {:ok, stat}
-
-      {:error, changeset} ->
-        Logger.warning("Failed to create playback stat: #{inspect(changeset.errors)}")
-        {:error, changeset}
-    end
+    # This function is kept for backward compatibility
+    # but delegates to create_playback_session
+    StreamystatServer.Contexts.PlaybackSessions.create_playback_session(attrs)
   end
 
   def get_formatted_stats(start_date, end_date, server_id, user_id \\ nil) do
@@ -85,15 +77,15 @@ defmodule StreamystatServer.Statistics do
     # Base query for items of type "Movie" and "Episode"
     base_query =
       from(i in Item,
-        left_join: pa in PlaybackActivity,
-        on: pa.item_id == i.jellyfin_id and pa.server_id == i.server_id,
+        left_join: ps in PlaybackSession,
+        on: ps.item_jellyfin_id == i.jellyfin_id and ps.server_id == i.server_id,
         where: i.server_id == ^server_id and i.type in ["Movie", "Episode"],
         group_by: [i.id, i.jellyfin_id, i.name, i.type],
         select: %{
           item_id: i.jellyfin_id,
           item: i,
-          watch_count: coalesce(count(pa.id), 0),
-          total_watch_time: coalesce(sum(pa.play_duration), 0)
+          watch_count: coalesce(count(ps.id), 0),
+          total_watch_time: coalesce(sum(ps.play_duration), 0)
         }
       )
 
@@ -104,7 +96,7 @@ defmodule StreamystatServer.Statistics do
 
         where(
           base_query,
-          [i, pa],
+          [i, ps],
           ilike(i.name, ^search_term) or
             ilike(fragment("?::text", i.production_year), ^search_term) or
             ilike(i.season_name, ^search_term) or
@@ -118,16 +110,16 @@ defmodule StreamystatServer.Statistics do
     query =
       case {sort_by, sort_order} do
         {:watch_count, :asc} ->
-          order_by(query, [i, pa], asc: coalesce(count(pa.id), 0))
+          order_by(query, [i, ps], asc: coalesce(count(ps.id), 0))
 
         {:watch_count, :desc} ->
-          order_by(query, [i, pa], desc: coalesce(count(pa.id), 0))
+          order_by(query, [i, ps], desc: coalesce(count(ps.id), 0))
 
         {:total_watch_time, :asc} ->
-          order_by(query, [i, pa], asc: coalesce(sum(pa.play_duration), 0))
+          order_by(query, [i, ps], asc: coalesce(sum(ps.play_duration), 0))
 
         {:total_watch_time, :desc} ->
-          order_by(query, [i, pa], desc: coalesce(sum(pa.play_duration), 0))
+          order_by(query, [i, ps], desc: coalesce(sum(ps.play_duration), 0))
       end
 
     # Paginate items
@@ -179,40 +171,37 @@ defmodule StreamystatServer.Statistics do
   end
 
   defp get_stats(start_date, end_date, server_id, user_id) do
-    start_datetime = to_naive_datetime(start_date)
-    end_datetime = to_naive_datetime(end_date, :end_of_day)
+    start_datetime = to_datetime(start_date)
+    end_datetime = to_datetime(end_date, :end_of_day)
 
     query =
-      from(pa in PlaybackActivity,
-        join: i in StreamystatServer.Jellyfin.Item,
-        on: pa.item_id == i.jellyfin_id,
-        where: pa.date_created >= ^start_datetime and pa.date_created <= ^end_datetime,
-        order_by: [asc: pa.date_created],
+      from(ps in PlaybackSession,
+        left_join: i in Item,
+        on: ps.item_jellyfin_id == i.jellyfin_id and ps.server_id == i.server_id,
+        where: ps.start_time >= ^start_datetime and ps.start_time <= ^end_datetime,
+        order_by: [asc: ps.start_time],
         preload: [:user],
         select: %{
-          date_created: pa.date_created,
-          item_id: i.jellyfin_id,
+          date_created: ps.start_time,
+          item_id: ps.item_jellyfin_id,
           item: i,
-          user_id: pa.user_id,
-          play_duration: pa.play_duration,
-          playback_activity: pa
+          user_id: ps.user_id,
+          play_duration: ps.play_duration,
+          playback_session: ps
         }
       )
 
-    query = if server_id, do: query |> where([pa], pa.server_id == ^server_id), else: query
-    query = if user_id, do: query |> where([pa], pa.user_id == ^user_id), else: query
+    query = if server_id, do: query |> where([ps], ps.server_id == ^server_id), else: query
+    query = if user_id, do: query |> where([ps], ps.user_jellyfin_id == ^user_id), else: query
 
     Repo.all(query)
   end
 
-  defp to_naive_datetime(date, time \\ :beginning_of_day) do
+  defp to_datetime(date, time \\ :beginning_of_day) do
+    time_struct = if time == :end_of_day, do: Time.new!(23, 59, 59), else: Time.new!(0, 0, 0)
+
     date
-    |> DateTime.new!(Time.new!(0, 0, 0), "Etc/UTC")
-    |> DateTime.to_naive()
-    |> then(fn
-      naive_dt when time == :end_of_day -> NaiveDateTime.add(naive_dt, 86399, :second)
-      naive_dt -> naive_dt
-    end)
+    |> DateTime.new!(time_struct, "Etc/UTC")
   end
 
   defp get_total_watch_time(stats) do
@@ -223,12 +212,11 @@ defmodule StreamystatServer.Statistics do
   end
 
   defp get_top_watched_items(stats) do
-    alias StreamystatServer.Jellyfin.Item
-    alias StreamystatServer.Repo
-    import Ecto.Query
-
     stats
-    |> Enum.group_by(& &1.item.type)
+    |> Enum.group_by(fn
+      %{item: %{type: type}} when not is_nil(type) -> type
+      _ -> "Unknown"
+    end)
     |> Enum.map(fn {item_type, type_stats} ->
       top_items =
         type_stats
@@ -237,27 +225,36 @@ defmodule StreamystatServer.Statistics do
           total_play_count = length(items)
           total_play_duration = Enum.sum(Enum.map(items, & &1.play_duration))
 
-          item_query =
-            from(i in Item,
-              where: i.jellyfin_id == ^item_id,
-              select: %{
-                id: i.id,
-                name: i.name,
-                type: i.type,
-                production_year: i.production_year,
-                series_name: i.series_name,
-                season_name: i.season_name,
-                index_number: i.index_number,
-                jellyfin_id: i.jellyfin_id
+          case Enum.at(items, 0).item do
+            %Item{} = item ->
+              %{
+                id: item.id,
+                name: item.name,
+                type: item.type,
+                production_year: item.production_year,
+                series_name: item.series_name,
+                season_name: item.season_name,
+                index_number: item.index_number,
+                jellyfin_id: item.jellyfin_id,
+                total_play_count: total_play_count,
+                total_play_duration: total_play_duration
               }
-            )
 
-          item_data = Repo.one(item_query)
-
-          Map.merge(item_data, %{
-            total_play_count: total_play_count,
-            total_play_duration: total_play_duration
-          })
+            _ ->
+              # Handle case where item might be nil
+              %{
+                id: nil,
+                name: "Unknown Item",
+                type: item_type,
+                production_year: nil,
+                series_name: nil,
+                season_name: nil,
+                index_number: nil,
+                jellyfin_id: item_id,
+                total_play_count: total_play_count,
+                total_play_duration: total_play_duration
+              }
+          end
         end)
         |> Enum.sort_by(& &1.total_play_duration, :desc)
         |> Enum.take(10)
@@ -272,7 +269,10 @@ defmodule StreamystatServer.Statistics do
   defp get_watchtime_per_day(stats) do
     stats
     |> Enum.group_by(
-      fn stat -> {NaiveDateTime.to_date(stat.date_created), stat.item.type} end,
+      fn stat ->
+        item_type = if stat.item, do: stat.item.type, else: "Unknown"
+        {DateTime.to_date(stat.date_created), item_type}
+      end,
       fn stat -> stat.play_duration || 0 end
     )
     |> Enum.map(fn {{date, item_type}, durations} ->
@@ -300,10 +300,10 @@ defmodule StreamystatServer.Statistics do
 
   defp get_average_watchtime_per_week_day(stats) do
     stats
-    |> Enum.group_by(&Date.day_of_week(NaiveDateTime.to_date(&1.date_created)))
+    |> Enum.group_by(&Date.day_of_week(DateTime.to_date(&1.date_created)))
     |> Enum.map(fn {day_of_week, items} ->
       total_duration = Enum.sum(Enum.map(items, &(&1.play_duration || 0)))
-      average_duration = total_duration / length(items)
+      average_duration = if length(items) > 0, do: total_duration / length(items), else: 0
 
       %{
         day_of_week: day_of_week,

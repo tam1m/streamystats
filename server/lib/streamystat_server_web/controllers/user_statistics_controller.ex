@@ -1,7 +1,7 @@
 defmodule StreamystatServerWeb.UserStatisticsController do
   use StreamystatServerWeb, :controller
   alias StreamystatServer.Statistics
-  alias StreamystatServer.Jellyfin.PlaybackActivity
+  alias StreamystatServer.Jellyfin.PlaybackSession
   alias StreamystatServer.Repo
   import Ecto.Query
   require Logger
@@ -38,11 +38,11 @@ defmodule StreamystatServerWeb.UserStatisticsController do
 
     query =
       if is_admin?(current_user) do
-        from(pa in PlaybackActivity, order_by: [desc: pa.date_created], preload: [:user])
+        from(ps in PlaybackSession, order_by: [desc: ps.start_time], preload: [:user])
       else
-        from(pa in PlaybackActivity,
-          where: pa.user_id == ^current_user["Id"],
-          order_by: [desc: pa.date_created],
+        from(ps in PlaybackSession,
+          where: ps.user_jellyfin_id == ^current_user["Id"],
+          order_by: [desc: ps.start_time],
           preload: [:user]
         )
       end
@@ -63,7 +63,7 @@ defmodule StreamystatServerWeb.UserStatisticsController do
     paginated_query =
       case params["server_id"] do
         nil -> paginated_query
-        server_id -> paginated_query |> where([pa], pa.server_id == ^server_id)
+        server_id -> paginated_query |> where([ps], ps.server_id == ^server_id)
       end
 
     watch_activity = Repo.all(paginated_query)

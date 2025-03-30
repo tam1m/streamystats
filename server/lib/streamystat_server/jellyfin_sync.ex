@@ -140,35 +140,6 @@ defmodule StreamystatServer.JellyfinSync do
     result
   end
 
-  def sync_playback_stats(server, sync_type) when sync_type in [:full, :partial] do
-    Logger.info("Starting #{sync_type} playback stats sync for server #{server.name}")
-
-    case check_playback_reporting_plugin(server) do
-      {:ok, true} ->
-        # For full sync, start from the beginning (last_synced_id = 0)
-        # For partial sync, use the last synced ID from the server record
-        last_synced_id = if sync_type == :full, do: 0, else: server.last_synced_playback_id || 0
-
-        case fetch_and_sync_playback_data(server, last_synced_id) do
-          {:ok, total_count} ->
-            Logger.info("Successfully synced #{total_count} playback records")
-            {:ok, total_count}
-
-          {:error, reason} ->
-            Logger.error("Failed to sync playback stats: #{inspect(reason)}")
-            {:error, reason}
-        end
-
-      {:ok, false} ->
-        Logger.info("Playback Reporting Plugin not detected. Skipping playback stats sync.")
-        {:ok, :plugin_not_found}
-
-      {:error, reason} ->
-        Logger.error("Error checking Playback Reporting Plugin: #{inspect(reason)}")
-        {:error, reason}
-    end
-  end
-
   defp sync_activities_batch(server, start_index, batch_size, total_synced) do
     case JellyfinClient.get_activities(server, start_index, batch_size) do
       {:ok, []} ->
