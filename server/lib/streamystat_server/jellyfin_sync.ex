@@ -415,10 +415,16 @@ defmodule StreamystatServer.JellyfinSync do
   defp map_jellyfin_library(jellyfin_library, server_id) do
     type = jellyfin_library["CollectionType"] || "unknown"
 
+    sanitized_type =
+      case sanitize_string(type) do
+        nil -> "unknown"
+        sanitized -> sanitized
+      end
+
     %{
       jellyfin_id: jellyfin_library["Id"],
       name: sanitize_string(jellyfin_library["Name"]),
-      type: sanitize_string(type),
+      type: sanitized_type,
       server_id: server_id,
       inserted_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second),
       updated_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
