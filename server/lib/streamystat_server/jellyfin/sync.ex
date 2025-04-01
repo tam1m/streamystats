@@ -583,6 +583,17 @@ defmodule StreamystatServer.Jellyfin.Sync do
   end
 
   defp map_jellyfin_item(jellyfin_item, library_id, server_id) do
+    # Get primary image tag if it exists
+    primary_image_tag =
+      case jellyfin_item["ImageTags"] do
+        nil -> nil
+        tags when is_map(tags) -> Map.get(tags, "Primary")
+        _ -> nil
+      end
+
+    # Handle additional image tags
+    backdrop_image_tags = jellyfin_item["BackdropImageTags"]
+
     %{
       jellyfin_id: jellyfin_item["Id"],
       name: sanitize_string(jellyfin_item["Name"]),
@@ -615,6 +626,8 @@ defmodule StreamystatServer.Jellyfin.Sync do
       season_name: sanitize_string(jellyfin_item["SeasonName"]),
       series_studio: sanitize_string(jellyfin_item["SeriesStudio"]),
       index_number: jellyfin_item["IndexNumber"],
+      primary_image_tag: sanitize_string(primary_image_tag),
+      backdrop_image_tags: backdrop_image_tags,
       inserted_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second),
       updated_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
     }

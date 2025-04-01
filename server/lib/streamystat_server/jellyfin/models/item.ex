@@ -35,6 +35,8 @@ defmodule StreamystatServer.Jellyfin.Models.Item do
     field(:season_name, :string)
     field(:series_studio, :string)
     field(:index_number, :integer)
+    field(:primary_image_tag, :string)
+    field(:backdrop_image_tags, {:array, :string})
     belongs_to(:library, Library)
     belongs_to(:server, Server)
 

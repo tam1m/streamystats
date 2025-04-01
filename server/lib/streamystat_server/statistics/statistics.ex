@@ -307,7 +307,10 @@ defmodule StreamystatServer.Statistics.Statistics do
                 index_number: item.index_number,
                 jellyfin_id: item.jellyfin_id,
                 total_play_count: total_play_count,
-                total_play_duration: total_play_duration
+                total_play_duration: total_play_duration,
+                primary_image_tag: item.primary_image_tag,
+                series_primary_image_tag: item.series_primary_image_tag,
+                series_id: item.series_id,
               }
 
             _ ->
@@ -322,7 +325,10 @@ defmodule StreamystatServer.Statistics.Statistics do
                 index_number: nil,
                 jellyfin_id: item_id,
                 total_play_count: total_play_count,
-                total_play_duration: total_play_duration
+                total_play_duration: total_play_duration,
+                primary_image_tag: nil,
+                series_primary_image_tag: nil,
+                series_id: nil,
               }
           end
         end)

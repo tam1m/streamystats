@@ -32,7 +32,11 @@ export type MostWatchedItem = {
   total_play_count: number;
   total_play_duration: number;
   jellyfin_id: string;
+  primary_image_tag: string | null;
+  series_id: string | null;
+  series_primary_image_tag: string | null;
 };
+
 export type Statistics = {
   most_watched_items?: {
     Movie?: MostWatchedItem[];
