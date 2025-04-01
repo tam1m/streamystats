@@ -11,7 +11,6 @@ defmodule StreamystatServerWeb.UserController do
     users_with_details =
       Enum.map(users, fn user ->
         watch_stats = Users.get_user_watch_stats(server_id, user.id)
-        Logger.debug("User ID: #{user.id}, Watch Stats: #{inspect(watch_stats)}")
         %{user: user, watch_stats: watch_stats}
       end)
 

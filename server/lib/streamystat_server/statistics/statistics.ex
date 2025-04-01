@@ -20,7 +20,8 @@ defmodule StreamystatServer.Statistics.Statistics do
       most_watched_items: get_top_watched_items(stats),
       watchtime_per_day: get_watchtime_per_day(stats),
       average_watchtime_per_week_day: get_average_watchtime_per_week_day(stats),
-      total_watch_time: get_total_watch_time(stats)
+      total_watch_time: get_total_watch_time(stats),
+      most_watched_date: get_most_watched_date(stats)
     }
   end
 
@@ -168,6 +169,25 @@ defmodule StreamystatServer.Statistics.Statistics do
       sort_by: sort_by,
       sort_order: sort_order
     }
+  end
+
+  def get_most_watched_date(stats) do
+    case stats do
+      [] -> nil
+      _ ->
+        stats
+        |> Enum.group_by(
+          fn stat -> DateTime.to_date(stat.date_created) end,
+          fn stat -> stat.play_duration || 0 end
+        )
+        |> Enum.map(fn {date, durations} ->
+          %{
+            date: date,
+            total_duration: Enum.sum(durations)
+          }
+        end)
+        |> Enum.max_by(& &1.total_duration, fn -> %{date: nil, total_duration: 0} end)
+    end
   end
 
   defp get_stats(start_date, end_date, server_id, user_id) do
