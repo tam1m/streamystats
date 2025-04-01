@@ -2,11 +2,12 @@ import { Container } from "@/components/Container";
 import { PageTitle } from "@/components/PageTitle";
 import { getServer, getStatistics, getUser } from "@/lib/db";
 import { redirect } from "next/navigation";
-import { MostPopularItems } from "./MostPopularItems";
+import { MostWatchedItems } from "./MostWatchedItems";
 import { WatchTimeGraph } from "./WatchTimeGraph";
 import { WatchTimePerWeekDay } from "./WatchTimePerWeekDay";
 import { getMe } from "@/lib/me";
 import TotalWatchTime from "./TotalWatchTime";
+import MostWatchedDate from "./MostWatchedDate";
 
 export default async function DashboardPage({
   params,
@@ -30,8 +31,11 @@ export default async function DashboardPage({
       <PageTitle title="Statistics" />
       {data?.most_watched_items && data.watchtime_per_day ? (
         <div className="flex flex-col gap-6">
-          <TotalWatchTime data={data.total_watch_time} />
-          <MostPopularItems data={data.most_watched_items} server={server} />
+          <div className="flex md:flex-row flex-col gap-2">
+            <TotalWatchTime data={data.total_watch_time} />
+            <MostWatchedDate data={data.most_watched_date} />
+          </div>
+          <MostWatchedItems data={data.most_watched_items} server={server} />
           <WatchTimeGraph data={data.watchtime_per_day} />
           <WatchTimePerWeekDay data={data.average_watchtime_per_week_day} />
         </div>

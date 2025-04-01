@@ -52,6 +52,10 @@ export type Statistics = {
     average_duration: number;
   }[];
   total_watch_time: number;
+  most_watched_date: {
+    date: string;
+    total_duration: number;
+  };
 };
 
 export type PlaybackActivity = {

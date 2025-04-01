@@ -15,27 +15,35 @@ interface Props {
   server: Server;
 }
 
-export const MostPopularItems: React.FC<Props> = ({ data, server }) => {
+export const MostWatchedItems: React.FC<Props> = ({ data, server }) => {
   const renderItems = (items: MostWatchedItem[], type: "Movie" | "Episode") => (
     <div>
       <h2 className="text-xl font-bold mb-4">Most Watched {type}s</h2>
+      {items.length === 0 && (
+        <p className="text-neutral-500">
+          No {type.toLowerCase()}s watched yet.
+        </p>
+      )}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {items?.slice(0, 3).map((item) => (
           <Card key={item.id}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative">
               <CardTitle>
-                {item.name}
                 {item.type === "Episode" && (
-                  <div>
-                    <p className="text-sm">{item.series_name}</p>
-                    <p className="text-sm text-neutral-500">
+                  <div className="flex gap-1 flex-col">
+                    <p className="text-sm text-neutral-500 font-normal">
+                      {item.series_name}
+                    </p>
+                    <p>{item.name}</p>
+                    <p className="text-sm text-neutral-500 font-normal">
                       {`${item.season_name} - Episode ${item.index_number}`}
                     </p>
                   </div>
                 )}
                 {item.type === "Movie" && (
-                  <div>
-                    <p className="text-sm text-neutral-500">
+                  <div className="flex flex-col gap-1">
+                    <p>{item.name}</p>
+                    <p className="text-sm text-neutral-500 font-normal">
                       {item.production_year}
                     </p>
                   </div>
