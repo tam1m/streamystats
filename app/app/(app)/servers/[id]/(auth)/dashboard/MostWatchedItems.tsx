@@ -28,7 +28,7 @@ export const MostWatchedItems: React.FC<Props> = ({ data, server }) => {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {items?.slice(0, 3).map((item) => (
           <Card key={item.id} className="flex flex-row items-center">
-            <div className="rounded-lg overflow-hidden w-24 ml-4">
+            <div className="rounded-lg overflow-hidden w-24 ml-4 my-4">
               <Poster item={item} server={server} />
             </div>
             <div className="flex-1">
