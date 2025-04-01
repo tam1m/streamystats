@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { login, Server } from "@/lib/db";
-import { useRouter } from "next/navigation";
+import { useRouter } from "nextjs-toploader/app";
 import { toast } from "sonner";
 import { tokenAtom } from "@/lib/atoms/tokenAtom";
 import { useAtom } from "jotai/react";

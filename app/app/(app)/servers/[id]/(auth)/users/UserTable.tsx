@@ -35,7 +35,7 @@ import {
 } from "@/components/ui/table";
 import { Server, User } from "@/lib/db";
 import { formatDuration } from "@/lib/utils";
-import { useRouter } from "next/navigation";
+import { useRouter } from "nextjs-toploader/app";
 
 export interface UserTableProps {
   data: User[];

@@ -394,7 +394,7 @@ export type ActivitiesResponse = {
 
 export const getActivities = async (
   serverId: number,
-  page = 1
+  page = "1"
 ): Promise<ActivitiesResponse> => {
   const queryParams = new URLSearchParams({
     page: page.toString(),
@@ -443,13 +443,26 @@ export type ItemWatchStats = {
   watch_count: number;
 };
 
-export const getStatisticsItems = async (
+export type ItemWatchStatsResponse = {
+  page: number;
+  per_page: number;
+  total_items: number;
+  total_pages: number;
+  data: ItemWatchStats[];
+};
+
+export const getLibraryItems = async (
   serverId: number,
-  page = 1,
+  page = "1",
+  sort_order = "desc",
+  sort_by = "total_watch_time",
   search?: string
-): Promise<ItemWatchStats[]> => {
+): Promise<ItemWatchStatsResponse> => {
   const queryParams = new URLSearchParams({
-    page: page.toString(),
+    page: page,
+    sort_order,
+    sort_by,
+    search: search || "",
   });
 
   if (search) {
@@ -470,11 +483,17 @@ export const getStatisticsItems = async (
   );
 
   if (!res.ok) {
-    return [];
+    return {
+      data: [],
+      page: 1,
+      per_page: 0,
+      total_pages: 1,
+      total_items: 0,
+    };
   }
 
   const data = await res.json();
-  return data.data;
+  return data;
 };
 
 export async function getUnwatchedItems(

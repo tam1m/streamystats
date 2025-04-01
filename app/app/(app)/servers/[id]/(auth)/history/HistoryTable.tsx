@@ -36,7 +36,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { PlaybackActivity, Server } from "@/lib/db";
-import { useRouter } from "next/navigation";
+import { useRouter } from "nextjs-toploader/app";
 import { formatDuration } from "@/lib/utils";
 
 export interface HistoryTableProps {
