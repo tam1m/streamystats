@@ -25,6 +25,56 @@ defmodule StreamystatServer.Statistics.Statistics do
     }
   end
 
+  def get_unwatched_items(server_id, type \\ "Movie", page \\ 1, per_page \\ 20) do
+    # Validate type parameter
+    type = if type in ["Movie", "Series", "Episode"], do: type, else: "Movie"
+
+    # Build a subquery to find all item ids that have been watched
+    watched_items_query =
+      from ps in PlaybackSession,
+      where: ps.server_id == ^server_id,
+      select: ps.item_jellyfin_id
+
+    # Main query to find all items of given type that don't have playback sessions
+    query =
+      from i in Item,
+      where: i.server_id == ^server_id and i.type == ^type,
+      where: not(i.jellyfin_id in subquery(watched_items_query)),
+      order_by: [desc: i.date_created],
+      select: i
+
+    # Calculate pagination values
+    offset = (page - 1) * per_page
+
+    # Execute query with pagination
+    items =
+      query
+      |> limit(^per_page)
+      |> offset(^offset)
+      |> Repo.all()
+
+    # Count total items for pagination metadata
+    total_items =
+      from(i in Item,
+        where: i.server_id == ^server_id and i.type == ^type,
+        where: not(i.jellyfin_id in subquery(watched_items_query)),
+        select: count(i.id)
+      )
+      |> Repo.one()
+
+    # Calculate total pages
+    total_pages = div(total_items + per_page - 1, per_page)
+
+    # Return paginated result with metadata
+    %{
+      items: items,
+      page: page,
+      per_page: per_page,
+      total_items: total_items,
+      total_pages: total_pages
+    }
+  end
+
   def get_library_statistics(server_id) do
     %{
       movies_count:

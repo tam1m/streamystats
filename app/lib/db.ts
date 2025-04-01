@@ -477,6 +477,42 @@ export const getStatisticsItems = async (
   return data.data;
 };
 
+export async function getUnwatchedItems(
+  serverId: number,
+  page = 1,
+  type = "movie"
+) {
+  try {
+    const queryParams = new URLSearchParams({
+      page: page.toString(),
+      type: type,
+    });
+
+    const res = await fetch(
+      `${
+        process.env.API_URL
+      }/servers/${serverId}/statistics/unwatched?${queryParams.toString()}`,
+      {
+        cache: "no-store",
+        headers: {
+          Authorization: `Bearer ${await getToken()}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!res.ok) {
+      console.error("Failed to fetch unwatched items:", res.statusText);
+      throw new Error("Failed to fetch unwatched items");
+    }
+
+    return await res.json();
+  } catch (error) {
+    console.error("Error fetching unwatched items:", error);
+    return null;
+  }
+}
+
 export const logout = async (): Promise<void> => {
   cookies().delete("streamystats-token");
   cookies().delete("streamystats-user");

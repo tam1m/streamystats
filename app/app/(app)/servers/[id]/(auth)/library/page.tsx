@@ -1,9 +1,15 @@
 import { Container } from "@/components/Container";
 import { PageTitle } from "@/components/PageTitle";
-import { getServer, getStatisticsItems, getStatisticsLibrary } from "@/lib/db";
+import {
+  getServer,
+  getStatisticsItems,
+  getStatisticsLibrary,
+  getUnwatchedItems,
+} from "@/lib/db";
 import { redirect } from "next/navigation";
 import { ItemWatchStatsTable } from "./ItemWatchStatsTable";
 import { LibraryStatisticsCards } from "./LibraryStatisticsCards";
+import { UnwatchedTable } from "@/components/UnwatchedTable";
 
 export default async function DashboardPage({
   params,
@@ -18,6 +24,7 @@ export default async function DashboardPage({
   }
 
   const libraryStats = await getStatisticsLibrary(server.id);
+  const unwatchedItems = await getUnwatchedItems(server.id);
 
   return (
     <Container>
@@ -27,6 +34,7 @@ export default async function DashboardPage({
       />
       <LibraryStatisticsCards data={libraryStats} />
       <ItemWatchStatsTable server={server} />
+      {/* <UnwatchedTable server={server} data={unwatchedItems} /> */}
     </Container>
   );
 }
