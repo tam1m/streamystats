@@ -55,10 +55,23 @@ const getMe = async (request: NextRequest): Promise<Result<UserMe>> => {
   const c = request.cookies;
   const userStr = c.get("streamystats-user");
 
+  // Debug logging
+  console.log("Cookie exists:", !!userStr);
+
   try {
     const me = userStr?.value ? JSON.parse(userStr.value) : undefined;
+
+    // Debug logging
+    console.log("Parsed cookie:", me);
+
     if (me && me.name && me.serverId) {
+      // Debug logging
+      console.log("Required fields present, validating auth...");
+
       const isValid = await validateUserAuth(request, me);
+
+      // Debug logging
+      console.log("Auth validation result:", isValid);
 
       if (isValid) {
         return {
@@ -71,6 +84,9 @@ const getMe = async (request: NextRequest): Promise<Result<UserMe>> => {
           error: "Invalid user cookie",
         };
       }
+    } else {
+      // Debug logging
+      console.log("Missing required fields in cookie");
     }
   } catch (e) {
     console.error(
@@ -106,6 +122,10 @@ const validateUserAuth = async (request: NextRequest, me: UserMe) => {
       .then((res) => res.data);
 
     if (user) return true;
+    else {
+      console.log("User not found in server", me.serverId, "for user", me.name);
+      return false;
+    }
   } catch (e) {
     console.error("Failed to validate user auth", e);
   }
@@ -149,9 +169,11 @@ export async function middleware(request: NextRequest) {
     // Get user from cookies if exists
     const meResult = await getMe(request);
 
+    console.log("meResult ~", meResult);
+
     // If the user is not logged in
     if (meResult.type === ResultType.Error) {
-      console.error("User is not logged in, removing cookies");
+      console.error("User is not logged in, removing cookies.", meResult.error);
       response.cookies.delete("streamystats-user");
       response.cookies.delete("streamystats-token");
 

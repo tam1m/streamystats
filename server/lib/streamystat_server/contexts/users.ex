@@ -4,9 +4,40 @@ defmodule StreamystatServer.Contexts.Users do
   alias StreamystatServer.Jellyfin.Models.User
   alias StreamystatServer.Sessions.Models.PlaybackSession
   alias Decimal
+  require Logger
 
   def get_users(server_id) do
     Repo.all(from(u in User, where: u.server_id == ^server_id))
+  end
+
+  @doc """
+  Creates an initial user record from Jellyfin user data.
+  This function is called when a user logs in for the first time
+  before being synced through the regular sync process.
+  """
+  def create_initial_user(server_id, jellyfin_user) do
+    # Create a basic user record with minimal information
+    user_params = %{
+      jellyfin_id: jellyfin_user["Id"],
+      name: jellyfin_user["Name"],
+      server_id: server_id,
+      last_login: DateTime.utc_now(),
+      total_watch_time: 0,
+      play_count: 0
+    }
+
+    %User{}
+    |> User.changeset(user_params)
+    |> Repo.insert()
+    |> case do
+      {:ok, user} ->
+        Logger.info("Successfully created initial user: #{user.name} (#{user.jellyfin_id})")
+        {:ok, user}
+
+      {:error, changeset} ->
+        Logger.error("Failed to create initial user: #{inspect(changeset.errors)}")
+        {:error, changeset}
+    end
   end
 
   def get_user(server_id, user_id) do

@@ -65,6 +65,7 @@ export const SignInForm: React.FC<Props> = ({ server }) => {
     } catch (error) {
       toast.error("Error logging in");
       console.error("Error logging in:", error);
+    } finally {
       setLoading(false);
     }
   }

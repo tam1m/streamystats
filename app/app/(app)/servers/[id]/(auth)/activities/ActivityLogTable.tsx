@@ -239,7 +239,7 @@ export function ActivityLogTable({ server }: ActivityLogTableProps) {
             <p className="text-sm text-neutral-500">
               {((data?.page || 0) - 1) * (data?.per_page || 0) + 1} -{" "}
               {((data?.page || 0) - 1) * (data?.per_page || 0) +
-                (data?.data.length || 0)}{" "}
+                (data?.data?.length || 0)}{" "}
               of {data?.total_items} results.
             </p>
           </div>

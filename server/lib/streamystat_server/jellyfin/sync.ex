@@ -1,10 +1,12 @@
 defmodule StreamystatServer.Jellyfin.Sync do
+  import Ecto.Query
   alias StreamystatServer.Repo
   alias StreamystatServer.Jellyfin.Client
   alias StreamystatServer.Jellyfin.Models.Library
   alias StreamystatServer.Jellyfin.Models.Item
   alias StreamystatServer.Jellyfin.Models.User
   alias StreamystatServer.Activities.Models.Activity
+
   require Logger
 
   @item_page_size 500
@@ -27,8 +29,12 @@ defmodule StreamystatServer.Jellyfin.Sync do
       {:ok, jellyfin_users} ->
         users_data = Enum.map(jellyfin_users, &map_jellyfin_user(&1, server.id))
 
+        # Extract jellyfin_ids from the API response to identify active users
+        jellyfin_ids = Enum.map(jellyfin_users, fn user -> user["Id"] end)
+
         Repo.transaction(fn ->
-          {count, _} =
+          # Insert or update existing users
+          {updated_count, _} =
             Repo.insert_all(
               StreamystatServer.Jellyfin.Models.User,
               users_data,
@@ -36,12 +42,18 @@ defmodule StreamystatServer.Jellyfin.Sync do
               conflict_target: [:jellyfin_id, :server_id]
             )
 
-          count
+          # Delete users that no longer exist in Jellyfin
+          {deleted_count, _} =
+            from(u in User,
+                where: u.server_id == ^server.id and u.jellyfin_id not in ^jellyfin_ids)
+            |> Repo.delete_all()
+
+          {updated_count, deleted_count}
         end)
         |> case do
-          {:ok, count} ->
-            Logger.info("Successfully synced #{count} users for server #{server.name}")
-            {:ok, count}
+          {:ok, {updated_count, deleted_count}} ->
+            Logger.info("Successfully synced users for server #{server.name} - Updated: #{updated_count}, Deleted: #{deleted_count}")
+            {:ok, %{updated: updated_count, deleted: deleted_count}}
 
           {:error, reason} ->
             Logger.error("Failed to sync users for server #{server.name}: #{inspect(reason)}")
