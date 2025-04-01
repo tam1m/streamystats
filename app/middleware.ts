@@ -94,7 +94,7 @@ const validateUserAuth = async (request: NextRequest, me: UserMe) => {
   const c = request.cookies;
   try {
     const user: User = await fetch(
-      process.env.API_URL + "/servers/" + me.serverId + "/users/" + me.name,
+      process.env.API_URL + "/servers/" + me.serverId + "/users/" + me.id,
       {
         cache: "no-store",
         headers: {
@@ -107,19 +107,11 @@ const validateUserAuth = async (request: NextRequest, me: UserMe) => {
       .then((res) => res.data);
 
     if (user) return true;
-    else {
-      console.warn(
-        "User not found in server",
-        me.serverId,
-        "for user",
-        me.name
-      );
-      return false;
-    }
   } catch (e) {
     console.error("Failed to validate user auth", e);
   }
 
+  console.warn("User not found in server", me.serverId, "for user", me.name);
   return false;
 };
 

@@ -40,7 +40,8 @@ defmodule StreamystatServer.Jellyfin.Models.User do
     field(:password_reset_provider_id, :string)
     field(:sync_play_access, :string)
 
-    belongs_to(:server, StreamystatServer.Jellyfin.Models.User)
+    # Fix: Change this to reference the correct server model
+    belongs_to(:server, StreamystatServer.Jellyfin.Models.Server)
 
     timestamps()
   end
@@ -50,6 +51,7 @@ defmodule StreamystatServer.Jellyfin.Models.User do
     |> cast(attrs, [
       :jellyfin_id,
       :name,
+      :server_id,  # Add server_id to the allowed fields list
       :has_password,
       :has_configured_password,
       :has_configured_easy_password,

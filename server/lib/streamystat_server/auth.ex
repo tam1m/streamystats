@@ -49,7 +49,13 @@ defmodule StreamystatServer.Auth do
 
         case Repo.get_by(User, jellyfin_id: user_jellyfin_id) do
           nil ->
-            {:error, "User not found in the database"}
+            # User not found in database, create them
+            case StreamystatServer.Contexts.Users.create_initial_user(server.id, parsed_body) do
+              {:ok, user} ->
+                {:ok, user.id}
+              {:error, _reason} ->
+                {:error, "Failed to create user in the database"}
+            end
 
           user ->
             {:ok, user.id}

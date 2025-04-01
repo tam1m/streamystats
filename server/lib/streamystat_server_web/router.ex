@@ -48,7 +48,7 @@ defmodule StreamystatServerWeb.Router do
     scope "/servers/:server_id", as: :protected do
       pipe_through(:auth)
 
-      get("/me", UserController, :me)
+      # get("/me", UserController, :me)
       get("/statistics", UserStatisticsController, :index)
       get("/statistics/history", UserStatisticsController, :history)
       get("/statistics/items", UserStatisticsController, :items)

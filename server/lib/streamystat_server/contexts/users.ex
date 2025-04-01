@@ -16,6 +16,8 @@ defmodule StreamystatServer.Contexts.Users do
   before being synced through the regular sync process.
   """
   def create_initial_user(server_id, jellyfin_user) do
+    Logger.debug("Creating initial user for server_id: #{inspect(server_id)}")
+
     # Create a basic user record with minimal information
     user_params = %{
       jellyfin_id: jellyfin_user["Id"],
@@ -26,47 +28,50 @@ defmodule StreamystatServer.Contexts.Users do
       play_count: 0
     }
 
+    Logger.debug("User params with server_id #{inspect(server_id)}: #{inspect(user_params)}")
+
     %User{}
     |> User.changeset(user_params)
     |> Repo.insert()
     |> case do
       {:ok, user} ->
-        Logger.info("Successfully created initial user: #{user.name} (#{user.jellyfin_id})")
+        Logger.info("Successfully created initial user: #{user.name} (#{user.jellyfin_id}) for server_id: #{inspect(server_id)}")
         {:ok, user}
 
       {:error, changeset} ->
-        Logger.error("Failed to create initial user: #{inspect(changeset.errors)}")
+        Logger.error("Failed to create initial user for server_id #{inspect(server_id)}: #{inspect(changeset.errors)}")
         {:error, changeset}
     end
   end
 
   def get_user(server_id, user_id) do
-    # Try to parse the user_id as an integer if it's a string
-    parsed_user_id =
-      case user_id do
-        id when is_integer(id) ->
-          id
+    Logger.debug("Getting user with ID: #{inspect(user_id)} for server: #{inspect(server_id)}")
 
-        id when is_binary(id) ->
-          case Integer.parse(id) do
-            {num, _} ->
-              num
+    # First, try to find the user by jellyfin_id directly
+    case Repo.get_by(User, jellyfin_id: user_id, server_id: server_id) do
+      %User{} = user ->
+        Logger.debug("Found user by jellyfin_id: #{user.jellyfin_id}, id: #{user.id}")
+        user
 
-            :error ->
-              # If it can't be parsed as an integer, check if it's a jellyfin_id instead
-              user = Repo.get_by(User, jellyfin_id: user_id, server_id: server_id)
-              if user, do: user.id, else: nil
-          end
+      nil ->
+        # If not found by jellyfin_id, try to see if it's a database ID (integer)
+        case Integer.parse(user_id) do
+          {id, ""} ->
+            # It's a valid integer, try to find by id
+            user = Repo.get_by(User, id: id, server_id: server_id)
+            if user do
+              Logger.debug("Found user by database id: #{user.id}")
+              user
+            else
+              Logger.debug("No user found with database id: #{id}")
+              nil
+            end
 
-        _ ->
-          nil
-      end
-
-    if parsed_user_id do
-      Repo.get_by(User, id: parsed_user_id, server_id: server_id)
-    else
-      # Try to find by name as a fallback
-      Repo.get_by(User, name: user_id, server_id: server_id)
+          _ ->
+            # Try to find by name as a last resort
+            Logger.debug("Trying to find user by name: #{inspect(user_id)}")
+            Repo.get_by(User, name: user_id, server_id: server_id)
+        end
     end
   end
 
