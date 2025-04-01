@@ -2,7 +2,7 @@ defmodule StreamystatServerWeb.UserController do
   use StreamystatServerWeb, :controller
   alias StreamystatServer.Contexts.Users
   alias StreamystatServer.Auth
-  alias StreamystatServer.Servers
+  alias StreamystatServer.Servers.Servers
   require Logger
 
   def index(conn, %{"server_id" => server_id}) do

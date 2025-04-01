@@ -1,11 +1,11 @@
-defmodule StreamystatServer.Servers do
+defmodule StreamystatServer.Jellyfin.Users do
   import Ecto.Query, warn: false
   alias StreamystatServer.Repo
-  alias StreamystatServer.Servers.Server
-  alias StreamystatServer.Jellyfin.User
-  alias StreamystatServer.Jellyfin.Library
-  alias StreamystatServer.Jellyfin.Item
-  alias StreamystatServer.SyncTask
+  alias StreamystatServer.Servers.Models.Server
+  alias StreamystatServer.Jellyfin.Models.User
+  alias StreamystatServer.Jellyfin.Models.Library
+  alias StreamystatServer.Jellyfin.Models.Item
+  alias StreamystatServer.Workers.SyncTask
   alias HTTPoison
 
   def list_servers do

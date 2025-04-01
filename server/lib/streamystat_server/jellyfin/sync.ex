@@ -1,23 +1,36 @@
-defmodule StreamystatServer.JellyfinSync do
+defmodule StreamystatServer.Jellyfin.Sync do
   alias StreamystatServer.Repo
-  alias StreamystatServer.JellyfinClient
-  alias StreamystatServer.Jellyfin.Library
-  alias StreamystatServer.Jellyfin.Item
-  alias StreamystatServer.Jellyfin.User
-  alias StreamystatServer.Jellyfin.Activity
+  alias StreamystatServer.Jellyfin.Client
+  alias StreamystatServer.Jellyfin.Models.Library
+  alias StreamystatServer.Jellyfin.Models.Item
+  alias StreamystatServer.Jellyfin.Models.User
+  alias StreamystatServer.Activities.Models.Activity
   require Logger
+
+  @item_page_size 500
+  @db_batch_size 1000
+
+  @sync_options %{
+    max_library_concurrency: 2,
+    db_batch_size: 1000,
+    api_request_delay_ms: 100,
+    item_page_size: 500,
+    max_retries: 3,
+    retry_initial_delay_ms: 1000,
+    adaptive_throttling: true
+  }
 
   def sync_users(server) do
     Logger.info("Starting user sync for server #{server.name}")
 
-    case JellyfinClient.get_users(server) do
+    case Client.get_users(server) do
       {:ok, jellyfin_users} ->
         users_data = Enum.map(jellyfin_users, &map_jellyfin_user(&1, server.id))
 
         Repo.transaction(fn ->
           {count, _} =
             Repo.insert_all(
-              StreamystatServer.Jellyfin.User,
+              StreamystatServer.Jellyfin.Models.User,
               users_data,
               on_conflict: {:replace, [:name]},
               conflict_target: [:jellyfin_id, :server_id]
@@ -44,7 +57,7 @@ defmodule StreamystatServer.JellyfinSync do
   def sync_libraries(server) do
     Logger.info("Starting library sync for server #{server.name}")
 
-    case JellyfinClient.get_libraries(server) do
+    case Client.get_libraries(server) do
       {:ok, jellyfin_libraries} ->
         libraries = Enum.map(jellyfin_libraries, &map_jellyfin_library(&1, server.id))
 
@@ -80,18 +93,58 @@ defmodule StreamystatServer.JellyfinSync do
     end
   end
 
-  def sync_items(server) do
+  def sync_items(server, user_options \\ %{}) do
+
+    start_time = System.monotonic_time(:millisecond)
+
+
+    options = Map.merge(@sync_options, user_options)
+
+
+    metrics = %{
+      libraries_processed: 0,
+      items_processed: 0,
+      errors: [],
+      api_requests: 0,
+      database_operations: 0,
+      start_time: DateTime.utc_now()
+    }
+
+
+    {:ok, metrics_agent} = Agent.start_link(fn -> metrics end)
+
     Logger.info("Starting item sync for all libraries")
 
-    case JellyfinClient.get_libraries(server) do
+    result = case Client.get_libraries(server) do
       {:ok, libraries} ->
+
+        max_concurrency = options.max_library_concurrency
+
         results =
-          Enum.map(libraries, fn library ->
-            sync_library_items(server, library["Id"])
-          end)
+          Task.async_stream(
+            libraries,
+            fn library ->
+
+              update_metrics(metrics_agent, %{api_requests: 1})
+
+
+              result = sync_library_items(server, library["Id"], metrics_agent, options)
+
+
+              update_metrics(metrics_agent, %{libraries_processed: 1})
+
+              result
+            end,
+            max_concurrency: max_concurrency,
+            timeout: 600_000
+          )
+          |> Enum.map(fn {:ok, result} -> result end)
 
         total_count = Enum.sum(Enum.map(results, fn {_, count, _} -> count end))
         total_errors = Enum.flat_map(results, fn {_, _, errors} -> errors end)
+
+
+        update_metrics(metrics_agent, %{items_processed: total_count, errors: total_errors})
 
         case total_errors do
           [] ->
@@ -108,117 +161,296 @@ defmodule StreamystatServer.JellyfinSync do
         end
 
       {:error, reason} ->
+        update_metrics(metrics_agent, %{errors: [reason]})
         Logger.error("Failed to fetch libraries: #{inspect(reason)}")
         {:error, reason}
     end
+
+
+    end_time = System.monotonic_time(:millisecond)
+    duration_ms = end_time - start_time
+
+
+    final_metrics = Agent.get(metrics_agent, & &1)
+    Agent.stop(metrics_agent)
+
+
+    Logger.info("""
+    Sync completed for server #{server.name}
+    Duration: #{duration_ms / 1000} seconds
+    Libraries processed: #{final_metrics.libraries_processed}
+    Items processed: #{final_metrics.items_processed}
+    API requests: #{final_metrics.api_requests}
+    Database operations: #{final_metrics.database_operations}
+    Errors: #{length(final_metrics.errors)}
+    """)
+
+
+    {result, final_metrics}
   end
 
-  def sync_activities(server, batch_size \\ 5000) do
+  def sync_activities(server, user_options \\ %{}) do
+
+    start_time = System.monotonic_time(:millisecond)
+
+
+    options = Map.merge(@sync_options, %{batch_size: 5000})
+    options = Map.merge(options, user_options)
+
+
+    metrics = %{
+      activities_processed: 0,
+      activities_inserted: 0,
+      api_requests: 0,
+      database_operations: 0,
+      errors: [],
+      start_time: DateTime.utc_now()
+    }
+
+
+    {:ok, metrics_agent} = Agent.start_link(fn -> metrics end)
+
     Logger.info("Starting full activity sync for server #{server.name}")
-    result = sync_activities_batch(server, 0, batch_size, 0)
-    Logger.info("Finished full activity sync for server #{server.name}")
-    result
-  end
 
-  def sync_recent_activities(server) do
-    Logger.info("Starting recent activity sync for server #{server.name}")
 
     result =
-      case JellyfinClient.get_activities(server, 0, 25) do
-        {:ok, activities} ->
-          new_activities = Enum.map(activities, &map_activity(&1, server))
-          {inserted, _} = Repo.insert_all(Activity, new_activities, on_conflict: :nothing)
-          {:ok, inserted}
+      Stream.resource(
 
-        {:error, reason} ->
-          {:error, reason}
-      end
+        fn -> {0, 0} end,
 
-    Logger.info("Finished recent activity sync for server #{server.name}")
-    result
-  end
 
-  defp sync_activities_batch(server, start_index, batch_size, total_synced) do
-    case JellyfinClient.get_activities(server, start_index, batch_size) do
-      {:ok, []} ->
-        {:ok, total_synced}
+        fn {start_index, total_synced} ->
 
-      {:ok, activities} ->
+          update_metrics(metrics_agent, %{api_requests: 1})
+
+          case Client.get_activities(server, start_index, options.batch_size) do
+            {:ok, []} ->
+
+              {:halt, {start_index, total_synced}}
+
+            {:ok, activities} ->
+
+              batch_size = length(activities)
+              update_metrics(metrics_agent, %{activities_processed: batch_size})
+
+
+              {[{activities, start_index}],
+               {start_index + options.batch_size, total_synced + batch_size}}
+
+            {:error, reason} ->
+
+              Logger.error("Failed to fetch activities: #{inspect(reason)}")
+              update_metrics(metrics_agent, %{errors: [reason]})
+              {:halt, {start_index, total_synced}}
+          end
+        end,
+
+
+        fn _ -> :ok end
+      )
+      |> Stream.map(fn {activities, _index} ->
+
         new_activities = Enum.map(activities, &map_activity(&1, server))
-        {inserted, _} = Repo.insert_all(Activity, new_activities, on_conflict: :nothing)
 
-        if length(activities) < batch_size do
-          {:ok, total_synced + inserted}
-        else
-          sync_activities_batch(
-            server,
-            start_index + batch_size,
-            batch_size,
-            total_synced + inserted
-          )
+
+        update_metrics(metrics_agent, %{database_operations: 1})
+
+        try do
+          {inserted, _} = Repo.insert_all(Activity, new_activities, on_conflict: :nothing)
+          update_metrics(metrics_agent, %{activities_inserted: inserted})
+          {:ok, inserted}
+        rescue
+          e ->
+            Logger.error("Failed to insert activities: #{inspect(e)}")
+            update_metrics(metrics_agent, %{errors: [inspect(e)]})
+            {:error, inspect(e)}
         end
+      end)
+      |> Enum.reduce(
 
-      {:error, reason} ->
-        {:error, reason}
+        {:ok, 0, []},
+
+        fn
+          {:ok, count}, {:ok, total, errors} ->
+            {:ok, total + count, errors}
+
+          {:error, error}, {_, total, errors} ->
+            {:error, total, [error | errors]}
+        end
+      )
+
+
+    end_time = System.monotonic_time(:millisecond)
+    duration_ms = end_time - start_time
+
+
+    final_metrics = Agent.get(metrics_agent, & &1)
+    Agent.stop(metrics_agent)
+
+
+    Logger.info("""
+    Activity sync completed for server #{server.name}
+    Duration: #{duration_ms / 1000} seconds
+    Activities processed: #{final_metrics.activities_processed}
+    Activities inserted: #{final_metrics.activities_inserted}
+    API requests: #{final_metrics.api_requests}
+    Database operations: #{final_metrics.database_operations}
+    Errors: #{length(final_metrics.errors)}
+    """)
+
+    case result do
+      {:ok, count, []} ->
+        Logger.info("Successfully synced #{count} activities for server #{server.name}")
+        {{:ok, count}, final_metrics}
+
+      {:ok, count, errors} ->
+        Logger.warning("Synced #{count} activities with #{length(errors)} errors")
+        {{:partial, count, errors}, final_metrics}
+
+      {:error, _, errors} ->
+        Logger.error("Failed to sync activities for server #{server.name}")
+        {{:error, errors}, final_metrics}
     end
   end
 
-  # Add sanitization helper functions at the top
+  def sync_recent_activities(server) do
+
+    start_time = System.monotonic_time(:millisecond)
+
+
+    metrics = %{
+      activities_processed: 0,
+      activities_inserted: 0,
+      api_requests: 1,
+      database_operations: 0,
+      errors: []
+    }
+
+    Logger.info("Starting recent activity sync for server #{server.name}")
+
+    {result, updated_metrics} =
+        case Client.get_activities(server, 0, 25) do
+        {:ok, activities} ->
+          metrics = Map.put(metrics, :activities_processed, length(activities))
+          new_activities = Enum.map(activities, &map_activity(&1, server))
+          metrics = Map.put(metrics, :database_operations, 1)
+
+          try do
+            {inserted, _} = Repo.insert_all(Activity, new_activities, on_conflict: :nothing)
+
+            metrics = Map.put(metrics, :activities_inserted, inserted)
+            {{:ok, inserted}, metrics}
+          rescue
+            e ->
+              Logger.error("Error inserting activities: #{inspect(e)}")
+              metrics = Map.update(metrics, :errors, [inspect(e)], fn errors -> [inspect(e) | errors] end)
+              {{:error, inspect(e)}, metrics}
+          end
+
+        {:error, reason} ->
+          metrics = Map.update(metrics, :errors, [reason], fn errors -> [reason | errors] end)
+          {{:error, reason}, metrics}
+      end
+
+
+    end_time = System.monotonic_time(:millisecond)
+    duration_ms = end_time - start_time
+
+
+    Logger.info("""
+    Recent activity sync completed for server #{server.name}
+    Duration: #{duration_ms / 1000} seconds
+    Activities processed: #{updated_metrics.activities_processed}
+    Activities inserted: #{updated_metrics.activities_inserted}
+    API requests: #{updated_metrics.api_requests}
+    Database operations: #{updated_metrics.database_operations}
+    Errors: #{length(updated_metrics.errors)}
+    """)
+
+    Logger.info("Finished recent activity sync for server #{server.name}")
+    {result, updated_metrics}
+  end
+
+
   defp sanitize_string(nil), do: nil
 
   defp sanitize_string(str) when is_binary(str) do
     str
-    # Remove null bytes
+
     |> String.replace(<<0>>, "")
-    # Remove control characters
+
     |> String.replace(~r/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/, "")
   end
 
   defp sanitize_string(other), do: other
 
-  # Add retry mechanism for HTTP requests
-  defp with_retry(fun, attempts \\ 3, delay \\ 1000) do
-    try do
-      fun.()
-    rescue
-      e ->
-        if attempts > 1 do
-          Logger.warning(
-            "Request failed, retrying in #{delay}ms... (#{attempts - 1} attempts left)"
-          )
-
-          Process.sleep(delay)
-          with_retry(fun, attempts - 1, delay * 2)
-        else
-          Logger.error("Request failed after all retry attempts: #{inspect(e)}")
-          {:error, e}
-        end
-    end
-  end
-
-  defp sync_library_items(server, jellyfin_library_id) do
+  defp sync_library_items(server, jellyfin_library_id, metrics_agent, options) do
     Logger.info("Starting item sync for Jellyfin library #{jellyfin_library_id}")
 
-    with {:ok, library} <- get_library_by_jellyfin_id(jellyfin_library_id, server.id),
-         {:ok, jellyfin_items} <-
-           with_retry(fn -> JellyfinClient.get_items(server, jellyfin_library_id) end) do
-      items = Enum.map(jellyfin_items, &map_jellyfin_item(&1, library.id, server.id))
+    with {:ok, library} <- get_library_by_jellyfin_id(jellyfin_library_id, server.id) do
 
       try do
-        # Insert items in batches of 1000
+
+        batch_size = Map.get(options, :item_page_size, @item_page_size)
+        db_batch_size = Map.get(options, :db_batch_size, @db_batch_size)
+
         {total_count, errors} =
-          Enum.chunk_every(items, 1000)
-          |> Enum.reduce({0, []}, fn batch, {acc_count, acc_errors} ->
+          Stream.resource(
+
+            fn -> {0, 0, []} end,
+
+
+            fn {start_index, total_fetched, acc_errors} ->
+
+              if metrics_agent, do: update_metrics(metrics_agent, %{api_requests: 1})
+
+              case Client.get_items_page(server, jellyfin_library_id, start_index, batch_size) do
+                {:ok, {items, total_count}} ->
+                  if items == [] do
+
+                    {:halt, {total_fetched, acc_errors}}
+                  else
+
+                    if metrics_agent, do: update_metrics(metrics_agent, %{items_processed: length(items)})
+
+
+                    {[{items, total_count}], {start_index + batch_size, total_fetched + length(items), acc_errors}}
+                  end
+
+                {:error, reason} ->
+                  Logger.error("Error fetching items: #{inspect(reason)}")
+
+                  if metrics_agent, do: update_metrics(metrics_agent, %{errors: [reason]})
+                  {:halt, {total_fetched, [reason | acc_errors]}}
+              end
+            end,
+
+
+            fn _acc -> :ok end
+          )
+          |> Stream.flat_map(fn {items, _} ->
+
+            items
+            |> Enum.map(&map_jellyfin_item(&1, library.id, server.id))
+          end)
+          |> Stream.chunk_every(db_batch_size)
+          |> Stream.map(fn batch ->
+            if metrics_agent, do: update_metrics(metrics_agent, %{database_operations: 1})
+
             case Repo.insert_all(
                    Item,
                    batch,
                    on_conflict: {:replace_all_except, [:id]},
                    conflict_target: [:jellyfin_id, :library_id]
                  ) do
-              {count, nil} -> {acc_count + count, acc_errors}
-              {_, error} -> {acc_count, [error | acc_errors]}
+              {count, nil} -> {count, []}
+              {count, error} -> {count, [error]}
             end
           end)
+          |> Enum.reduce({0, []}, fn {count, batch_errors}, {total, all_errors} ->
+            {total + count, all_errors ++ batch_errors}
+          end)
+
 
         case errors do
           [] ->
@@ -234,24 +466,46 @@ defmodule StreamystatServer.JellyfinSync do
         end
       rescue
         e ->
+          if metrics_agent, do: update_metrics(metrics_agent, %{errors: [inspect(e)]})
           Logger.error("Error syncing items for library #{library.name}: #{inspect(e)}")
           {:error, 0, [inspect(e)]}
       end
     else
       {:error, :library_not_found} ->
+        if metrics_agent, do: update_metrics(metrics_agent, %{errors: ["Library not found"]})
         Logger.error(
           "Library with Jellyfin ID #{jellyfin_library_id} not found for server #{server.id}"
         )
-
         {:error, 0, ["Library not found"]}
 
       {:error, reason} ->
+        if metrics_agent, do: update_metrics(metrics_agent, %{errors: [inspect(reason)]})
         Logger.error(
           "Failed to sync items for Jellyfin library #{jellyfin_library_id}: #{inspect(reason)}"
         )
-
         {:error, 0, [inspect(reason)]}
     end
+  end
+
+
+  defp update_metrics(nil, _updates), do: :ok
+  defp update_metrics(agent, updates) do
+    Agent.update(agent, fn metrics ->
+      Map.merge(metrics, updates, fn _k, v1, v2 ->
+
+        if is_integer(v1) and is_integer(v2) do
+          v1 + v2
+        else
+
+          if is_list(v1) and is_list(v2) do
+            v1 ++ v2
+          else
+
+            v2
+          end
+        end
+      end)
+    end)
   end
 
   defp map_activity(activity, server) do

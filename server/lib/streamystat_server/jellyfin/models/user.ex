@@ -1,4 +1,4 @@
-defmodule StreamystatServer.Jellyfin.User do
+defmodule StreamystatServer.Jellyfin.Models.User do
   use Ecto.Schema
   import Ecto.Changeset
 
@@ -40,7 +40,7 @@ defmodule StreamystatServer.Jellyfin.User do
     field(:password_reset_provider_id, :string)
     field(:sync_play_access, :string)
 
-    belongs_to(:server, StreamystatServer.Servers.Server)
+    belongs_to(:server, StreamystatServer.Jellyfin.Models.User)
 
     timestamps()
   end

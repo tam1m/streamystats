@@ -1,4 +1,4 @@
-defmodule StreamystatServer.Jellyfin.Library do
+defmodule StreamystatServer.Jellyfin.Models.Library do
   use Ecto.Schema
   import Ecto.Changeset
 
@@ -6,7 +6,7 @@ defmodule StreamystatServer.Jellyfin.Library do
     field(:jellyfin_id, :string)
     field(:name, :string)
     field(:type, :string)
-    belongs_to(:server, StreamystatServer.Servers.Server)
+    belongs_to(:server, StreamystatServer.Jellyfin.Models.User)
 
     timestamps()
   end

@@ -1,7 +1,8 @@
-defmodule StreamystatServer.Jellyfin.SessionPoller do
+defmodule StreamystatServer.Workers.SessionPoller do
   use GenServer
   require Logger
-  alias StreamystatServer.Servers.Server
+  alias StreamystatServer.Servers.Models.Server
+  alias StreamystatServer.Contexts.PlaybackSessions
   alias StreamystatServer.Repo
   import Ecto.Query, warn: false
 
@@ -62,10 +63,8 @@ defmodule StreamystatServer.Jellyfin.SessionPoller do
     end
   end
 
-  @doc """
-  Processes all current sessions for a server, handling new, updated, and ended sessions.
-  Tracks session state changes and manages the lifecycle of playback sessions.
-  """
+  # Processes all current sessions for a server, handling new, updated, and ended sessions.
+  # Tracks session state changes and manages the lifecycle of playback sessions.
   defp process_sessions(server, current_sessions, state) do
     server_key = "server_#{server.id}"
     tracked_sessions = Map.get(state.tracked_sessions, server_key, %{})
@@ -104,10 +103,8 @@ defmodule StreamystatServer.Jellyfin.SessionPoller do
     }
   end
 
-  @doc """
-  Filters out invalid sessions like trailers and pre-roll videos.
-  Only returns sessions with valid NowPlayingItem data.
-  """
+  # Filters out invalid sessions like trailers and pre-roll videos.
+  # Only returns sessions with valid NowPlayingItem data.
   defp filter_valid_sessions(sessions) do
     Enum.filter(sessions, fn session ->
       case session do
@@ -122,10 +119,8 @@ defmodule StreamystatServer.Jellyfin.SessionPoller do
     end)
   end
 
-  @doc """
-  Identifies which sessions are new, updated, or ended by comparing current sessions
-  against previously tracked sessions.
-  """
+  # Identifies which sessions are new, updated, or ended by comparing current sessions
+  # against previously tracked sessions.
   defp detect_session_changes(current_sessions, tracked_sessions) do
     current_map = sessions_to_map(current_sessions)
 
@@ -150,10 +145,8 @@ defmodule StreamystatServer.Jellyfin.SessionPoller do
     {new_sessions, updated_sessions, ended_sessions}
   end
 
-  @doc """
-  Generates a unique key for each session based on user ID, device ID, and content IDs.
-  Handles both series and standalone content differently.
-  """
+  # Generates a unique key for each session based on user ID, device ID, and content IDs.
+  # Handles both series and standalone content differently.
   defp generate_session_key(session) do
     user_id = Map.get(session, "UserId", "")
     device_id = Map.get(session, "DeviceId", "")
@@ -169,10 +162,8 @@ defmodule StreamystatServer.Jellyfin.SessionPoller do
     end
   end
 
-  @doc """
-  Calculates total playback duration accounting for paused states and activity timestamps.
-  Returns duration in seconds.
-  """
+  # Calculates total playback duration accounting for paused states and activity timestamps.
+  # Returns duration in seconds.
   defp calculate_duration(tracked, current_paused, last_activity, last_paused, _current_position) do
     was_paused = tracked.is_paused
 
@@ -193,10 +184,8 @@ defmodule StreamystatServer.Jellyfin.SessionPoller do
     end
   end
 
-  @doc """
-  Handles completed sessions by calculating final statistics and saving playback records.
-  Determines if content was completed based on progress percentage.
-  """
+  # Handles completed sessions by calculating final statistics and saving playback records.
+  # Determines if content was completed based on progress percentage.
   defp handle_ended_sessions(server, ended_sessions, tracked_sessions) do
     now = DateTime.utc_now()
 
@@ -367,7 +356,7 @@ defmodule StreamystatServer.Jellyfin.SessionPoller do
 
   defp save_playback_record(server, record) do
     user =
-      StreamystatServer.Contexts.PlaybackSessions.get_user_by_jellyfin_id(
+      PlaybackSessions.get_user_by_jellyfin_id(
         record.user_id,
         server.id
       )
@@ -394,7 +383,7 @@ defmodule StreamystatServer.Jellyfin.SessionPoller do
       server_id: server.id
     }
 
-    case StreamystatServer.Contexts.PlaybackSessions.create_playback_session(attrs) do
+    case PlaybackSessions.create_playback_session(attrs) do
       {:ok, _session} ->
         Logger.info("Successfully saved playback session for server #{server.id}")
 

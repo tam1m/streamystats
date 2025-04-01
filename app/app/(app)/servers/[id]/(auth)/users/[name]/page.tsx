@@ -27,6 +27,8 @@ export default async function User({
     redirect("/");
   }
 
+  console.log(user);
+
   return (
     <Container>
       <PageTitle title={user.name || "N/A"} />

@@ -15,8 +15,8 @@ defmodule StreamystatServer.Application do
       {Phoenix.PubSub, name: StreamystatServer.PubSub},
       {Finch, name: StreamystatServer.Finch},
       StreamystatServerWeb.Endpoint,
-      StreamystatServer.SyncTask,
-      StreamystatServer.Jellyfin.SessionPoller,
+      StreamystatServer.Workers.SyncTask,
+      StreamystatServer.Workers.SessionPoller,
       {Task, &start_full_sync/0}
     ]
 
@@ -34,10 +34,10 @@ defmodule StreamystatServer.Application do
 
   # Start a full sync for each server
   defp start_full_sync do
-    servers = StreamystatServer.Servers.list_servers()
+    servers = StreamystatServer.Jellyfin.Users.list_servers()
 
     Enum.each(servers, fn server ->
-      StreamystatServer.SyncTask.full_sync(server.id)
+      StreamystatServer.Workers.SyncTask.full_sync(server.id)
     end)
   end
 end

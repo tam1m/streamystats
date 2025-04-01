@@ -1,19 +1,9 @@
 defmodule StreamystatServerWeb.SyncController do
   use StreamystatServerWeb, :controller
-  alias StreamystatServer.SyncTask
+  alias StreamystatServer.Workers.SyncTask
   alias StreamystatServer.Servers.SyncLog
   alias StreamystatServer.Repo
   import Ecto.Query
-
-  def partial_sync(conn, %{"server_id" => server_id}) do
-    Task.start(fn ->
-      SyncTask.partial_sync(server_id)
-    end)
-
-    conn
-    |> put_status(:accepted)
-    |> json(%{message: "Partial sync task initiated for server #{server_id}"})
-  end
 
   def full_sync(conn, %{"server_id" => server_id}) do
     Task.start(fn ->

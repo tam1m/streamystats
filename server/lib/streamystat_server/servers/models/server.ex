@@ -1,4 +1,4 @@
-defmodule StreamystatServer.Servers.Server do
+defmodule StreamystatServer.Servers.Models.Server do
   use Ecto.Schema
   import Ecto.Changeset
 

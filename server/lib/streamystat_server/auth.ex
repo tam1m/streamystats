@@ -1,6 +1,6 @@
 defmodule StreamystatServer.Auth do
-  alias StreamystatServer.Servers.Server
-  alias StreamystatServer.Jellyfin.User
+  alias StreamystatServer.Servers.Models.Server
+  alias StreamystatServer.Jellyfin.Models.User
   alias StreamystatServer.HttpClient
   alias StreamystatServer.Repo
   require Logger

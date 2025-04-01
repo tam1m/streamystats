@@ -1,5 +1,5 @@
 defmodule StreamystatServerWeb.ServerJSON do
-  alias StreamystatServer.Servers.Server
+  alias StreamystatServer.Servers.Models.Server
 
   @doc """
   Renders a single server.

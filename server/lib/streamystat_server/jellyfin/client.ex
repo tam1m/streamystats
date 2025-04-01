@@ -1,4 +1,4 @@
-defmodule StreamystatServer.JellyfinClient do
+defmodule StreamystatServer.Jellyfin.Client do
   use HTTPoison.Base
   require Logger
 
@@ -9,6 +9,22 @@ defmodule StreamystatServer.JellyfinClient do
   def process_request_headers(headers, api_key) do
     [{"X-Emby-Token", api_key} | headers]
   end
+
+  @default_item_fields [
+    "DateCreated",
+    "Etag",
+    "ExternalUrls",
+    "Genres",
+    "OriginalTitle",
+    "Overview",
+    "ParentId",
+    "Path",
+    "PrimaryImageAspectRatio",
+    "ProductionYear",
+    "SortName",
+    "Width",
+    "Height"
+  ]
 
   def get_users(server) do
     url = "#{server.url}/Users"
@@ -58,36 +74,29 @@ defmodule StreamystatServer.JellyfinClient do
     end
   end
 
-  def get_items(server, library_id) do
+  def get_items_page(server, library_id, start_index, limit) do
     url = "#{server.url}/Items"
     headers = process_request_headers([], server.api_key)
-
-    fields = [
-      "DateCreated",
-      "Etag",
-      "ExternalUrls",
-      "Genres",
-      "OriginalTitle",
-      "Overview",
-      "ParentId",
-      "Path",
-      "PrimaryImageAspectRatio",
-      "ProductionYear",
-      "SortName",
-      "Width",
-      "Height"
-    ]
 
     params = %{
       ParentId: library_id,
       Recursive: true,
-      Fields: Enum.join(fields, ",")
+      Fields: Enum.join(@default_item_fields, ","),
+      StartIndex: start_index,
+      Limit: limit
     }
 
     case get(url, headers, params: params) do
       {:ok, %{status_code: 200, body: body}} ->
-        decoded_body = Jason.decode!(body)
-        {:ok, decoded_body["Items"]}
+        case Jason.decode(body) do
+          {:ok, decoded_body} ->
+            # Returns {items, total_count}
+            {:ok, {decoded_body["Items"] || [], decoded_body["TotalRecordCount"] || 0}}
+          {:error, decode_error} ->
+            Logger.error("Failed to decode items JSON: #{inspect(decode_error)}")
+            {:error, "JSON decode error"}
+        end
+
 
       {:ok, %{status_code: status_code}} ->
         {:error, "Unexpected status code: #{status_code}"}

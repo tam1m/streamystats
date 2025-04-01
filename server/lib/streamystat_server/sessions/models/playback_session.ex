@@ -1,5 +1,5 @@
 # server/lib/streamystat_server/jellyfin/playback_session.ex
-defmodule StreamystatServer.Jellyfin.PlaybackSession do
+defmodule StreamystatServer.Sessions.Models.PlaybackSession do
   use Ecto.Schema
   import Ecto.Changeset
 
@@ -22,8 +22,8 @@ defmodule StreamystatServer.Jellyfin.PlaybackSession do
     field(:percent_complete, :float)
     field(:completed, :boolean)
 
-    belongs_to(:user, StreamystatServer.Jellyfin.User)
-    belongs_to(:server, StreamystatServer.Servers.Server)
+    belongs_to(:user, StreamystatServer.Jellyfin.Models.User)
+    belongs_to(:server, StreamystatServer.Servers.Models.Server)
 
     timestamps()
   end

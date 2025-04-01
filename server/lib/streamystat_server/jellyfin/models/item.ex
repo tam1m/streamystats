@@ -1,9 +1,9 @@
 # lib/streamystat_server/jellyfin/item.ex
-defmodule StreamystatServer.Jellyfin.Item do
+defmodule StreamystatServer.Jellyfin.Models.Item do
   use Ecto.Schema
   import Ecto.Changeset
-  alias StreamystatServer.Servers.Server
-  alias StreamystatServer.Jellyfin.Library
+  alias StreamystatServer.Jellyfin.Models.Library
+  alias StreamystatServer.Jellyfin.Servers.Models.Server
 
   schema "jellyfin_items" do
     field(:jellyfin_id, :string)

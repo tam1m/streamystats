@@ -1,7 +1,7 @@
 defmodule StreamystatServerWeb.ActivityController do
   use StreamystatServerWeb, :controller
-  alias StreamystatServer.Contexts.Activities
-  alias StreamystatServer.Servers
+  alias StreamystatServer.Activities.Activities
+  alias StreamystatServer.Servers.Servers
 
   def index(conn, %{"server_id" => server_id} = params) do
     case Servers.get_server(server_id) do

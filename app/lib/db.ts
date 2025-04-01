@@ -15,7 +15,7 @@ export type Server = {
 export type SyncTask = {
   id: number;
   server_id: number;
-  sync_type: "partial_sync" | "full_sync";
+  sync_type: "full_sync";
   status: "completed" | "failed";
   sync_started_at: string; // native datetime
   sync_completed_at: string; // native datetime
@@ -84,7 +84,7 @@ export type User = {
   jellyfin_id: string | null;
   watch_stats: { total_watch_time: number; total_plays: number };
   watch_history: any[];
-  watch_time_per_day: { date: string; watch_time: number }[];
+  watch_time_per_day: { date: string; total_duration: number }[];
   is_administrator: boolean;
   genre_stats: GenreStat[];
   longest_streak: number; // days

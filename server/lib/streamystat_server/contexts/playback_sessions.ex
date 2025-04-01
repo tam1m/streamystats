@@ -2,8 +2,8 @@
 defmodule StreamystatServer.Contexts.PlaybackSessions do
   import Ecto.Query, warn: false
   alias StreamystatServer.Repo
-  alias StreamystatServer.Jellyfin.PlaybackSession
-  alias StreamystatServer.Jellyfin.User
+  alias StreamystatServer.Sessions.Models.PlaybackSession
+  alias StreamystatServer.Jellyfin.Models.User
 
   def list_playback_sessions(server, opts \\ []) do
     page = Keyword.get(opts, :page, 1)

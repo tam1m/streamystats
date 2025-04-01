@@ -2,7 +2,7 @@
 defmodule StreamystatServerWeb.AdminAuthPlug do
   import Plug.Conn
   alias StreamystatServer.Auth
-  alias StreamystatServer.Servers
+  alias StreamystatServer.Servers.Servers
   require Logger
 
   def init(opts), do: opts

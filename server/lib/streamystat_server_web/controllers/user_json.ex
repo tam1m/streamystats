@@ -1,5 +1,5 @@
 defmodule StreamystatServerWeb.UserJSON do
-  alias StreamystatServer.Jellyfin.User
+  alias StreamystatServer.Jellyfin.Models.User
 
   def index(%{users: users_with_details}) do
     %{data: for(user_data <- users_with_details, do: data(user_data, :index))}

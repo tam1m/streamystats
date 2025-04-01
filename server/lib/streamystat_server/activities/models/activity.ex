@@ -1,5 +1,5 @@
 # lib/streamystat_server/jellyfin/activity.ex
-defmodule StreamystatServer.Jellyfin.Activity do
+defmodule StreamystatServer.Activities.Models.Activity do
   use Ecto.Schema
   import Ecto.Changeset
 
@@ -11,8 +11,8 @@ defmodule StreamystatServer.Jellyfin.Activity do
     field(:date, :utc_datetime)
     field(:severity, :string)
 
-    belongs_to(:user, StreamystatServer.Jellyfin.User)
-    belongs_to(:server, StreamystatServer.Servers.Server)
+    belongs_to(:user, StreamystatServer.Jellyfin.Models.User)
+    belongs_to(:server, StreamystatServer.Jellyfin.Models.User)
 
     timestamps()
   end

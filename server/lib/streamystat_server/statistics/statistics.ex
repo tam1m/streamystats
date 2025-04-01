@@ -1,9 +1,9 @@
-defmodule StreamystatServer.Statistics do
+defmodule StreamystatServer.Statistics.Statistics do
   import Ecto.Query, warn: false
-  alias StreamystatServer.Jellyfin.PlaybackSession
-  alias StreamystatServer.Jellyfin.Item
-  alias StreamystatServer.Jellyfin.Library
-  alias StreamystatServer.Jellyfin.User
+  alias StreamystatServer.Sessions.Models.PlaybackSession
+  alias StreamystatServer.Jellyfin.Models.Item
+  alias StreamystatServer.Jellyfin.Models.Library
+  alias StreamystatServer.Jellyfin.Models.User
   alias StreamystatServer.Repo
   require Logger
 

@@ -1,7 +1,7 @@
-defmodule StreamystatServer.Contexts.Activities do
+defmodule StreamystatServer.Activities.Activities do
   import Ecto.Query, warn: false
   alias StreamystatServer.Repo
-  alias StreamystatServer.Jellyfin.Activity
+  alias StreamystatServer.Activities.Models.Activity
 
   def list_activities(server, opts \\ []) do
     page = Keyword.get(opts, :page, 1)

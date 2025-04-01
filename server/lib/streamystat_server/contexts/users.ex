@@ -1,8 +1,8 @@
 defmodule StreamystatServer.Contexts.Users do
   import Ecto.Query, warn: false
   alias StreamystatServer.Repo
-  alias StreamystatServer.Jellyfin.User
-  alias StreamystatServer.Jellyfin.PlaybackSession
+  alias StreamystatServer.Jellyfin.Models.User
+  alias StreamystatServer.Sessions.Models.PlaybackSession
   alias Decimal
 
   def get_users(server_id) do
@@ -124,7 +124,6 @@ defmodule StreamystatServer.Contexts.Users do
       items_watched: items_watched,
       completed_items: completed_items,
       avg_watch_time_per_day: avg_watch_time_per_day_int,
-      # Add the new key/value
       total_plays: total_plays
     }
   end
@@ -155,7 +154,7 @@ defmodule StreamystatServer.Contexts.Users do
   def get_user_genre_watch_time(server_id, user_id) do
     # Join with items to get genre info
     from(ps in PlaybackSession,
-      join: i in StreamystatServer.Jellyfin.Item,
+      join: i in StreamystatServer.Jellyfin.Models.Item,
       on: ps.item_jellyfin_id == i.jellyfin_id and ps.server_id == i.server_id,
       where: ps.server_id == ^server_id and ps.user_id == ^user_id,
       group_by: i.genres,

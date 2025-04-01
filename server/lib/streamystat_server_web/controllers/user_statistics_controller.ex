@@ -1,7 +1,7 @@
 defmodule StreamystatServerWeb.UserStatisticsController do
   use StreamystatServerWeb, :controller
-  alias StreamystatServer.Statistics
-  alias StreamystatServer.Jellyfin.PlaybackSession
+  alias StreamystatServer.Statistics.Statistics
+  alias StreamystatServer.Sessions.Models.PlaybackSession
   alias StreamystatServer.Repo
   import Ecto.Query
   require Logger
