@@ -77,14 +77,12 @@ export function ItemWatchStatsTable({ server }: ItemWatchStatsTableProps) {
       if (sorting.length > 0) {
         queryParams.append("sort_by", sorting[0].id as string);
         queryParams.append("sort_order", sorting[0].desc ? "desc" : "asc");
-        console.log(sorting[0].desc ? "desc" : "asc");
       }
 
       const res = await fetch(
         `/api/servers/${server.id}/statistics/items?${queryParams.toString()}`
       );
       const data = (await res.json()) as Response;
-      console.log(data.total_pages, data.total_items, data.page);
       return data as Response;
     },
   });

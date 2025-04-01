@@ -19,8 +19,6 @@ export default async function DashboardPage({
 
   const libraryStats = await getStatisticsLibrary(server.id);
 
-  console.log(libraryStats);
-
   return (
     <Container>
       <PageTitle

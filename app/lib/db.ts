@@ -111,8 +111,6 @@ export const createServer = async (
 
   const data = await result.json();
 
-  console.log("User: ", data);
-
   return data.data as Server;
 };
 

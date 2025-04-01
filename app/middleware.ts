@@ -55,24 +55,10 @@ const getMe = async (request: NextRequest): Promise<Result<UserMe>> => {
   const c = request.cookies;
   const userStr = c.get("streamystats-user");
 
-  // Debug logging
-  console.log("Cookie exists:", !!userStr);
-
   try {
     const me = userStr?.value ? JSON.parse(userStr.value) : undefined;
-
-    // Debug logging
-    console.log("Parsed cookie:", me);
-
     if (me && me.name && me.serverId) {
-      // Debug logging
-      console.log("Required fields present, validating auth...");
-
       const isValid = await validateUserAuth(request, me);
-
-      // Debug logging
-      console.log("Auth validation result:", isValid);
-
       if (isValid) {
         return {
           type: ResultType.Success,
@@ -85,8 +71,7 @@ const getMe = async (request: NextRequest): Promise<Result<UserMe>> => {
         };
       }
     } else {
-      // Debug logging
-      console.log("Missing required fields in cookie");
+      console.warn("Missing required fields in cookie");
     }
   } catch (e) {
     console.error(
@@ -123,7 +108,12 @@ const validateUserAuth = async (request: NextRequest, me: UserMe) => {
 
     if (user) return true;
     else {
-      console.log("User not found in server", me.serverId, "for user", me.name);
+      console.warn(
+        "User not found in server",
+        me.serverId,
+        "for user",
+        me.name
+      );
       return false;
     }
   } catch (e) {
@@ -146,7 +136,7 @@ export async function middleware(request: NextRequest) {
 
   // If there are no servers, redirect to /setup
   if (servers.length === 0) {
-    console.log("No servers found, redirecting to /setup");
+    console.warn("No servers found, redirecting to /setup");
     return NextResponse.redirect(new URL("/setup", request.url));
   }
 
@@ -156,7 +146,7 @@ export async function middleware(request: NextRequest) {
 
   // If the server does not exist
   if (!servers.some((s) => Number(s.id) === Number(id))) {
-    console.log(
+    console.warn(
       `Server ${id} not found, redirecting to /servers/` + servers[0].id
     );
     return NextResponse.redirect(
@@ -168,8 +158,6 @@ export async function middleware(request: NextRequest) {
   if (page && id && page !== "login") {
     // Get user from cookies if exists
     const meResult = await getMe(request);
-
-    console.log("meResult ~", meResult);
 
     // If the user is not logged in
     if (meResult.type === ResultType.Error) {
@@ -185,7 +173,7 @@ export async function middleware(request: NextRequest) {
     // If the user is trying to access a server they are not a member of
     if (meResult.type === ResultType.Success) {
       if (Number(meResult.data.serverId) !== Number(id)) {
-        console.log(
+        console.warn(
           "User is trying to access a server they are not a member of"
         );
         return NextResponse.redirect(
