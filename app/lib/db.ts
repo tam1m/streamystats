@@ -289,6 +289,60 @@ export const getUser = async (
   return data.data;
 };
 
+export interface Library {
+  id: string;
+  jellyfin_id: string;
+  name: string;
+  type: string;
+  server_id: string;
+  inserted_at: string;
+  updated_at: string;
+}
+
+export const getLibraries = async (serverId: number): Promise<Library[]> => {
+  const res = await fetch(
+    process.env.API_URL + "/servers/" + serverId + "/libraries",
+    {
+      cache: "no-store",
+      headers: {
+        Authorization: `Bearer ${await getToken()}`,
+        "Content-Type": "application/json",
+      },
+    }
+  );
+  if (!res.ok) {
+    return [];
+  }
+  const data = await res.json();
+  return data.data;
+};
+
+export const startTautulliImportTask = async (
+  serverId: number,
+  tautulliUrl: string,
+  apiKey: string,
+  mappings: Record<string, string>
+) => {
+  const res = await fetch(
+    process.env.API_URL + "/admin/servers/" + serverId + "/tautulli/import",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${await getToken()}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        tautulli_url: tautulliUrl,
+        api_key: apiKey,
+        mappings: mappings,
+      }),
+    }
+  );
+  if (!res.ok) {
+    throw new Error("Failed to start Tautulli import task");
+  }
+};
+
 export const getStatistics = async (
   serverId: number
 ): Promise<Statistics | null> => {

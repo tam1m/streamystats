@@ -6,7 +6,7 @@ defmodule StreamystatServer.Jellyfin.Models.Library do
     field(:jellyfin_id, :string)
     field(:name, :string)
     field(:type, :string)
-    belongs_to(:server, StreamystatServer.Jellyfin.Models.User)
+    belongs_to(:server, StreamystatServer.Jellyfin.Servers.Models.Server)
 
     timestamps()
   end
