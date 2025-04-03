@@ -407,11 +407,35 @@ export const startTautulliImportTask = async (
 };
 
 export const getStatistics = async (
-  serverId: number
+  serverId: number,
+  startDate: string,
+  endDate: string
 ): Promise<Statistics | null> => {
   try {
+    if (!startDate || !endDate) {
+      return null;
+    }
+
+    if (new Date(startDate) > new Date(endDate)) {
+      return null;
+    }
+
+    if (new Date(endDate) > new Date()) {
+      return null;
+    }
+
+    const queryParams = new URLSearchParams({
+      start_date: startDate,
+      end_date: endDate,
+    });
+
     const res = await fetch(
-      process.env.API_URL + "/servers/" + serverId + "/statistics",
+      process.env.API_URL +
+        "/servers/" +
+        serverId +
+        "/statistics" +
+        "?" +
+        queryParams,
       {
         cache: "no-store",
         headers: {

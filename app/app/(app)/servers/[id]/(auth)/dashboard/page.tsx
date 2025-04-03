@@ -8,13 +8,17 @@ import { WatchTimePerWeekDay } from "./WatchTimePerWeekDay";
 import { getMe } from "@/lib/me";
 import TotalWatchTime from "./TotalWatchTime";
 import MostWatchedDate from "./MostWatchedDate";
+import { addDays } from "date-fns";
 
 export default async function DashboardPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ start_date: string; end_date: string }>;
 }) {
   const { id } = await params;
+  const { start_date, end_date } = await searchParams;
   const server = await getServer(id);
   const me = await getMe();
   const user = await getUser(me?.name, server?.id);
@@ -24,7 +28,16 @@ export default async function DashboardPage({
     redirect("/setup");
   }
 
-  const data = await getStatistics(server.id);
+  let startDate = start_date;
+  let endDate = end_date;
+
+  // Set default start and end dates if not provided 7 days ago and today
+  if (!startDate || !endDate) {
+    startDate = addDays(new Date(), -7).toISOString().split("T")[0];
+    endDate = new Date().toISOString().split("T")[0];
+  }
+
+  const data = await getStatistics(server.id, startDate, endDate);
 
   return (
     <Container>
