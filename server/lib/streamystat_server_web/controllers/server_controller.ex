@@ -1,6 +1,6 @@
 defmodule StreamystatServerWeb.ServerController do
   use StreamystatServerWeb, :controller
-  alias StreamystatServer.Servers
+  alias StreamystatServer.Servers.Servers
 
   def index(conn, _params) do
     servers = Servers.list_servers()

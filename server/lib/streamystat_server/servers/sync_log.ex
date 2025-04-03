@@ -7,7 +7,7 @@ defmodule StreamystatServer.Servers.SyncLog do
     field(:sync_started_at, :naive_datetime)
     field(:sync_completed_at, :naive_datetime)
     field(:status, :string)
-    belongs_to(:server, StreamystatServer.Servers.Server)
+    belongs_to(:server, StreamystatServer.Jellyfin.Models.User)
 
     timestamps()
   end

@@ -1,8 +1,6 @@
 defmodule StreamystatServerWeb.UserController do
   use StreamystatServerWeb, :controller
   alias StreamystatServer.Contexts.Users
-  alias StreamystatServer.Auth
-  alias StreamystatServer.Servers
   require Logger
 
   def index(conn, %{"server_id" => server_id}) do
@@ -11,7 +9,6 @@ defmodule StreamystatServerWeb.UserController do
     users_with_details =
       Enum.map(users, fn user ->
         watch_stats = Users.get_user_watch_stats(server_id, user.id)
-        Logger.debug("User ID: #{user.id}, Watch Stats: #{inspect(watch_stats)}")
         %{user: user, watch_stats: watch_stats}
       end)
 
@@ -41,28 +38,6 @@ defmodule StreamystatServerWeb.UserController do
           genre_stats: genre_stats,
           longest_streak: longest_streak
         )
-    end
-  end
-
-  def me(conn, %{"server_id" => server_id}) do
-    with {:ok, server} <- Servers.get_server(server_id),
-         user_id when is_binary(user_id) <- conn.assigns[:current_user_id],
-         {:ok, user_info} <- Auth.get_user_info(server, user_id) do
-      conn
-      |> put_status(:ok)
-      |> render(:me, user: user_info)
-    else
-      nil ->
-        conn
-        |> put_status(:not_found)
-        |> put_view(json: StreamystatServerWeb.ErrorJSON)
-        |> render(:error, message: "Server not found")
-
-      {:error, reason} ->
-        conn
-        |> put_status(:unauthorized)
-        |> put_view(json: StreamystatServerWeb.ErrorJSON)
-        |> render(:error, message: reason)
     end
   end
 end

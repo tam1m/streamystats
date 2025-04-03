@@ -30,32 +30,34 @@ defmodule StreamystatServerWeb.Router do
     get("/servers/:id", ServerController, :show)
     post("/servers", ServerController, :create)
 
+
     # Admin routes
     scope "/admin", as: :admin do
       pipe_through(:admin_auth)
 
       delete("/servers/:server_id", ServerController, :delete)
-      post("/servers/:server_id/sync", SyncController, :partial_sync)
       post("/servers/:server_id/sync/full", SyncController, :full_sync)
       post("/servers/:server_id/sync/users", SyncController, :sync_users)
       post("/servers/:server_id/sync/libraries", SyncController, :sync_libraries)
       post("/servers/:server_id/sync/items", SyncController, :sync_items)
-      post("/servers/:server_id/sync/playback-statistics", SyncController, :sync_playback_stats)
       get("/servers/:server_id/sync/tasks", SyncController, :list_tasks)
       get("/servers/:server_id/sync/tasks/:task_id", SyncController, :show_task)
       get("/servers/:server_id/activities", ActivityController, :index)
+      post("/servers/:server_id/tautulli/import", TautulliImportController, :import)
+
     end
 
     # Protected routes
     scope "/servers/:server_id", as: :protected do
       pipe_through(:auth)
 
-      get("/me", UserController, :me)
       get("/statistics", UserStatisticsController, :index)
       get("/statistics/history", UserStatisticsController, :history)
       get("/statistics/items", UserStatisticsController, :items)
       get("/statistics/library", UserStatisticsController, :library_stats)
+      get("/statistics/unwatched", StatisticsController, :unwatched)
 
+      resources("/libraries", LibraryController, only: [:index, :show])      # get("/me", UserController, :me)
       resources("/users", UserController, only: [:index, :show])
     end
   end

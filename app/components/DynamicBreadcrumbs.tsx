@@ -11,7 +11,15 @@ import {
 import { House, Slash } from "lucide-react";
 import React from "react";
 
-const dynamicSegments = ["users", "items", "history", "dashboard", "settings"];
+const dynamicSegments = [
+  "users",
+  "items",
+  "library",
+  "history",
+  "dashboard",
+  "settings",
+  "activities",
+];
 
 export const DynamicBreadcrumbs: React.FC = () => {
   const params = useParams();

@@ -1,10 +1,11 @@
 "use server";
 
 import { Container } from "@/components/Container";
-import { getServer, getUser } from "@/lib/db";
+import { getLibraries, getServer, getUser, getUsers } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { Tasks } from "./Tasks";
 import { getMe } from "@/lib/me";
+import { TautulliMappingModal } from "./TautulliMappingModal";
 
 export default async function Settings({
   params,
@@ -21,11 +22,32 @@ export default async function Settings({
     redirect("/setup");
   }
 
+  // const users = await getUsers(server.id);
+  // const libraries = await getLibraries(server.id);
+
   return (
     <Container className="">
       <h1 className="text-3xl font-bold mb-8">Settings</h1>
       {user?.is_administrator ? (
-        <Tasks server={server} />
+        <>
+          <Tasks server={server} />
+          {/* <div className="mt-8">
+            <h2 className="text-2xl font-semibold mb-4">
+              Tautulli Integration
+            </h2>
+            <p className="mb-4">
+              Map your Tautulli libraries and users to Jellyfin to import watch
+              statistics and other data.
+            </p>
+            <TautulliMappingModal
+              tautulliLibraries={tautulliData.libraries}
+              tautulliUsers={tautulliData.users}
+              jellyfinLibraries={libraries}
+              jellyfinUsers={users}
+              serverId={server.id}
+            />
+          </div> */}
+        </>
       ) : (
         <p>You are not an administrator of this server.</p>
       )}

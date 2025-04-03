@@ -59,7 +59,6 @@ const getMe = async (request: NextRequest): Promise<Result<UserMe>> => {
     const me = userStr?.value ? JSON.parse(userStr.value) : undefined;
     if (me && me.name && me.serverId) {
       const isValid = await validateUserAuth(request, me);
-
       if (isValid) {
         return {
           type: ResultType.Success,
@@ -71,6 +70,8 @@ const getMe = async (request: NextRequest): Promise<Result<UserMe>> => {
           error: "Invalid user cookie",
         };
       }
+    } else {
+      console.warn("Missing required fields in cookie");
     }
   } catch (e) {
     console.error(
@@ -93,7 +94,7 @@ const validateUserAuth = async (request: NextRequest, me: UserMe) => {
   const c = request.cookies;
   try {
     const user: User = await fetch(
-      process.env.API_URL + "/servers/" + me.serverId + "/users/" + me.name,
+      process.env.API_URL + "/servers/" + me.serverId + "/users/" + me.id,
       {
         cache: "no-store",
         headers: {
@@ -110,6 +111,7 @@ const validateUserAuth = async (request: NextRequest, me: UserMe) => {
     console.error("Failed to validate user auth", e);
   }
 
+  console.warn("User not found in server", me.serverId, "for user", me.name);
   return false;
 };
 
@@ -126,7 +128,7 @@ export async function middleware(request: NextRequest) {
 
   // If there are no servers, redirect to /setup
   if (servers.length === 0) {
-    console.log("No servers found, redirecting to /setup");
+    console.warn("No servers found, redirecting to /setup");
     return NextResponse.redirect(new URL("/setup", request.url));
   }
 
@@ -136,7 +138,7 @@ export async function middleware(request: NextRequest) {
 
   // If the server does not exist
   if (!servers.some((s) => Number(s.id) === Number(id))) {
-    console.log(
+    console.warn(
       `Server ${id} not found, redirecting to /servers/` + servers[0].id
     );
     return NextResponse.redirect(
@@ -151,7 +153,7 @@ export async function middleware(request: NextRequest) {
 
     // If the user is not logged in
     if (meResult.type === ResultType.Error) {
-      console.error("User is not logged in, removing cookies");
+      console.error("User is not logged in, removing cookies.", meResult.error);
       response.cookies.delete("streamystats-user");
       response.cookies.delete("streamystats-token");
 
@@ -163,7 +165,7 @@ export async function middleware(request: NextRequest) {
     // If the user is trying to access a server they are not a member of
     if (meResult.type === ResultType.Success) {
       if (Number(meResult.data.serverId) !== Number(id)) {
-        console.log(
+        console.warn(
           "User is trying to access a server they are not a member of"
         );
         return NextResponse.redirect(

@@ -10,7 +10,8 @@ import {
   getPaginationRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { ChevronDown, MoreHorizontal } from "lucide-react";
+import { ChevronDown } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
 
 import { Button } from "@/components/ui/button";
@@ -18,12 +19,8 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -33,36 +30,24 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ActivitiesResponse, ActivityLogEntry, Server } from "@/lib/db";
-import { useQuery } from "@tanstack/react-query";
 
 export interface ActivityLogTableProps {
   server: Server;
+  data: ActivitiesResponse;
 }
 
-export function ActivityLogTable({ server }: ActivityLogTableProps) {
-  const [page, setPage] = React.useState<number>(1);
+export function ActivityLogTable({ server, data }: ActivityLogTableProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Get current page from URL query parameters or default to 1
+  const currentPage = Number(searchParams.get("page") || "1");
+
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
   );
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>({});
-
-  const { data, isFetching, isLoading, refetch } = useQuery<ActivitiesResponse>(
-    {
-      queryKey: ["activity-log", server.id, page],
-      queryFn: async () => {
-        const queryParams = new URLSearchParams({
-          page: page.toString(),
-        });
-
-        const res = await fetch(
-          `/api/servers/${server.id}/activities?${queryParams.toString()}`
-        );
-        const data = (await res.json()) as ActivitiesResponse;
-        return data;
-      },
-    }
-  );
 
   const columns: ColumnDef<ActivityLogEntry>[] = [
     {
@@ -80,46 +65,29 @@ export function ActivityLogTable({ server }: ActivityLogTableProps) {
     {
       accessorKey: "date",
       header: "Date",
-      cell: ({ row }) => <div>{row.getValue("date")}</div>,
+      cell: ({ row }) => (
+        <div>
+          {new Date(row.getValue("date")).toLocaleString("en-UK", {
+            dateStyle: "medium",
+            timeStyle: "short",
+          })}
+        </div>
+      ),
     },
-    {
-      accessorKey: "severity",
-      header: "Severity",
-      cell: ({ row }) => <div>{row.getValue("severity")}</div>,
-    },
-    {
-      accessorKey: "short_overview",
-      header: "Overview",
-      cell: ({ row }) => <div>{row.getValue("short_overview")}</div>,
-    },
+    // {
+    //   accessorKey: "severity",
+    //   header: "Severity",
+    //   cell: ({ row }) => <div>{row.getValue("severity")}</div>,
+    // },
+    // {
+    //   accessorKey: "short_overview",
+    //   header: "Overview",
+    //   cell: ({ row }) => <div>{row.getValue("short_overview")}</div>,
+    // },
     // {
     //   id: "actions",
     //   enableHiding: false,
-    //   cell: ({ row }) => {
-    //     const activityLog = row.original;
-
-    //     return (
-    //       <DropdownMenu>
-    //         <DropdownMenuTrigger asChild>
-    //           <Button variant="ghost" className="h-8 w-8 p-0">
-    //             <span className="sr-only">Open menu</span>
-    //             <MoreHorizontal className="h-4 w-4" />
-    //           </Button>
-    //         </DropdownMenuTrigger>
-    //         <DropdownMenuContent align="end">
-    //           <DropdownMenuLabel>Actions</DropdownMenuLabel>
-    //           <DropdownMenuSeparator />
-    //           <DropdownMenuItem
-    //             onClick={() => {
-    //               // Add action here
-    //             }}
-    //           >
-    //             View Details
-    //           </DropdownMenuItem>
-    //         </DropdownMenuContent>
-    //       </DropdownMenu>
-    //     );
-    //   },
+    //   cell: ({ row }) => { ... }
     // },
   ];
 
@@ -139,9 +107,21 @@ export function ActivityLogTable({ server }: ActivityLogTableProps) {
     pageCount: data?.total_pages || -1,
   });
 
+  // Function to update URL with new page parameter
+  const handlePageChange = (newPage: number) => {
+    // Create a new URLSearchParams object from the current search params
+    const params = new URLSearchParams(searchParams.toString());
+
+    // Update or add the page parameter
+    params.set("page", newPage.toString());
+
+    // Update the URL without reloading the page
+    router.push(`?${params.toString()}`, { scroll: false });
+  };
+
   return (
     <div className="w-full">
-      <div className="flex items-center">
+      <div className="flex items-center mb-2">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" className="ml-auto">
@@ -169,99 +149,80 @@ export function ActivityLogTable({ server }: ActivityLogTableProps) {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      {isFetching || isLoading ? (
-        <div className="">
-          <Skeleton className="w-full h-12 mb-4" />
-          <Skeleton className="w-full h-64 mb-4" />
-          <Skeleton className="w-full h-64" />
-        </div>
-      ) : (
-        <>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                {table.getHeaderGroups().map((headerGroup) => (
-                  <TableRow key={headerGroup.id}>
-                    {headerGroup.headers.map((header) => {
-                      return (
-                        <TableHead key={header.id}>
-                          {header.isPlaceholder
-                            ? null
-                            : flexRender(
-                                header.column.columnDef.header,
-                                header.getContext()
-                              )}
-                        </TableHead>
-                      );
-                    })}
-                  </TableRow>
-                ))}
-              </TableHeader>
-              <TableBody>
-                {table.getRowModel().rows?.length ? (
-                  table.getRowModel().rows.map((row) => (
-                    <TableRow
-                      key={row.id}
-                      data-state={row.getIsSelected() && "selected"}
-                    >
-                      {row.getVisibleCells().map((cell) => (
-                        <TableCell key={cell.id}>
-                          {flexRender(
-                            cell.column.columnDef.cell,
-                            cell.getContext()
+
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader className="">
+            {table.getHeaderGroups().map((headerGroup) => (
+              <TableRow key={headerGroup.id}>
+                {headerGroup.headers.map((header) => {
+                  return (
+                    <TableHead key={header.id}>
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(
+                            header.column.columnDef.header,
+                            header.getContext()
                           )}
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell
-                      colSpan={columns.length}
-                      className="h-24 text-center"
-                    >
-                      No results.
+                    </TableHead>
+                  );
+                })}
+              </TableRow>
+            ))}
+          </TableHeader>
+          <TableBody>
+            {table.getRowModel().rows?.length ? (
+              table.getRowModel().rows.map((row) => (
+                <TableRow
+                  key={row.id}
+                  data-state={row.getIsSelected() && "selected"}
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id}>
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext()
+                      )}
                     </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </>
-      )}
+                  ))}
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell
+                  colSpan={columns.length}
+                  className="h-24 text-center"
+                >
+                  No results.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
       <div className="flex items-center justify-between space-x-2 py-4">
-        {isLoading || isFetching ? (
-          <div>
-            <Skeleton className="w-24 h-8" />
-          </div>
-        ) : (
-          <div>
-            <p className="text-sm text-neutral-500">
-              {((data?.page || 0) - 1) * (data?.per_page || 0) + 1} -{" "}
-              {((data?.page || 0) - 1) * (data?.per_page || 0) +
-                (data?.data.length || 0)}{" "}
-              of {data?.total_items} results.
-            </p>
-          </div>
-        )}
+        <div>
+          <p className="text-sm text-neutral-500">
+            {((data?.page || 0) - 1) * (data?.per_page || 0) + 1} -{" "}
+            {((data?.page || 0) - 1) * (data?.per_page || 0) +
+              (data?.data?.length || 0)}{" "}
+            of {data?.total_items} results.
+          </p>
+        </div>
         <div className="space-x-2">
           <Button
             variant="outline"
             size="sm"
-            onClick={() => {
-              setPage((old) => Math.max(old - 1, 1));
-            }}
-            disabled={page === 1}
+            onClick={() => handlePageChange(currentPage - 1)}
+            disabled={currentPage <= 1}
           >
             Previous
           </Button>
           <Button
-            disabled={page === data?.total_pages}
+            disabled={currentPage >= (data?.total_pages || 1)}
             variant="outline"
             size="sm"
-            onClick={() => {
-              setPage((old) => old + 1);
-            }}
+            onClick={() => handlePageChange(currentPage + 1)}
           >
             Next
           </Button>
