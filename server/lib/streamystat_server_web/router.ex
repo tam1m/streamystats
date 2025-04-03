@@ -51,6 +51,7 @@ defmodule StreamystatServerWeb.Router do
     scope "/servers/:server_id", as: :protected do
       pipe_through(:auth)
 
+      get("/active-sessions", ActiveSessionsController, :index)  # New endpoint for active sessions
       get("/statistics", UserStatisticsController, :index)
       get("/statistics/history", UserStatisticsController, :history)
       get("/statistics/items", UserStatisticsController, :items)
