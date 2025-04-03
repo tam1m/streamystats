@@ -22,8 +22,8 @@ import { extend } from "lodash";
 import { cn, formatDuration } from "@/lib/utils";
 
 const chartConfig = {
-  watch_time: {
-    label: "Watch_time",
+  total_duration: {
+    label: "Total_duration",
     color: "hsl(var(--chart-1))",
   },
 } satisfies ChartConfig;
@@ -37,6 +37,7 @@ export const GenreStatsGraph: React.FC<Props> = ({
   className,
   ...props
 }) => {
+  console.log(data);
   return (
     <Card {...props} className={cn("", className)}>
       <CardHeader className="items-center pb-4">
@@ -58,9 +59,13 @@ export const GenreStatsGraph: React.FC<Props> = ({
             <PolarAngleAxis dataKey="genre" />
             <PolarGrid />
             <Radar
-              dataKey="watch_time"
-              fill="var(--color-watch_time)"
+              dataKey="total_duration"
+              fill="var(--color-total_duration)"
               fillOpacity={0.6}
+              dot={{
+                r: 4,
+                fillOpacity: 1,
+              }}
             />
           </RadarChart>
         </ChartContainer>

@@ -1,7 +1,7 @@
 # lib/streamystat_server_web/controllers/activity_json.ex
 
 defmodule StreamystatServerWeb.ActivityJSON do
-  alias StreamystatServer.Jellyfin.Activity
+  alias StreamystatServer.Activities.Models.Activity
 
   def index(%{
         activities: activities,

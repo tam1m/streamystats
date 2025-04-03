@@ -15,24 +15,87 @@ export type Server = {
 export type SyncTask = {
   id: number;
   server_id: number;
-  sync_type: "partial_sync" | "full_sync";
+  sync_type: "full_sync";
   status: "completed" | "failed";
   sync_started_at: string; // native datetime
   sync_completed_at: string; // native datetime
 };
 
-export type MostWatchedItem = {
-  id: number;
+export type Item = {
+  id?: number;
+  jellyfin_id: string | null;
   name: string;
   type: "Episode" | "Movie";
-  index_number: number | null;
-  production_year: number;
-  season_name: string | null;
-  series_name: string | null;
+  original_title?: string | null;
+  etag?: string | null;
+  date_created?: string | null;
+  container?: string | null;
+  sort_name?: string | null;
+  premiere_date?: string | null;
+  external_urls?: Array<{ Name: string; Url: string }> | null;
+  path?: string | null;
+  official_rating?: string | null;
+  overview?: string | null;
+  genres?: string[] | null;
+  community_rating?: number | null;
+  runtime_ticks?: string | null;
+  production_year?: number | null;
+  is_folder?: boolean | null;
+  parent_id?: string | null;
+  media_type?: string | null;
+  width?: number | null;
+  height?: number | null;
+  library_id?: number | null;
+  server_id?: number | null;
+
+  // Series and episode related fields
+  series_name?: string | null;
+  series_id?: string | null;
+  season_id?: string | null;
+  season_name?: string | null;
+  index_number?: number | null;
+  parent_index_number?: number | null;
+
+  // Image related fields
+  primary_image_tag?: string | null;
+  backdrop_image_tags?: string[] | null;
+  primary_image_thumb_tag?: string | null;
+  primary_image_logo_tag?: string | null;
+  image_blur_hashes?: {
+    Primary?: Record<string, string>;
+    Backdrop?: Record<string, string>;
+    Thumb?: Record<string, string>;
+    Logo?: Record<string, string>;
+  } | null;
+  primary_image_aspect_ratio?: number | null;
+
+  // Parent image fields for episodes
+  parent_backdrop_item_id?: string | null;
+  parent_backdrop_image_tags?: string[] | null;
+  parent_thumb_item_id?: string | null;
+  parent_thumb_image_tag?: string | null;
+  series_primary_image_tag?: string | null;
+
+  // Additional media information
+  video_type?: string | null;
+  has_subtitles?: boolean | null;
+  channel_id?: string | null;
+  location_type?: string | null;
+
+  // Timestamps
+  inserted_at?: string | null;
+  updated_at?: string | null;
+
+  // Statistics (these might be included in some API responses)
+  total_play_count?: number;
+  total_play_duration?: number;
+};
+
+export type MostWatchedItem = Item & {
   total_play_count: number;
   total_play_duration: number;
-  jellyfin_id: string;
 };
+
 export type Statistics = {
   most_watched_items?: {
     Movie?: MostWatchedItem[];
@@ -52,6 +115,10 @@ export type Statistics = {
     average_duration: number;
   }[];
   total_watch_time: number;
+  most_watched_date: {
+    date: string;
+    total_duration: number;
+  };
 };
 
 export type PlaybackActivity = {
@@ -84,7 +151,7 @@ export type User = {
   jellyfin_id: string | null;
   watch_stats: { total_watch_time: number; total_plays: number };
   watch_history: any[];
-  watch_time_per_day: { date: string; watch_time: number }[];
+  watch_time_per_day: { date: string; total_duration: number }[];
   is_administrator: boolean;
   genre_stats: GenreStat[];
   longest_streak: number; // days
@@ -110,8 +177,6 @@ export const createServer = async (
   }
 
   const data = await result.json();
-
-  console.log("User: ", data);
 
   return data.data as Server;
 };
@@ -287,12 +352,90 @@ export const getUser = async (
   return data.data;
 };
 
+export interface Library {
+  id: string;
+  jellyfin_id: string;
+  name: string;
+  type: string;
+  server_id: string;
+  inserted_at: string;
+  updated_at: string;
+}
+
+export const getLibraries = async (serverId: number): Promise<Library[]> => {
+  const res = await fetch(
+    process.env.API_URL + "/servers/" + serverId + "/libraries",
+    {
+      cache: "no-store",
+      headers: {
+        Authorization: `Bearer ${await getToken()}`,
+        "Content-Type": "application/json",
+      },
+    }
+  );
+  if (!res.ok) {
+    return [];
+  }
+  const data = await res.json();
+  return data.data;
+};
+
+export const startTautulliImportTask = async (
+  serverId: number,
+  tautulliUrl: string,
+  apiKey: string,
+  mappings: Record<string, string>
+) => {
+  const res = await fetch(
+    process.env.API_URL + "/admin/servers/" + serverId + "/tautulli/import",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${await getToken()}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        tautulli_url: tautulliUrl,
+        api_key: apiKey,
+        mappings: mappings,
+      }),
+    }
+  );
+  if (!res.ok) {
+    throw new Error("Failed to start Tautulli import task");
+  }
+};
+
 export const getStatistics = async (
-  serverId: number
+  serverId: number,
+  startDate: string,
+  endDate: string
 ): Promise<Statistics | null> => {
   try {
+    if (!startDate || !endDate) {
+      return null;
+    }
+
+    if (new Date(startDate) > new Date(endDate)) {
+      return null;
+    }
+
+    if (new Date(endDate) > new Date()) {
+      return null;
+    }
+
+    const queryParams = new URLSearchParams({
+      start_date: startDate,
+      end_date: endDate,
+    });
+
     const res = await fetch(
-      process.env.API_URL + "/servers/" + serverId + "/statistics",
+      process.env.API_URL +
+        "/servers/" +
+        serverId +
+        "/statistics" +
+        "?" +
+        queryParams,
       {
         cache: "no-store",
         headers: {
@@ -392,7 +535,7 @@ export type ActivitiesResponse = {
 
 export const getActivities = async (
   serverId: number,
-  page = 1
+  page = "1"
 ): Promise<ActivitiesResponse> => {
   const queryParams = new URLSearchParams({
     page: page.toString(),
@@ -428,26 +571,34 @@ export const getActivities = async (
 };
 
 export type ItemWatchStats = {
-  item: {
-    id: number;
-    name: string;
-    type: "Episode" | "Movie";
-    production_year: number;
-    season_name?: string | null;
-    series_name?: string | null;
-  };
+  item: Item;
   item_id: string;
   total_watch_time: number;
   watch_count: number;
 };
 
-export const getStatisticsItems = async (
+export type ItemWatchStatsResponse = {
+  page: number;
+  per_page: number;
+  total_items: number;
+  total_pages: number;
+  data: ItemWatchStats[];
+};
+
+export const getLibraryItems = async (
   serverId: number,
-  page = 1,
+  page = "1",
+  sort_order = "desc",
+  sort_by = "total_watch_time",
+  type?: "Movie" | "Episode" | "Series",
   search?: string
-): Promise<ItemWatchStats[]> => {
+): Promise<ItemWatchStatsResponse> => {
   const queryParams = new URLSearchParams({
-    page: page.toString(),
+    page: page,
+    sort_order,
+    sort_by,
+    search: search || "",
+    type: type || "",
   });
 
   if (search) {
@@ -468,12 +619,54 @@ export const getStatisticsItems = async (
   );
 
   if (!res.ok) {
-    return [];
+    return {
+      data: [],
+      page: 1,
+      per_page: 0,
+      total_pages: 1,
+      total_items: 0,
+    };
   }
 
   const data = await res.json();
-  return data.data;
+  return data;
 };
+
+export async function getUnwatchedItems(
+  serverId: number,
+  page = 1,
+  type = "movie"
+) {
+  try {
+    const queryParams = new URLSearchParams({
+      page: page.toString(),
+      type: type,
+    });
+
+    const res = await fetch(
+      `${
+        process.env.API_URL
+      }/servers/${serverId}/statistics/unwatched?${queryParams.toString()}`,
+      {
+        cache: "no-store",
+        headers: {
+          Authorization: `Bearer ${await getToken()}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!res.ok) {
+      console.error("Failed to fetch unwatched items:", res.statusText);
+      throw new Error("Failed to fetch unwatched items");
+    }
+
+    return await res.json();
+  } catch (error) {
+    console.error("Error fetching unwatched items:", error);
+    return null;
+  }
+}
 
 export const logout = async (): Promise<void> => {
   cookies().delete("streamystats-token");
@@ -546,8 +739,4 @@ export const syncUsersTask = (serverId: number): Promise<void> => {
 
 export const syncLibrariesTask = (serverId: number): Promise<void> => {
   return executeSyncTask(serverId, "/libraries");
-};
-
-export const syncPlaybackStatisticsTask = (serverId: number): Promise<void> => {
-  return executeSyncTask(serverId, "/playback-statistics");
 };

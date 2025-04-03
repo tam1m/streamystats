@@ -13,8 +13,9 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import { ArrowUpDown, ChevronDown, MoreHorizontal } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import * as React from "react";
-
+import { useRouter } from "nextjs-toploader/app";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -26,7 +27,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -35,59 +35,77 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ItemWatchStats, Server } from "@/lib/db";
+import { ItemWatchStats, ItemWatchStatsResponse, Server } from "@/lib/db";
 import { formatDuration } from "@/lib/utils";
-import { useQuery } from "@tanstack/react-query";
 import { useDebounce } from "use-debounce";
+import { Poster } from "../dashboard/Poster";
+import { useQueryParams } from "@/hooks/useQueryParams";
 
 export interface ItemWatchStatsTableProps {
   server: Server;
+  data: ItemWatchStatsResponse;
 }
 
-type Response = {
-  page: number;
-  per_page: number;
-  total_items: number;
-  total_pages: number;
-  data: ItemWatchStats[];
-};
+export function ItemWatchStatsTable({
+  server,
+  data,
+}: ItemWatchStatsTableProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
-export function ItemWatchStatsTable({ server }: ItemWatchStatsTableProps) {
-  const [page, setPage] = React.useState<number>(1);
-  const [search, setSearch] = React.useState<string>("");
-  const [dSearch] = useDebounce(search, 1000);
-  const [sorting, setSorting] = React.useState<SortingState>([]);
+  // Get current values from URL query params
+  const currentPage = Number(searchParams.get("page") || "1");
+  const currentSearch = searchParams.get("search") || "";
+  const currentSortBy = searchParams.get("sort_by") || "";
+  const currentSortOrder = searchParams.get("sort_order") || "";
+
+  // Local state for search input before debouncing
+  const [searchInput, setSearchInput] = React.useState<string>(currentSearch);
+  const [debouncedSearch] = useDebounce(searchInput, 500);
+
+  // Update URL when debounced search changes
+  React.useEffect(() => {
+    if (debouncedSearch !== currentSearch) {
+      updateQueryParams({
+        search: debouncedSearch || null,
+        page: "1", // Reset to first page on search change
+      });
+    }
+  }, [debouncedSearch]);
+
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
   );
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>({});
 
-  const { data, isFetching, isLoading, refetch } = useQuery<Response>({
-    queryKey: ["item-watch-stats", server.id, page, dSearch, sorting],
-    queryFn: async () => {
-      const queryParams = new URLSearchParams({
-        page: page.toString(),
+  const { updateQueryParams } = useQueryParams();
+
+  // Create sorting state based on URL parameters
+  const sorting: SortingState = currentSortBy
+    ? [{ id: currentSortBy, desc: currentSortOrder === "desc" }]
+    : [];
+
+  const handleSortChange = (columnId: string) => {
+    if (currentSortBy !== columnId) {
+      // New column, default to ascending
+      updateQueryParams({
+        sort_by: columnId,
+        sort_order: "asc",
       });
+    } else {
+      // Same column, toggle direction
+      updateQueryParams({
+        sort_order: currentSortOrder === "asc" ? "desc" : "asc",
+      });
+    }
+  };
 
-      if (dSearch) {
-        queryParams.append("search", dSearch);
-      }
-
-      if (sorting.length > 0) {
-        queryParams.append("sort_by", sorting[0].id as string);
-        queryParams.append("sort_order", sorting[0].desc ? "desc" : "asc");
-        console.log(sorting[0].desc ? "desc" : "asc");
-      }
-
-      const res = await fetch(
-        `/api/servers/${server.id}/statistics/items?${queryParams.toString()}`
-      );
-      const data = (await res.json()) as Response;
-      console.log(data.total_pages, data.total_items, data.page);
-      return data as Response;
-    },
-  });
+  const handlePageChange = (newPage: number) => {
+    updateQueryParams({
+      page: newPage.toString(),
+    });
+  };
 
   const columns: ColumnDef<ItemWatchStats>[] = [
     {
@@ -95,7 +113,12 @@ export function ItemWatchStatsTable({ server }: ItemWatchStatsTableProps) {
       id: "name",
       header: "Name",
       cell: ({ row }) => (
-        <div className="capitalize">{row.getValue("name")}</div>
+        <div className="flex flex-row items-center gap-4">
+          <div className="w-12 shrink-0 rounded overflow-hidden">
+            <Poster item={row.original.item} server={server} />
+          </div>
+          <p className="capitalize">{row.getValue("name")}</p>
+        </div>
       ),
     },
     {
@@ -128,14 +151,7 @@ export function ItemWatchStatsTable({ server }: ItemWatchStatsTableProps) {
         return (
           <Button
             variant="ghost"
-            // onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-            onClick={() => {
-              setSorting((prev) => {
-                if (prev.length === 0 || prev[0].id !== "watch_count")
-                  return [{ id: "watch_count", desc: false }];
-                return [{ id: "watch_count", desc: !prev[0].desc }];
-              });
-            }}
+            onClick={() => handleSortChange("watch_count")}
           >
             Watch Count
             <ArrowUpDown className="ml-2 h-4 w-4" />
@@ -154,14 +170,7 @@ export function ItemWatchStatsTable({ server }: ItemWatchStatsTableProps) {
         return (
           <Button
             variant="ghost"
-            // onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-            onClick={() => {
-              setSorting((prev) => {
-                if (prev.length === 0 || prev[0].id !== "total_watch_time")
-                  return [{ id: "total_watch_time", desc: false }];
-                return [{ id: "total_watch_time", desc: !prev[0].desc }];
-              });
-            }}
+            onClick={() => handleSortChange("total_watch_time")}
           >
             Total Watch Time
             <ArrowUpDown className="ml-2 h-4 w-4" />
@@ -220,6 +229,7 @@ export function ItemWatchStatsTable({ server }: ItemWatchStatsTableProps) {
     state: {
       columnFilters,
       columnVisibility,
+      sorting,
     },
     manualPagination: true,
     pageCount: data?.total_pages || -1,
@@ -230,8 +240,8 @@ export function ItemWatchStatsTable({ server }: ItemWatchStatsTableProps) {
       <div className="flex items-center py-4">
         <Input
           placeholder="Search items..."
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
+          value={searchInput}
+          onChange={(event) => setSearchInput(event.target.value)}
           className="max-w-sm"
         />
         <DropdownMenu>
@@ -261,98 +271,73 @@ export function ItemWatchStatsTable({ server }: ItemWatchStatsTableProps) {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      {isFetching || isLoading ? (
-        <div className="">
-          <Skeleton className="w-full h-12 mb-4" />
-          <Skeleton className="w-full h-64 mb-4" />
-          <Skeleton className="w-full h-64" />
-        </div>
-      ) : (
-        <>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                {table.getHeaderGroups().map((headerGroup) => (
-                  <TableRow key={headerGroup.id}>
-                    {headerGroup.headers.map((header) => {
-                      return (
-                        <TableHead key={header.id}>
-                          {header.isPlaceholder
-                            ? null
-                            : flexRender(
-                                header.column.columnDef.header,
-                                header.getContext()
-                              )}
-                        </TableHead>
-                      );
-                    })}
-                  </TableRow>
-                ))}
-              </TableHeader>
-              <TableBody>
-                {table.getRowModel().rows?.length ? (
-                  table.getRowModel().rows.map((row) => (
-                    <TableRow
-                      key={row.id}
-                      data-state={row.getIsSelected() && "selected"}
-                    >
-                      {row.getVisibleCells().map((cell) => (
-                        <TableCell key={cell.id}>
-                          {flexRender(
-                            cell.column.columnDef.cell,
-                            cell.getContext()
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            {table.getHeaderGroups().map((headerGroup) => (
+              <TableRow key={headerGroup.id}>
+                {headerGroup.headers.map((header) => {
+                  return (
+                    <TableHead key={header.id}>
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(
+                            header.column.columnDef.header,
+                            header.getContext()
                           )}
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell
-                      colSpan={columns.length}
-                      className="h-24 text-center"
-                    >
-                      No results.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </>
-      )}
+                    </TableHead>
+                  );
+                })}
+              </TableRow>
+            ))}
+          </TableHeader>
+          <TableBody>
+            {table.getRowModel().rows?.length ? (
+              table
+                .getRowModel()
+                .rows.map((row) => (
+                  <MemoizedTableRow
+                    key={row.id}
+                    row={row}
+                    server={server}
+                    columns={columns}
+                  />
+                ))
+            ) : (
+              <TableRow>
+                <TableCell
+                  colSpan={columns.length}
+                  className="h-24 text-center"
+                >
+                  No results.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
       <div className="flex items-center justify-between space-x-2 py-4">
-        {isLoading || isFetching ? (
-          <div>
-            <Skeleton className="w-24 h-8" />
-          </div>
-        ) : (
-          <div>
-            <p className="text-sm text-neutral-500">
-              {((data?.page || 0) - 1) * 20 + 1} -{" "}
-              {((data?.page || 0) - 1) * 20 + (data?.data.length || 0)} of{" "}
-              {data?.total_items} results.
-            </p>
-          </div>
-        )}
+        <div>
+          <p className="text-sm text-neutral-500">
+            {((data?.page || 0) - 1) * 20 + 1} -{" "}
+            {((data?.page || 0) - 1) * 20 + (data?.data.length || 0)} of{" "}
+            {data?.total_items} results.
+          </p>
+        </div>
         <div className="space-x-2">
           <Button
             variant="outline"
             size="sm"
-            onClick={() => {
-              setPage((old) => Math.max(old - 1, 1));
-            }}
-            disabled={page === 1}
+            onClick={() => handlePageChange(currentPage - 1)}
+            disabled={currentPage <= 1}
           >
             Previous
           </Button>
           <Button
-            disabled={page === data?.total_pages}
+            disabled={currentPage >= (data?.total_pages || 1)}
             variant="outline"
             size="sm"
-            onClick={() => {
-              setPage((old) => old + 1);
-            }}
+            onClick={() => handlePageChange(currentPage + 1)}
           >
             Next
           </Button>
@@ -361,3 +346,29 @@ export function ItemWatchStatsTable({ server }: ItemWatchStatsTableProps) {
     </div>
   );
 }
+
+const MemoizedTableRow = React.memo(
+  ({
+    row,
+    server,
+    columns,
+  }: {
+    row: any;
+    server: Server;
+    columns: ColumnDef<ItemWatchStats>[];
+  }) => {
+    return (
+      <TableRow key={row.id} data-state={row.getIsSelected() && "selected"}>
+        {row.getVisibleCells().map((cell: any) => (
+          <TableCell key={cell.id}>
+            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+          </TableCell>
+        ))}
+      </TableRow>
+    );
+  },
+  (prevProps, nextProps) => {
+    // Only re-render if row data has changed
+    return prevProps.row.original.item_id === nextProps.row.original.item_id;
+  }
+);

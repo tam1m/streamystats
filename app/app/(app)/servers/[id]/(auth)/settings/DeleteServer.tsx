@@ -4,7 +4,7 @@ import { Spinner } from "@/components/Spinner";
 import { Button } from "@/components/ui/button";
 import { deleteServer, Server } from "@/lib/db";
 import { Loader2 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "nextjs-toploader/app";
 import { useState } from "react";
 import { toast } from "sonner";
 import {
@@ -35,7 +35,7 @@ export const DeleteServer: React.FC<Props> = ({ server }) => {
       toast.success("Server deleted successfully");
     } catch (error) {
       toast.error("Something went wrong");
-      console.log(error);
+      console.error(error);
     } finally {
       setLoading(false);
     }

@@ -36,7 +36,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { PlaybackActivity, Server } from "@/lib/db";
-import { useRouter } from "next/navigation";
+import { useRouter } from "nextjs-toploader/app";
 import { formatDuration } from "@/lib/utils";
 
 export interface HistoryTableProps {
@@ -71,7 +71,7 @@ export function HistoryTable({ data, server }: HistoryTableProps) {
     },
     {
       accessorKey: "item_name",
-      header: "Item Name",
+      header: "Item",
       cell: ({ row }) => (
         <div className="capitalize">{row.getValue("item_name")}</div>
       ),
@@ -87,7 +87,7 @@ export function HistoryTable({ data, server }: HistoryTableProps) {
 
     {
       accessorKey: "play_duration",
-      header: () => <div className="text-right">Play Duration</div>,
+      header: () => <div className="text-right">Duration</div>,
       cell: ({ row }) => {
         const playDuration = row.getValue("play_duration") as number | null;
         const formatted = playDuration ? formatDuration(playDuration) : "-";
@@ -102,13 +102,18 @@ export function HistoryTable({ data, server }: HistoryTableProps) {
             variant="ghost"
             onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
           >
-            Date Created
+            Date
             <ArrowUpDown className="ml-2 h-4 w-4" />
           </Button>
         );
       },
       cell: ({ row }) => (
-        <div>{(row.getValue("date_created") as Date)?.toLocaleString()}</div>
+        <div>
+          {new Date(row.getValue("date_created")).toLocaleString("en-UK", {
+            dateStyle: "medium",
+            timeStyle: "short",
+          })}
+        </div>
       ),
     },
     {

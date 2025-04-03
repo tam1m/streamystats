@@ -13,13 +13,11 @@ defmodule StreamystatServer.Application do
       {DNSCluster,
        query: Application.get_env(:streamystat_server, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: StreamystatServer.PubSub},
-      # Start the Finch HTTP client for sending emails
       {Finch, name: StreamystatServer.Finch},
-      # Start a worker by calling: StreamystatServer.Worker.start_link(arg)
-      # {StreamystatServer.Worker, arg},
-      # Start to serve requests, typically the last entry
       StreamystatServerWeb.Endpoint,
-      StreamystatServer.SyncTask,
+      StreamystatServer.Workers.SyncTask,
+      StreamystatServer.Workers.SessionPoller,
+      StreamystatServer.Workers.TautulliImporter,
       {Task, &start_full_sync/0}
     ]
 
@@ -29,21 +27,18 @@ defmodule StreamystatServer.Application do
     Supervisor.start_link(children, opts)
   end
 
-  # Tell Phoenix to update the endpoint configuration
-  # whenever the application is updated.
   @impl true
   def config_change(changed, _new, removed) do
     StreamystatServerWeb.Endpoint.config_change(changed, removed)
     :ok
   end
 
+  # Start a full sync for each server
   defp start_full_sync do
-    # Get all servers
-    servers = StreamystatServer.Servers.list_servers()
+    servers = StreamystatServer.Jellyfin.Users.list_servers()
 
-    # Start a full sync for each server
     Enum.each(servers, fn server ->
-      StreamystatServer.SyncTask.full_sync(server.id)
+      StreamystatServer.Workers.SyncTask.full_sync(server.id)
     end)
   end
 end

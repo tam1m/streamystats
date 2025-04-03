@@ -1,6 +1,6 @@
 defmodule StreamystatServerWeb.AuthController do
   use StreamystatServerWeb, :controller
-  alias StreamystatServer.Servers
+  alias StreamystatServer.Servers.Servers
   alias StreamystatServer.Auth
 
   def login(conn, %{"server_id" => server_id, "username" => username, "password" => password}) do

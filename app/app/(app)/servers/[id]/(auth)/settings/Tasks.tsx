@@ -5,7 +5,6 @@ import { Separator } from "@radix-ui/react-separator";
 import { DeleteServer } from "./DeleteServer";
 import { FullSyncTask } from "./FullSyncTask";
 import { LibrariesSyncTask } from "./LibrariesSyncTask";
-import { PartialSyncTask } from "./PartialSyncTask";
 import { UsersSyncTask } from "./UsersSyncTask";
 
 interface TasksProps {
@@ -16,7 +15,6 @@ export const Tasks: React.FC<TasksProps> = ({ server }) => {
   return (
     <div className="flex flex-col gap-2">
       <FullSyncTask server={server} />
-      <PartialSyncTask server={server} />
       <Separator className="my-8" />
       <UsersSyncTask server={server} />
       <LibrariesSyncTask server={server} />
