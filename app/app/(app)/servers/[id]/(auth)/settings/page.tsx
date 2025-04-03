@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { Tasks } from "./Tasks";
 import { getMe } from "@/lib/me";
 import { TautulliMappingModal } from "./TautulliMappingModal";
+import JellystatsImport from "./JellystatsImport";
 
 export default async function Settings({
   params,
@@ -31,6 +32,11 @@ export default async function Settings({
       {user?.is_administrator ? (
         <>
           <Tasks server={server} />
+          <div className="mt-8">
+            <h2 className="text-2xl font-semibold mb-4">Jellystat import</h2>
+
+            <JellystatsImport serverId={server.id} />
+          </div>
           {/* <div className="mt-8">
             <h2 className="text-2xl font-semibold mb-4">
               Tautulli Integration

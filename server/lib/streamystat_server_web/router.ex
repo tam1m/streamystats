@@ -44,7 +44,7 @@ defmodule StreamystatServerWeb.Router do
       get("/servers/:server_id/sync/tasks/:task_id", SyncController, :show_task)
       get("/servers/:server_id/activities", ActivityController, :index)
       post("/servers/:server_id/tautulli/import", TautulliImportController, :import)
-
+      post("/servers/:server_id/jellystats/import", JellystatsImportController, :import)
     end
 
     # Protected routes
