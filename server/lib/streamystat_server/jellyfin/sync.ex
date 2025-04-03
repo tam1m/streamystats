@@ -591,6 +591,20 @@ defmodule StreamystatServer.Jellyfin.Sync do
         _ -> nil
       end
 
+    primary_image_thumb_tag =
+      case jellyfin_item["ImageTags"] do
+        nil -> nil
+        tags when is_map(tags) -> Map.get(tags, "Thumb")
+        _ -> nil
+      end
+
+    primary_image_logo_tag =
+      case jellyfin_item["ImageTags"] do
+        nil -> nil
+        tags when is_map(tags) -> Map.get(tags, "Logo")
+        _ -> nil
+      end
+
     # Handle additional image tags
     backdrop_image_tags = jellyfin_item["BackdropImageTags"]
 
@@ -622,12 +636,24 @@ defmodule StreamystatServer.Jellyfin.Sync do
       series_name: sanitize_string(jellyfin_item["SeriesName"]),
       series_id: jellyfin_item["SeriesId"],
       season_id: jellyfin_item["SeasonId"],
-      series_primary_image_tag: sanitize_string(jellyfin_item["SeriesPrimaryImageTag"]),
       season_name: sanitize_string(jellyfin_item["SeasonName"]),
-      series_studio: sanitize_string(jellyfin_item["SeriesStudio"]),
       index_number: jellyfin_item["IndexNumber"],
+      parent_index_number: jellyfin_item["ParentIndexNumber"],
       primary_image_tag: sanitize_string(primary_image_tag),
+      primary_image_thumb_tag: sanitize_string(primary_image_thumb_tag),
+      primary_image_logo_tag: sanitize_string(primary_image_logo_tag),
       backdrop_image_tags: backdrop_image_tags,
+      image_blur_hashes: jellyfin_item["ImageBlurHashes"],
+      video_type: sanitize_string(jellyfin_item["VideoType"]),
+      has_subtitles: jellyfin_item["HasSubtitles"],
+      channel_id: jellyfin_item["ChannelId"],
+      parent_backdrop_item_id: jellyfin_item["ParentBackdropItemId"],
+      parent_backdrop_image_tags: jellyfin_item["ParentBackdropImageTags"],
+      parent_thumb_item_id: jellyfin_item["ParentThumbItemId"],
+      parent_thumb_image_tag: jellyfin_item["ParentThumbImageTag"],
+      location_type: sanitize_string(jellyfin_item["LocationType"]),
+      primary_image_aspect_ratio: parse_float(jellyfin_item["PrimaryImageAspectRatio"]),
+      series_primary_image_tag: sanitize_string(jellyfin_item["SeriesPrimaryImageTag"]),
       inserted_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second),
       updated_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
     }

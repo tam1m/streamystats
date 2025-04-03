@@ -23,7 +23,32 @@ defmodule StreamystatServer.Jellyfin.Client do
     "ProductionYear",
     "SortName",
     "Width",
-    "Height"
+    "Height",
+    "ImageTags",
+    "ImageBlurHashes",
+    "BackdropImageTags",
+    "ParentBackdropImageTags",
+    "ParentThumbImageTags",
+    "SeriesThumbImageTag",
+    "SeriesPrimaryImageTag",
+    "Container",
+    "PremiereDate",
+    "CommunityRating",
+    "RunTimeTicks",
+    "IsFolder",
+    "MediaType",
+    "SeriesName",
+    "SeriesId",
+    "SeasonId",
+    "SeasonName",
+    "IndexNumber",
+    "ParentIndexNumber",
+    "VideoType",
+    "HasSubtitles",
+    "ChannelId",
+    "ParentBackdropItemId",
+    "ParentThumbItemId",
+    "LocationType"
   ]
 
   def get_users(server) do
@@ -74,7 +99,7 @@ defmodule StreamystatServer.Jellyfin.Client do
     end
   end
 
-  def get_items_page(server, library_id, start_index, limit) do
+  def get_items_page(server, library_id, start_index, limit, image_types \\ nil) do
     url = "#{server.url}/Items"
     headers = process_request_headers([], server.api_key)
 
@@ -83,8 +108,17 @@ defmodule StreamystatServer.Jellyfin.Client do
       Recursive: true,
       Fields: Enum.join(@default_item_fields, ","),
       StartIndex: start_index,
-      Limit: limit
+      Limit: limit,
+      EnableImageTypes: "Primary,Backdrop,Banner,Thumb"
     }
+
+    # Add ImageTypes parameter if provided
+    params = if image_types do
+      image_types_str = if is_list(image_types), do: Enum.join(image_types, ","), else: image_types
+      Map.put(params, :ImageTypes, image_types_str)
+    else
+      params
+    end
 
     case get(url, headers, params: params) do
       {:ok, %{status_code: 200, body: body}} ->
@@ -104,6 +138,10 @@ defmodule StreamystatServer.Jellyfin.Client do
       {:error, %HTTPoison.Error{reason: reason}} ->
         {:error, "HTTP request failed: #{reason}"}
     end
+  end
+
+  def get_items_with_images(server, library_id, start_index, limit, image_types \\ ["Primary", "Thumb", "Backdrop"]) do
+    get_items_page(server, library_id, start_index, limit, image_types)
   end
 
   def get_installed_plugins(server) do

@@ -29,7 +29,11 @@ export const MostWatchedItems: React.FC<Props> = ({ data, server }) => {
         {items?.slice(0, 3).map((item) => (
           <Card key={item.id} className="flex flex-row items-center">
             <div className="rounded-lg overflow-hidden w-24 ml-4 my-4">
-              <Poster item={item} server={server} />
+              <Poster
+                item={item}
+                server={server}
+                preferredImageType="Primary"
+              />
             </div>
             <div className="flex-1">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative">
@@ -79,7 +83,7 @@ export const MostWatchedItems: React.FC<Props> = ({ data, server }) => {
               </CardHeader>
               <CardContent>
                 <p className="text-sm font-semibold mt-2">
-                  Watch time: {formatDuration(item.total_play_duration)}
+                  Watch time: {formatDuration(item.total_play_duration || 0)}
                 </p>
                 <p className="text-neutral-500 text-sm">
                   Played {item.total_play_count} times

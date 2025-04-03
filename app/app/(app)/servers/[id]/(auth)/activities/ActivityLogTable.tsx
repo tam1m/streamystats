@@ -65,18 +65,25 @@ export function ActivityLogTable({ server, data }: ActivityLogTableProps) {
     {
       accessorKey: "date",
       header: "Date",
-      cell: ({ row }) => <div>{row.getValue("date")}</div>,
+      cell: ({ row }) => (
+        <div>
+          {new Date(row.getValue("date")).toLocaleString("en-UK", {
+            dateStyle: "medium",
+            timeStyle: "short",
+          })}
+        </div>
+      ),
     },
-    {
-      accessorKey: "severity",
-      header: "Severity",
-      cell: ({ row }) => <div>{row.getValue("severity")}</div>,
-    },
-    {
-      accessorKey: "short_overview",
-      header: "Overview",
-      cell: ({ row }) => <div>{row.getValue("short_overview")}</div>,
-    },
+    // {
+    //   accessorKey: "severity",
+    //   header: "Severity",
+    //   cell: ({ row }) => <div>{row.getValue("severity")}</div>,
+    // },
+    // {
+    //   accessorKey: "short_overview",
+    //   header: "Overview",
+    //   cell: ({ row }) => <div>{row.getValue("short_overview")}</div>,
+    // },
     // {
     //   id: "actions",
     //   enableHiding: false,

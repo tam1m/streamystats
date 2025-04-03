@@ -1,4 +1,4 @@
-# lib/streamystat_server/jellyfin/item.ex
+# lib/streamystat_server/jellyfin/models/item.ex
 defmodule StreamystatServer.Jellyfin.Models.Item do
   use Ecto.Schema
   import Ecto.Changeset
@@ -31,12 +31,24 @@ defmodule StreamystatServer.Jellyfin.Models.Item do
     field(:series_name, :string)
     field(:series_id, :string)
     field(:season_id, :string)
-    field(:series_primary_image_tag, :string)
     field(:season_name, :string)
-    field(:series_studio, :string)
     field(:index_number, :integer)
+    field(:parent_index_number, :integer)
     field(:primary_image_tag, :string)
     field(:backdrop_image_tags, {:array, :string})
+    field(:image_blur_hashes, :map)
+    field(:video_type, :string)
+    field(:has_subtitles, :boolean)
+    field(:channel_id, :string)
+    field(:parent_backdrop_item_id, :string)
+    field(:parent_backdrop_image_tags, {:array, :string})
+    field(:parent_thumb_item_id, :string)
+    field(:parent_thumb_image_tag, :string)
+    field(:location_type, :string)
+    field(:primary_image_aspect_ratio, :float)
+    field(:series_primary_image_tag, :string)
+    field(:primary_image_thumb_tag, :string)
+    field(:primary_image_logo_tag, :string)
     belongs_to(:library, Library)
     belongs_to(:server, Server)
 
@@ -73,10 +85,24 @@ defmodule StreamystatServer.Jellyfin.Models.Item do
       :series_name,
       :series_id,
       :season_id,
-      :series_primary_image_tag,
       :season_name,
       :index_number,
-      :series_studio
+      :parent_index_number,
+      :primary_image_tag,
+      :backdrop_image_tags,
+      :image_blur_hashes,
+      :video_type,
+      :has_subtitles,
+      :channel_id,
+      :parent_backdrop_item_id,
+      :parent_backdrop_image_tags,
+      :parent_thumb_item_id,
+      :parent_thumb_image_tag,
+      :location_type,
+      :primary_image_aspect_ratio,
+      :series_primary_image_tag,
+      :primary_image_thumb_tag,
+      :primary_image_logo_tag
     ])
     |> validate_required([:jellyfin_id, :name, :type, :library_id, :server_id])
     |> unique_constraint([:jellyfin_id, :library_id])

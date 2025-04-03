@@ -21,20 +21,79 @@ export type SyncTask = {
   sync_completed_at: string; // native datetime
 };
 
-export type MostWatchedItem = {
-  id: number;
+export type Item = {
+  id?: number;
+  jellyfin_id: string | null;
   name: string;
   type: "Episode" | "Movie";
-  index_number: number | null;
-  production_year: number;
-  season_name: string | null;
-  series_name: string | null;
+  original_title?: string | null;
+  etag?: string | null;
+  date_created?: string | null;
+  container?: string | null;
+  sort_name?: string | null;
+  premiere_date?: string | null;
+  external_urls?: Array<{ Name: string; Url: string }> | null;
+  path?: string | null;
+  official_rating?: string | null;
+  overview?: string | null;
+  genres?: string[] | null;
+  community_rating?: number | null;
+  runtime_ticks?: string | null;
+  production_year?: number | null;
+  is_folder?: boolean | null;
+  parent_id?: string | null;
+  media_type?: string | null;
+  width?: number | null;
+  height?: number | null;
+  library_id?: number | null;
+  server_id?: number | null;
+
+  // Series and episode related fields
+  series_name?: string | null;
+  series_id?: string | null;
+  season_id?: string | null;
+  season_name?: string | null;
+  index_number?: number | null;
+  parent_index_number?: number | null;
+
+  // Image related fields
+  primary_image_tag?: string | null;
+  backdrop_image_tags?: string[] | null;
+  primary_image_thumb_tag?: string | null;
+  primary_image_logo_tag?: string | null;
+  image_blur_hashes?: {
+    Primary?: Record<string, string>;
+    Backdrop?: Record<string, string>;
+    Thumb?: Record<string, string>;
+    Logo?: Record<string, string>;
+  } | null;
+  primary_image_aspect_ratio?: number | null;
+
+  // Parent image fields for episodes
+  parent_backdrop_item_id?: string | null;
+  parent_backdrop_image_tags?: string[] | null;
+  parent_thumb_item_id?: string | null;
+  parent_thumb_image_tag?: string | null;
+  series_primary_image_tag?: string | null;
+
+  // Additional media information
+  video_type?: string | null;
+  has_subtitles?: boolean | null;
+  channel_id?: string | null;
+  location_type?: string | null;
+
+  // Timestamps
+  inserted_at?: string | null;
+  updated_at?: string | null;
+
+  // Statistics (these might be included in some API responses)
+  total_play_count?: number;
+  total_play_duration?: number;
+};
+
+export type MostWatchedItem = Item & {
   total_play_count: number;
   total_play_duration: number;
-  jellyfin_id: string;
-  primary_image_tag: string | null;
-  series_id: string | null;
-  series_primary_image_tag: string | null;
 };
 
 export type Statistics = {
@@ -488,14 +547,7 @@ export const getActivities = async (
 };
 
 export type ItemWatchStats = {
-  item: {
-    id: number;
-    name: string;
-    type: "Episode" | "Movie";
-    production_year: number;
-    season_name?: string | null;
-    series_name?: string | null;
-  };
+  item: Item;
   item_id: string;
   total_watch_time: number;
   watch_count: number;

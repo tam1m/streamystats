@@ -4,7 +4,6 @@ defmodule StreamystatServer.Workers.TautulliImporter do
   alias StreamystatServer.Repo
   alias StreamystatServer.Servers.Models.Server
   alias StreamystatServer.Jellyfin.Models.User
-  alias StreamystatServer.Jellyfin.Models.Item
   alias StreamystatServer.Sessions.Models.PlaybackSession
 
   # Client API

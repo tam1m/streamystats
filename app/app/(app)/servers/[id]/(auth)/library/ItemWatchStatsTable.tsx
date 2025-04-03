@@ -38,6 +38,7 @@ import {
 import { ItemWatchStats, ItemWatchStatsResponse, Server } from "@/lib/db";
 import { formatDuration } from "@/lib/utils";
 import { useDebounce } from "use-debounce";
+import { Poster } from "../dashboard/Poster";
 
 export interface ItemWatchStatsTableProps {
   server: Server;
@@ -125,7 +126,12 @@ export function ItemWatchStatsTable({
       id: "name",
       header: "Name",
       cell: ({ row }) => (
-        <div className="capitalize">{row.getValue("name")}</div>
+        <div className="flex flex-row items-center gap-4">
+          <div className="w-12 shrink-0 rounded overflow-hidden">
+            <Poster item={row.original.item} server={server} />
+          </div>
+          <p className="capitalize">{row.getValue("name")}</p>
+        </div>
       ),
     },
     {
@@ -300,21 +306,16 @@ export function ItemWatchStatsTable({
           </TableHeader>
           <TableBody>
             {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  data-state={row.getIsSelected() && "selected"}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
+              table
+                .getRowModel()
+                .rows.map((row) => (
+                  <MemoizedTableRow
+                    key={row.id}
+                    row={row}
+                    server={server}
+                    columns={columns}
+                  />
+                ))
             ) : (
               <TableRow>
                 <TableCell
@@ -358,3 +359,29 @@ export function ItemWatchStatsTable({
     </div>
   );
 }
+
+const MemoizedTableRow = React.memo(
+  ({
+    row,
+    server,
+    columns,
+  }: {
+    row: any;
+    server: Server;
+    columns: ColumnDef<ItemWatchStats>[];
+  }) => {
+    return (
+      <TableRow key={row.id} data-state={row.getIsSelected() && "selected"}>
+        {row.getVisibleCells().map((cell: any) => (
+          <TableCell key={cell.id}>
+            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+          </TableCell>
+        ))}
+      </TableRow>
+    );
+  },
+  (prevProps, nextProps) => {
+    // Only re-render if row data has changed
+    return prevProps.row.original.item_id === nextProps.row.original.item_id;
+  }
+);

@@ -41,6 +41,8 @@ export default async function DashboardPage({
     sort_by,
     search
   );
+
+  console.log(items.data[0]);
   // const unwatchedItems = await getUnwatchedItems(server.id);
 
   return (

@@ -36,6 +36,7 @@ import {
 import { Server, User } from "@/lib/db";
 import { formatDuration } from "@/lib/utils";
 import { useRouter } from "nextjs-toploader/app";
+import { useMemo } from "react";
 
 export interface UserTableProps {
   data: User[];
@@ -64,24 +65,6 @@ export const UserTable: React.FC<UserTableProps> = ({
       cell: ({ row }) => <div className="">{row.getValue("name")}</div>,
     },
     {
-      accessorKey: "watch_stats.total_plays",
-      header: ({ column }) => {
-        return (
-          <Button
-            variant="ghost"
-            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          >
-            Total Plays
-            <ArrowUpDown className="ml-2 h-4 w-4" />
-          </Button>
-        );
-      },
-      cell: ({ row }) => {
-        const totalPlays = row.original.watch_stats.total_plays;
-        return <div className="text-left">{totalPlays}</div>;
-      },
-    },
-    {
       accessorKey: "watch_stats.total_watch_time",
       header: ({ column }) => {
         return (
@@ -102,6 +85,25 @@ export const UserTable: React.FC<UserTableProps> = ({
         );
       },
     },
+    {
+      accessorKey: "watch_stats.total_plays",
+      header: ({ column }) => {
+        return (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          >
+            Total Plays
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          </Button>
+        );
+      },
+      cell: ({ row }) => {
+        const totalPlays = row.original.watch_stats.total_plays;
+        return <div className="text-left">{totalPlays}</div>;
+      },
+    },
+
     {
       id: "actions",
       enableHiding: false,
@@ -132,7 +134,10 @@ export const UserTable: React.FC<UserTableProps> = ({
     },
   ];
 
-  const [sorting, setSorting] = React.useState<SortingState>([]);
+  const [sorting, setSorting] = React.useState<SortingState>([
+    { desc: true, id: "watch_stats_total_watch_time" },
+  ]);
+
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
   );
@@ -158,6 +163,10 @@ export const UserTable: React.FC<UserTableProps> = ({
       rowSelection,
     },
   });
+
+  useMemo(() => {
+    console.log(sorting);
+  }, [sorting]);
 
   return (
     <div className="w-full">
