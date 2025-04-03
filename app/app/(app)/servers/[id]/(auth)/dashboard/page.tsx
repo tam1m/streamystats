@@ -1,6 +1,6 @@
 import { Container } from "@/components/Container";
 import { PageTitle } from "@/components/PageTitle";
-import { getServer, getStatistics, getUser } from "@/lib/db";
+import { getActiveSessions, getServer, getStatistics, getUser } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { MostWatchedItems } from "./MostWatchedItems";
 import { WatchTimeGraph } from "./WatchTimeGraph";
@@ -9,6 +9,9 @@ import { getMe } from "@/lib/me";
 import TotalWatchTime from "./TotalWatchTime";
 import MostWatchedDate from "./MostWatchedDate";
 import { addDays } from "date-fns";
+import { ActiveSessions } from "./ActiveSessions";
+import { Suspense } from "react";
+import LoadingSessions from "./LoadingSessions";
 
 export default async function DashboardPage({
   params,
@@ -38,10 +41,17 @@ export default async function DashboardPage({
   }
 
   const data = await getStatistics(server.id, startDate, endDate);
+  const sessions = await getActiveSessions(server.id);
 
   return (
     <Container>
       <PageTitle title="Statistics" />
+      <Suspense fallback={<LoadingSessions />}>
+        <div className="mb-6">
+          <ActiveSessions server={server} sessions={sessions} />
+        </div>
+      </Suspense>
+
       {data?.most_watched_items && data.watchtime_per_day ? (
         <div className="flex flex-col gap-6">
           <div className="flex md:flex-row flex-col gap-2">

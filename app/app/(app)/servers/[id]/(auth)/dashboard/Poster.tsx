@@ -62,20 +62,20 @@ const PosterComponent = ({
           return null;
 
         case "Thumb":
-          if (item.primary_image_thumb_tag) {
-            return `${server.url}/Items/${item.jellyfin_id}/Images/Thumb?fillHeight=${height}&fillWidth=${width}&quality=96&tag=${item.primary_image_thumb_tag}`;
+          if (item?.primary_image_thumb_tag) {
+            return `${server.url}/Items/${item?.jellyfin_id}/Images/Thumb?fillHeight=${height}&fillWidth=${width}&quality=96&tag=${item?.primary_image_thumb_tag}`;
           } else if (
             isEpisode &&
-            item.parent_thumb_item_id &&
-            item.parent_thumb_image_tag
+            item?.parent_thumb_item_id &&
+            item?.parent_thumb_image_tag
           ) {
-            return `${server.url}/Items/${item.parent_thumb_item_id}/Images/Thumb?fillHeight=${height}&fillWidth=${width}&quality=96&tag=${item.parent_thumb_image_tag}`;
+            return `${server.url}/Items/${item?.parent_thumb_item_id}/Images/Thumb?fillHeight=${height}&fillWidth=${width}&quality=96&tag=${item?.parent_thumb_image_tag}`;
           }
           return null;
 
         case "Logo":
-          if (item.primary_image_logo_tag) {
-            return `${server.url}/Items/${item.jellyfin_id}/Images/Logo?fillHeight=${height}&fillWidth=${width}&quality=96&tag=${item.primary_image_logo_tag}`;
+          if (item?.primary_image_logo_tag) {
+            return `${server.url}/Items/${item?.jellyfin_id}/Images/Logo?fillHeight=${height}&fillWidth=${width}&quality=96&tag=${item?.primary_image_logo_tag}`;
           }
           return null;
 
@@ -105,10 +105,10 @@ const PosterComponent = ({
     item.series_primary_image_tag,
     item.parent_backdrop_item_id,
     item.parent_backdrop_image_tags,
-    item.parent_thumb_item_id,
-    item.parent_thumb_image_tag,
-    item.primary_image_logo_tag,
-    item.primary_image_thumb_tag,
+    item?.parent_thumb_item_id,
+    item?.parent_thumb_image_tag,
+    item?.primary_image_logo_tag,
+    item?.primary_image_thumb_tag,
     isEpisode,
     server.url,
     height,
