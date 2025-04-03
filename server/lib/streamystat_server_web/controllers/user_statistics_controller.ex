@@ -99,11 +99,23 @@ defmodule StreamystatServerWeb.UserStatisticsController do
         _ -> :desc
       end
 
+    # Handle content type filter
+    content_type =
+      case params["type"] do
+        nil -> nil
+        "" -> nil
+        "Episode" -> "Episode"
+        "Movie" -> "Movie"
+        "Series" -> "Series"
+        _ -> nil
+      end
+
     Logger.debug(
-      "Page: #{page}, Search: #{inspect(search)}, ID: #{inspect(server_id)}, Sort By: #{sort_by}, Sort Order: #{sort_order}"
+      "Page: #{page}, Search: #{inspect(search)}, ID: #{inspect(server_id)}, " <>
+      "Sort By: #{sort_by}, Sort Order: #{sort_order}, Type: #{inspect(content_type)}"
     )
 
-    item_stats = Statistics.get_item_statistics(server_id, page, search, sort_by, sort_order)
+    item_stats = Statistics.get_item_statistics(server_id, page, search, sort_by, sort_order, content_type)
     render(conn, :items, item_stats: item_stats)
   end
 

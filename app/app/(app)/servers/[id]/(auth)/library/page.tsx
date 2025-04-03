@@ -22,11 +22,12 @@ export default async function DashboardPage({
     page: string;
     search: string;
     sort_by: string;
+    type: "Movie" | "Episode" | "Series";
     sort_order: string;
   }>;
 }) {
   const { id } = await params;
-  const { page, search, sort_by, sort_order } = await searchParams;
+  const { page, search, sort_by, sort_order, type } = await searchParams;
   const server = await getServer(id);
 
   if (!server) {
@@ -39,11 +40,9 @@ export default async function DashboardPage({
     page,
     sort_order,
     sort_by,
+    type,
     search
   );
-
-  console.log(items.data[0]);
-  // const unwatchedItems = await getUnwatchedItems(server.id);
 
   return (
     <Container>

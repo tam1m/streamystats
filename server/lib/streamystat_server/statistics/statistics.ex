@@ -106,7 +106,8 @@ defmodule StreamystatServer.Statistics.Statistics do
         page \\ 1,
         search \\ nil,
         sort_by \\ :total_watch_time,
-        sort_order \\ :desc
+        sort_order \\ :desc,
+        content_type \\ nil
       ) do
     per_page = 20
 
@@ -125,12 +126,21 @@ defmodule StreamystatServer.Statistics.Statistics do
         _ -> :desc
       end
 
-    # Base query for items of type "Movie" and "Episode"
+    # Determine which content types to include based on the filter
+    content_types =
+      case content_type do
+        "Movie" -> ["Movie"]
+        "Episode" -> ["Episode"]
+        "Series" -> ["Series"]
+        _ -> ["Movie", "Episode", "Series"]
+      end
+
+    # Base query for items of specified content types
     base_query =
       from(i in Item,
         left_join: ps in PlaybackSession,
         on: ps.item_jellyfin_id == i.jellyfin_id and ps.server_id == i.server_id,
-        where: i.server_id == ^server_id and i.type in ["Movie", "Episode"],
+        where: i.server_id == ^server_id and i.type in ^content_types,
         group_by: [i.id, i.jellyfin_id, i.name, i.type],
         select: %{
           item_id: i.jellyfin_id,
@@ -185,7 +195,7 @@ defmodule StreamystatServer.Statistics.Statistics do
     # Count total items
     total_items_query =
       from(i in Item,
-        where: i.server_id == ^server_id and i.type in ["Movie", "Episode"],
+        where: i.server_id == ^server_id and i.type in ^content_types,
         select: i.id
       )
 
@@ -217,7 +227,8 @@ defmodule StreamystatServer.Statistics.Statistics do
       total_items: total_items,
       total_pages: total_pages,
       sort_by: sort_by,
-      sort_order: sort_order
+      sort_order: sort_order,
+      content_type: content_type
     }
   end
 

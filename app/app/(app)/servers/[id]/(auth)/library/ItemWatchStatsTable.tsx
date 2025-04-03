@@ -39,6 +39,7 @@ import { ItemWatchStats, ItemWatchStatsResponse, Server } from "@/lib/db";
 import { formatDuration } from "@/lib/utils";
 import { useDebounce } from "use-debounce";
 import { Poster } from "../dashboard/Poster";
+import { useQueryParams } from "@/hooks/useQueryParams";
 
 export interface ItemWatchStatsTableProps {
   server: Server;
@@ -78,21 +79,7 @@ export function ItemWatchStatsTable({
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>({});
 
-  // Helper function to update URL query params
-  const updateQueryParams = (params: Record<string, string | null>) => {
-    const newSearchParams = new URLSearchParams(searchParams.toString());
-
-    // Update or remove each parameter
-    Object.entries(params).forEach(([key, value]) => {
-      if (value === null) {
-        newSearchParams.delete(key);
-      } else {
-        newSearchParams.set(key, value);
-      }
-    });
-
-    router.push(`?${newSearchParams.toString()}`, { scroll: false });
-  };
+  const { updateQueryParams } = useQueryParams();
 
   // Create sorting state based on URL parameters
   const sorting: SortingState = currentSortBy
