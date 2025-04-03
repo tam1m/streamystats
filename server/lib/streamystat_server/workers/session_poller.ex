@@ -11,8 +11,47 @@ defmodule StreamystatServer.Workers.SessionPoller do
   end
 
   def init(_opts) do
-    schedule_polling(30_000)
+    schedule_polling(10_000)
     {:ok, %{tracked_sessions: %{}}}
+  end
+
+  def get_active_sessions(server_id) do
+    GenServer.call(__MODULE__, {:get_active_sessions, server_id})
+  end
+
+  def handle_call({:get_active_sessions, server_id}, _from, state) do
+    server_key = "server_#{server_id}"
+    tracked_sessions = Map.get(state.tracked_sessions, server_key, %{})
+
+    # Convert the map of sessions to a list and format for API
+    active_sessions =
+      tracked_sessions
+      |> Map.values()
+      |> Enum.map(fn session ->
+        %{
+          session_key: session.session_key,
+          user_id: session.user_id,
+          user_name: session.user_name,
+          client: session.client,
+          device_id: session.device_id,
+          device_name: session.device_name,
+          now_playing_item_id: session.now_playing_item_id,
+          now_playing_item_name: session.now_playing_item_name,
+          series_id: session.series_id,
+          series_name: session.series_name,
+          season_id: session.season_id,
+          episode_id: session.episode_id,
+          position_ticks: session.position_ticks,
+          runtime_ticks: session.runtime_ticks,
+          playback_duration: session.playback_duration,
+          activity_date_inserted: session.activity_date_inserted,
+          last_activity_date: session.last_activity_date,
+          is_paused: session.is_paused,
+          play_method: session.play_method
+        }
+      end)
+
+    {:reply, active_sessions, state}
   end
 
   def handle_info(:poll_sessions, state) do
@@ -21,6 +60,7 @@ defmodule StreamystatServer.Workers.SessionPoller do
     schedule_polling(30_000)
     {:noreply, updated_state}
   end
+
 
   defp list_servers do
     Repo.all(Server)

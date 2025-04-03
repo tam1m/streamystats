@@ -157,6 +157,56 @@ export type User = {
   longest_streak: number; // days
 };
 
+export type ActiveSession = {
+  session_key: string;
+  user: {
+    id: number;
+    name: string;
+    jellyfin_id: string;
+  } | null;
+  item: Item;
+  client: string;
+  device_name: string;
+  device_id: string;
+  position_ticks: number;
+  formatted_position: string;
+  runtime_ticks: number;
+  formatted_runtime: string;
+  progress_percent: number;
+  playback_duration: number;
+  last_activity_date: string | null;
+  is_paused: boolean;
+  play_method: string | null;
+};
+
+export const getActiveSessions = async (
+  serverId: number
+): Promise<ActiveSession[]> => {
+  try {
+    const res = await fetch(
+      `${process.env.API_URL}/servers/${serverId}/active-sessions`,
+      {
+        cache: "no-store",
+        headers: {
+          Authorization: `Bearer ${await getToken()}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!res.ok) {
+      console.error("Failed to fetch active sessions:", res.statusText);
+      return [];
+    }
+
+    const data = await res.json();
+    return data.data;
+  } catch (error) {
+    console.error("Error fetching active sessions:", error);
+    return [];
+  }
+};
+
 export const createServer = async (
   url: string,
   api_key: string
