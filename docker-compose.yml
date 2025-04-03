@@ -1,6 +1,6 @@
 services:
   app:
-    image: fredrikburmester/streamystats-nextjs:latest
+    image: fredrikburmester/streamystats-nextjs:edge
     ports:
       - "3000:3000"
     depends_on:
@@ -11,7 +11,7 @@ services:
       API_URL: "http://phoenix:4000/api"
 
   phoenix:
-    image: fredrikburmester/streamystats-phoenix:latest
+    image: fredrikburmester/streamystats-phoenix:edge
     environment:
       DATABASE_URL: "ecto://postgres:postgres@db/streamystat"
       SECRET_KEY_BASE: "r0NgGxu5ETTDgF5G7mJsMevMbAF7y4w0IJlCRjzxHqSjbcrPqTQTzajOH0ne0sHH"

@@ -27,7 +27,7 @@ Streamystats is a statistics service for Jellyfin, providing analytics and data 
 > Playback reporting plugin is no longer needed and Streamystats soely relies on the Jellyfin API for statistics.
 
 1. Install Docker and Docker Compose if you haven't already.
-2. Copy the `docker-compose.yml` file to your desired location. 
+2. Copy the `docker-compose.yml` file to your desired location. Use tag `:edge`.
 3. Change any ports if needed. Default web port is `3000`.
 4. Change the `SECRET_KEY_BASE` in the `docker-compose.yml` file to a random string. You can generate one with `openssl rand -hex 64`.
 5. Start the application with `docker-compose up -d`
