@@ -45,6 +45,7 @@ export interface HistoryTableProps {
 }
 
 export function HistoryTable({ data, server }: HistoryTableProps) {
+  console.log(data);
   const router = useRouter();
   const columns: ColumnDef<PlaybackActivity>[] = [
     {

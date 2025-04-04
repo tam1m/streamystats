@@ -10,7 +10,7 @@ defmodule StreamystatServerWeb.UserStatisticsJSON do
   defp data(activity) do
     %{
       id: activity.id,
-      date_created: activity.inserted_at || activity.start_time,
+      date_created: activity.start_time || activity.inserted_at ,
       item_id: activity.item_jellyfin_id,
       item_type: get_item_type(activity),
       item_name: activity.item_name,

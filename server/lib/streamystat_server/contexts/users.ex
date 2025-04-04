@@ -79,14 +79,13 @@ defmodule StreamystatServer.Contexts.Users do
     from(ps in PlaybackSession,
       where: ps.server_id == ^server_id and ps.user_id == ^user_id,
       order_by: [desc: ps.start_time],
-      limit: 20,
       select: %{
         id: ps.id,
         item_id: ps.item_jellyfin_id,
         item_name: ps.item_name,
         series_name: ps.series_name,
         play_duration: ps.play_duration,
-        date: ps.start_time,
+        date_created: ps.start_time,
         completed: ps.completed,
         percent_complete: ps.percent_complete
       }

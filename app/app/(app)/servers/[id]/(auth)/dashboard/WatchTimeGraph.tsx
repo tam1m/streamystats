@@ -46,6 +46,10 @@ const chartConfig = {
     label: "Movies",
     color: "hsl(var(--chart-5))",
   },
+  Other: {
+    label: "Other",
+    color: "hsl(var(--chart-3))",
+  },
 } satisfies ChartConfig;
 
 interface Props {
@@ -53,25 +57,19 @@ interface Props {
 }
 
 export const WatchTimeGraph: React.FC<Props> = ({ data }) => {
+  console.log(data);
   const searchParams = useSearchParams();
   const { updateQueryParams } = useQueryParams();
 
   // Get date parameters from URL or set defaults
   const startDateParam = searchParams.get("startDate");
   const endDateParam = searchParams.get("endDate");
-  const rangeParam = searchParams.get("range") || "90d";
 
   // Parse dates or set defaults
   const defaultEndDate = new Date();
   const getDefaultStartDate = () => {
     const date = new Date();
-    if (rangeParam === "30d") {
-      date.setDate(date.getDate() - 30);
-    } else if (rangeParam === "7d") {
-      date.setDate(date.getDate() - 7);
-    } else {
-      date.setDate(date.getDate() - 90);
-    }
+    date.setDate(date.getDate() - 90); // Default to 90 days
     return date;
   };
 
@@ -82,35 +80,32 @@ export const WatchTimeGraph: React.FC<Props> = ({ data }) => {
     endDateParam ? new Date(endDateParam) : defaultEndDate
   );
 
+  // Format date for query params
+  const formatDateForParams = (date: Date) => {
+    return date.toISOString().split("T")[0];
+  };
+
   // Update the URL when dates change
   const handleDateChange = (type: "start" | "end", date?: Date) => {
     if (type === "start") {
       setStartDate(date);
       if (date) {
         updateQueryParams({
-          startDate: date.toISOString().split("T")[0],
-          range: null, // Clear the range when specific dates are selected
+          startDate: formatDateForParams(date),
         });
       }
     } else {
       setEndDate(date);
       if (date) {
         updateQueryParams({
-          endDate: date.toISOString().split("T")[0],
-          range: null, // Clear the range when specific dates are selected
+          endDate: formatDateForParams(date),
         });
       }
     }
   };
 
-  // Handle range selection
-  const handleRangeChange = (value: string) => {
-    updateQueryParams({
-      range: value,
-      startDate: null, // Clear specific dates when using range
-      endDate: null,
-    });
-
+  // Handle preset selection
+  const handlePresetChange = (value: string) => {
     const end = new Date();
     const start = new Date();
 
@@ -124,20 +119,53 @@ export const WatchTimeGraph: React.FC<Props> = ({ data }) => {
 
     setStartDate(start);
     setEndDate(end);
+
+    updateQueryParams({
+      startDate: formatDateForParams(start),
+      endDate: formatDateForParams(end),
+    });
+  };
+
+  // Determine the current preset based on date difference
+  const getCurrentPreset = (): string => {
+    if (!startDate || !endDate) return "90d";
+
+    const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays <= 7) return "7d";
+    if (diffDays <= 30) return "30d";
+    return "90d";
   };
 
   const filteredData = React.useMemo(() => {
-    const formattedData = data.map((item) => ({
-      date: new Date(item.date).toISOString().split("T")[0],
-      Movie: Math.floor(
+    const formattedData = data.map((item) => {
+      // Calculate Movie and Episode watchtime
+      const movieWatchtime = Math.floor(
         (item.watchtime_by_type.find((i) => i.item_type === "Movie")
           ?.total_duration || 0) / 60
-      ),
-      Episode: Math.floor(
+      );
+
+      const episodeWatchtime = Math.floor(
         (item.watchtime_by_type.find((i) => i.item_type === "Episode")
           ?.total_duration || 0) / 60
-      ),
-    }));
+      );
+
+      // Calculate Other watchtime (total - movie - episode)
+      const totalWatchtime = item.watchtime_by_type.reduce(
+        (acc, curr) => acc + Math.floor(curr.total_duration / 60),
+        0
+      );
+
+      const otherWatchtime = totalWatchtime - movieWatchtime - episodeWatchtime;
+
+      return {
+        date: new Date(item.date).toISOString().split("T")[0],
+        Movie: movieWatchtime,
+        Episode: episodeWatchtime,
+        Other: Math.max(0, otherWatchtime), // Ensure we don't get negative values
+      };
+    });
 
     const start = startDate || getDefaultStartDate();
     const end = endDate || defaultEndDate;
@@ -156,7 +184,7 @@ export const WatchTimeGraph: React.FC<Props> = ({ data }) => {
       if (existingData) {
         result.push(existingData);
       } else {
-        result.push({ date: dateString, Movie: 0, Episode: 0 });
+        result.push({ date: dateString, Movie: 0, Episode: 0, Other: 0 });
       }
     }
 
@@ -236,8 +264,8 @@ export const WatchTimeGraph: React.FC<Props> = ({ data }) => {
             </Popover>
           </div>
 
-          {/* Preset ranges */}
-          <Select value={rangeParam} onValueChange={handleRangeChange}>
+          {/* Preset options */}
+          <Select value={getCurrentPreset()} onValueChange={handlePresetChange}>
             <SelectTrigger
               className="w-[160px] rounded-lg sm:ml-auto"
               aria-label="Select a time range"
@@ -306,6 +334,12 @@ export const WatchTimeGraph: React.FC<Props> = ({ data }) => {
               fill={chartConfig.Movie.color}
               radius={[4, 4, 0, 0]}
               name="Movie"
+            />
+            <Bar
+              dataKey="Other"
+              fill={chartConfig.Other.color}
+              radius={[4, 4, 0, 0]}
+              name="Other"
             />
           </BarChart>
         </ChartContainer>
