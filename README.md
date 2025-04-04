@@ -6,13 +6,13 @@ Streamystats is a statistics service for Jellyfin, providing analytics and data 
 
 ## ✨ Features
 
-- 🖥️ Dashboard with overview statistics
+- 🖥️ Dashboard with overview statistics, live sessions and more!
 - 👤 User-specific watch history and statistics
 - 🌟 Most popular item tracking
 - 📚 Library statistics
-- ⏱️ Watch time graphs
+- ⏱️ Graphs with advanced filtering
 - 🏠 Multi-server and user support
-- 🔄 Full and partial sync options with Jellyfin server
+- 🔄 Full sync options of items, libraries and users from the settings page
 
 ## Roadmap
 
