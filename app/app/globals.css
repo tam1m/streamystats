@@ -71,3 +71,34 @@ body {
 .fade-in {
   animation: fadeIn 0.5s ease-in-out;
 }
+
+@keyframes border-glow {
+  0%,
+  100% {
+    border-color: rgba(245, 158, 11, 0.8); /* Amber */
+    box-shadow: 0 0 10px rgba(245, 158, 11, 0.6);
+  }
+  25% {
+    border-color: rgba(59, 130, 246, 0.8); /* Blue */
+    box-shadow: 0 0 10px rgba(59, 130, 246, 0.6);
+  }
+  50% {
+    border-color: rgba(16, 185, 129, 0.8); /* Green */
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.6);
+  }
+  75% {
+    border-color: rgba(139, 92, 246, 0.8); /* Purple */
+    box-shadow: 0 0 10px rgba(139, 92, 246, 0.6);
+  }
+}
+
+.rainbow-border-glow {
+  position: relative;
+  border-width: 1px;
+  animation: border-glow 8s linear infinite;
+  transition: all 0.2s ease-in-out;
+}
+
+.rainbow-border-glow:hover {
+  box-shadow: 0 0 15px currentColor;
+}
