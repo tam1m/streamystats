@@ -16,16 +16,53 @@ defmodule StreamystatServer.Contexts.Users do
   before being synced through the regular sync process.
   """
   def create_initial_user(server_id, jellyfin_user) do
-    Logger.debug("Creating initial user for server_id: #{inspect(server_id)}")
+    Logger.info("Jellyfin user data: #{inspect(jellyfin_user, limit: :infinity, printable_limit: 500)}")
 
-    # Create a basic user record with minimal information
+    config = Map.get(jellyfin_user, "Configuration", %{})
+    policy = Map.get(jellyfin_user, "Policy", %{})
+
+    # Create a user record with all fields set
     user_params = %{
       jellyfin_id: jellyfin_user["Id"],
       name: jellyfin_user["Name"],
       server_id: server_id,
       last_login: DateTime.utc_now(),
       total_watch_time: 0,
-      play_count: 0
+      play_count: 0,
+      has_password: jellyfin_user["HasPassword"],
+      has_configured_password: jellyfin_user["HasConfiguredPassword"],
+      has_configured_easy_password: jellyfin_user["HasConfiguredEasyPassword"],
+      enable_auto_login: jellyfin_user["EnableAutoLogin"],
+      last_login_date: parse_jellyfin_datetime(jellyfin_user["LastLoginDate"]),
+      last_activity_date: parse_jellyfin_datetime(jellyfin_user["LastActivityDate"]),
+      is_administrator: policy["IsAdministrator"],
+      is_hidden: policy["IsHidden"],
+      is_disabled: policy["IsDisabled"],
+      enable_user_preference_access: policy["EnableUserPreferenceAccess"],
+      enable_remote_control_of_other_users: policy["EnableRemoteControlOfOtherUsers"],
+      enable_shared_device_control: policy["EnableSharedDeviceControl"],
+      enable_remote_access: policy["EnableRemoteAccess"],
+      enable_live_tv_management: policy["EnableLiveTvManagement"],
+      enable_live_tv_access: policy["EnableLiveTvAccess"],
+      enable_media_playback: policy["EnableMediaPlayback"],
+      enable_audio_playback_transcoding: policy["EnableAudioPlaybackTranscoding"],
+      enable_video_playback_transcoding: policy["EnableVideoPlaybackTranscoding"],
+      enable_playback_remuxing: policy["EnablePlaybackRemuxing"],
+      enable_content_deletion: policy["EnableContentDeletion"],
+      enable_content_downloading: policy["EnableContentDownloading"],
+      enable_sync_transcoding: policy["EnableSyncTranscoding"],
+      enable_media_conversion: policy["EnableMediaConversion"],
+      enable_all_devices: policy["EnableAllDevices"],
+      enable_all_channels: policy["EnableAllChannels"],
+      enable_all_folders: policy["EnableAllFolders"],
+      enable_public_sharing: policy["EnablePublicSharing"],
+      invalid_login_attempt_count: policy["InvalidLoginAttemptCount"],
+      login_attempts_before_lockout: policy["LoginAttemptsBeforeLockout"],
+      max_active_sessions: policy["MaxActiveSessions"],
+      remote_client_bitrate_limit: policy["RemoteClientBitrateLimit"],
+      authentication_provider_id: policy["AuthenticationProviderId"],
+      password_reset_provider_id: policy["PasswordResetProviderId"],
+      sync_play_access: policy["SyncPlayAccess"]
     }
 
     Logger.debug("User params with server_id #{inspect(server_id)}: #{inspect(user_params)}")
@@ -41,6 +78,14 @@ defmodule StreamystatServer.Contexts.Users do
       {:error, changeset} ->
         Logger.error("Failed to create initial user for server_id #{inspect(server_id)}: #{inspect(changeset.errors)}")
         {:error, changeset}
+    end
+  end
+
+  defp parse_jellyfin_datetime(nil), do: nil
+  defp parse_jellyfin_datetime(date_string) when is_binary(date_string) do
+    case DateTime.from_iso8601(date_string) do
+      {:ok, datetime, _} -> datetime
+      _ -> nil  # Handle potential parsing errors
     end
   end
 

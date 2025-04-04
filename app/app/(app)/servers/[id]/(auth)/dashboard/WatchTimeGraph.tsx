@@ -33,9 +33,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Statistics } from "@/lib/db";
+import { WatchTimePerDay } from "@/lib/db";
 import { formatDuration, cn } from "@/lib/utils";
 import { useQueryParams } from "@/hooks/useQueryParams";
+import { Suspense, useTransition } from "react";
 
 const chartConfig = {
   Episode: {
@@ -53,91 +54,30 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 interface Props {
-  data: Statistics["watchtime_per_day"];
+  data?: WatchTimePerDay;
+  onLoadingChange?: (isLoading: boolean) => void;
 }
 
-export const WatchTimeGraph: React.FC<Props> = ({ data }) => {
-  const searchParams = useSearchParams();
-  const { updateQueryParams } = useQueryParams();
+// Separate the chart visualization from the controls
+function WatchTimeChartView({
+  data,
+  dateRange,
+}: {
+  data?: WatchTimePerDay;
+  dateRange: { startDate?: Date; endDate?: Date };
+}) {
+  const { startDate, endDate } = dateRange;
 
-  // Get date parameters from URL or set defaults
-  const startDateParam = searchParams.get("startDate");
-  const endDateParam = searchParams.get("endDate");
-
-  // Parse dates or set defaults
-  const defaultEndDate = new Date();
   const getDefaultStartDate = () => {
     const date = new Date();
     date.setDate(date.getDate() - 90); // Default to 90 days
     return date;
   };
 
-  const [startDate, setStartDate] = React.useState<Date | undefined>(
-    startDateParam ? new Date(startDateParam) : getDefaultStartDate()
-  );
-  const [endDate, setEndDate] = React.useState<Date | undefined>(
-    endDateParam ? new Date(endDateParam) : defaultEndDate
-  );
-
-  // Format date for query params
-  const formatDateForParams = (date: Date) => {
-    return date.toISOString().split("T")[0];
-  };
-
-  // Update the URL when dates change
-  const handleDateChange = (type: "start" | "end", date?: Date) => {
-    if (type === "start") {
-      setStartDate(date);
-      if (date) {
-        updateQueryParams({
-          startDate: formatDateForParams(date),
-        });
-      }
-    } else {
-      setEndDate(date);
-      if (date) {
-        updateQueryParams({
-          endDate: formatDateForParams(date),
-        });
-      }
-    }
-  };
-
-  // Handle preset selection
-  const handlePresetChange = (value: string) => {
-    const end = new Date();
-    const start = new Date();
-
-    if (value === "30d") {
-      start.setDate(start.getDate() - 30);
-    } else if (value === "7d") {
-      start.setDate(start.getDate() - 7);
-    } else {
-      start.setDate(start.getDate() - 90);
-    }
-
-    setStartDate(start);
-    setEndDate(end);
-
-    updateQueryParams({
-      startDate: formatDateForParams(start),
-      endDate: formatDateForParams(end),
-    });
-  };
-
-  // Determine the current preset based on date difference
-  const getCurrentPreset = (): string => {
-    if (!startDate || !endDate) return "90d";
-
-    const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-    if (diffDays <= 7) return "7d";
-    if (diffDays <= 30) return "30d";
-    return "90d";
-  };
+  const defaultEndDate = new Date();
 
   const filteredData = React.useMemo(() => {
+    if (!data) return [];
     const formattedData = data.map((item) => {
       // Calculate Movie and Episode watchtime
       const movieWatchtime = Math.floor(
@@ -191,6 +131,281 @@ export const WatchTimeGraph: React.FC<Props> = ({ data }) => {
   }, [data, startDate, endDate]);
 
   return (
+    <ChartContainer
+      config={chartConfig}
+      className="aspect-auto h-[250px] w-full"
+    >
+      <BarChart data={filteredData}>
+        <CartesianGrid vertical={false} />
+        <XAxis
+          dataKey="date"
+          tickLine={false}
+          axisLine={false}
+          tickMargin={8}
+          minTickGap={32}
+          tickFormatter={(value) => {
+            const date = new Date(value);
+            return date.toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+            });
+          }}
+        />
+        <ChartTooltip
+          cursor={false}
+          formatter={(value, name, item) => (
+            <div className="flex flex-row items-center w-full">
+              <div
+                className="w-2 h-2 rounded-[2px] mr-2"
+                style={{ backgroundColor: item.color }}
+              ></div>
+              <p className="">{name}</p>
+              <p className="ml-auto">
+                {formatDuration(Number(value), "minutes")}
+              </p>
+            </div>
+          )}
+          content={<ChartTooltipContent indicator="dashed" />}
+        />
+        <Bar
+          dataKey="Episode"
+          fill={chartConfig.Episode.color}
+          radius={[4, 4, 0, 0]}
+          name="Episode"
+        />
+        <Bar
+          dataKey="Movie"
+          fill={chartConfig.Movie.color}
+          radius={[4, 4, 0, 0]}
+          name="Movie"
+        />
+        <Bar
+          dataKey="Other"
+          fill={chartConfig.Other.color}
+          radius={[4, 4, 0, 0]}
+          name="Other"
+        />
+      </BarChart>
+    </ChartContainer>
+  );
+}
+
+// Loading component when chart is refreshing
+function LoadingChart() {
+  return (
+    <div className="aspect-auto h-[250px] w-full flex items-center justify-center">
+      <div className="animate-pulse text-muted-foreground">
+        Loading chart data...
+      </div>
+    </div>
+  );
+}
+
+// Controls component for date selection
+function WatchTimeControls({
+  startDate,
+  endDate,
+  onDateChange,
+  onPresetChange,
+  isLoading,
+}: {
+  startDate?: Date;
+  endDate?: Date;
+  onDateChange: (type: "start" | "end", date?: Date) => void;
+  onPresetChange: (value: string) => void;
+  isLoading: boolean;
+}) {
+  // Determine the current preset based on date difference
+  const getCurrentPreset = (): string => {
+    if (!startDate || !endDate) return "90d";
+
+    const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays <= 7) return "7d";
+    if (diffDays <= 30) return "30d";
+    return "90d";
+  };
+
+  return (
+    <div className="flex flex-col sm:flex-row gap-2">
+      {/* Date range picker */}
+      <div className="flex items-center gap-2">
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              className="w-[150px] justify-start text-left font-normal"
+              disabled={isLoading}
+            >
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {startDate ? format(startDate, "MMM dd, yyyy") : "Start date"}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0">
+            <Calendar
+              mode="single"
+              selected={startDate}
+              onSelect={(date) => onDateChange("start", date)}
+              initialFocus
+              disabled={(date) =>
+                date > new Date() || (endDate ? date > endDate : false)
+              }
+            />
+          </PopoverContent>
+        </Popover>
+
+        <span className="text-muted-foreground">to</span>
+
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              className="w-[150px] justify-start text-left font-normal"
+              disabled={isLoading}
+            >
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {endDate ? format(endDate, "MMM dd, yyyy") : "End date"}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0">
+            <Calendar
+              mode="single"
+              selected={endDate}
+              onSelect={(date) => onDateChange("end", date)}
+              initialFocus
+              disabled={(date) =>
+                date > new Date() || (startDate ? date < startDate : false)
+              }
+            />
+          </PopoverContent>
+        </Popover>
+      </div>
+
+      {/* Preset options */}
+      <Select
+        value={getCurrentPreset()}
+        onValueChange={onPresetChange}
+        disabled={isLoading}
+      >
+        <SelectTrigger
+          className="w-[160px] rounded-lg sm:ml-auto"
+          aria-label="Select a time range"
+        >
+          <SelectValue placeholder="Presets" />
+        </SelectTrigger>
+        <SelectContent className="rounded-xl">
+          <SelectItem value="90d" className="rounded-lg">
+            Last 3 months
+          </SelectItem>
+          <SelectItem value="30d" className="rounded-lg">
+            Last 30 days
+          </SelectItem>
+          <SelectItem value="7d" className="rounded-lg">
+            Last 7 days
+          </SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
+// Main component
+export function WatchTimeGraph({ data, onLoadingChange }: Props) {
+  const searchParams = useSearchParams();
+  const { updateQueryParams } = useQueryParams();
+  const [isPending, startTransition] = useTransition();
+  const [isLoading, setIsLoading] = React.useState(false);
+
+  // Get date parameters from URL or set defaults
+  const startDateParam = searchParams.get("startDate");
+  const endDateParam = searchParams.get("endDate");
+
+  // Parse dates or set defaults
+  const defaultEndDate = new Date();
+  const getDefaultStartDate = () => {
+    const date = new Date();
+    date.setDate(date.getDate() - 90); // Default to 90 days
+    return date;
+  };
+
+  const [startDate, setStartDate] = React.useState<Date | undefined>(
+    startDateParam ? new Date(startDateParam) : getDefaultStartDate()
+  );
+  const [endDate, setEndDate] = React.useState<Date | undefined>(
+    endDateParam ? new Date(endDateParam) : defaultEndDate
+  );
+
+  // Format date for query params
+  const formatDateForParams = (date: Date) => {
+    return date.toISOString().split("T")[0];
+  };
+
+  // Update the URL when dates change
+  const handleDateChange = (type: "start" | "end", date?: Date) => {
+    setIsLoading(true);
+
+    if (type === "start") {
+      setStartDate(date);
+      if (date) {
+        startTransition(() => {
+          updateQueryParams({
+            startDate: formatDateForParams(date),
+          });
+        });
+      }
+    } else {
+      setEndDate(date);
+      if (date) {
+        startTransition(() => {
+          updateQueryParams({
+            endDate: formatDateForParams(date),
+          });
+        });
+      }
+    }
+  };
+
+  // Handle preset selection
+  const handlePresetChange = (value: string) => {
+    setIsLoading(true);
+
+    const end = new Date();
+    const start = new Date();
+
+    if (value === "30d") {
+      start.setDate(start.getDate() - 30);
+    } else if (value === "7d") {
+      start.setDate(start.getDate() - 7);
+    } else {
+      start.setDate(start.getDate() - 90);
+    }
+
+    setStartDate(start);
+    setEndDate(end);
+
+    startTransition(() => {
+      updateQueryParams({
+        startDate: formatDateForParams(start),
+        endDate: formatDateForParams(end),
+      });
+    });
+  };
+
+  // Update loading state and notify parent if needed
+  React.useEffect(() => {
+    const isCurrentlyLoading = isLoading || isPending;
+    if (onLoadingChange) {
+      onLoadingChange(isCurrentlyLoading);
+    }
+
+    // Reset internal loading state when transition completes
+    if (!isPending && isLoading) {
+      setIsLoading(false);
+    }
+  }, [isLoading, isPending, onLoadingChange]);
+
+  return (
     <Card>
       <CardHeader className="flex md:items-center gap-2 space-y-0 border-b py-5 sm:flex-row p-4 md:p-6">
         <div className="grid flex-1 gap-1">
@@ -211,138 +426,26 @@ export const WatchTimeGraph: React.FC<Props> = ({ data }) => {
           ))}
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-2">
-          {/* Date range picker */}
-          <div className="flex items-center gap-2">
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="w-[150px] justify-start text-left font-normal"
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {startDate ? format(startDate, "MMM dd, yyyy") : "Start date"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <Calendar
-                  mode="single"
-                  selected={startDate}
-                  onSelect={(date) => handleDateChange("start", date)}
-                  initialFocus
-                  disabled={(date) =>
-                    date > new Date() || (endDate ? date > endDate : false)
-                  }
-                />
-              </PopoverContent>
-            </Popover>
-
-            <span className="text-muted-foreground">to</span>
-
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="w-[150px] justify-start text-left font-normal"
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {endDate ? format(endDate, "MMM dd, yyyy") : "End date"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <Calendar
-                  mode="single"
-                  selected={endDate}
-                  onSelect={(date) => handleDateChange("end", date)}
-                  initialFocus
-                  disabled={(date) =>
-                    date > new Date() || (startDate ? date < startDate : false)
-                  }
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-
-          {/* Preset options */}
-          <Select value={getCurrentPreset()} onValueChange={handlePresetChange}>
-            <SelectTrigger
-              className="w-[160px] rounded-lg sm:ml-auto"
-              aria-label="Select a time range"
-            >
-              <SelectValue placeholder="Presets" />
-            </SelectTrigger>
-            <SelectContent className="rounded-xl">
-              <SelectItem value="90d" className="rounded-lg">
-                Last 3 months
-              </SelectItem>
-              <SelectItem value="30d" className="rounded-lg">
-                Last 30 days
-              </SelectItem>
-              <SelectItem value="7d" className="rounded-lg">
-                Last 7 days
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        <WatchTimeControls
+          startDate={startDate}
+          endDate={endDate}
+          onDateChange={handleDateChange}
+          onPresetChange={handlePresetChange}
+          isLoading={isLoading || isPending}
+        />
       </CardHeader>
       <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
-        <ChartContainer
-          config={chartConfig}
-          className="aspect-auto h-[250px] w-full"
-        >
-          <BarChart data={filteredData}>
-            <CartesianGrid vertical={false} />
-            <XAxis
-              dataKey="date"
-              tickLine={false}
-              axisLine={false}
-              tickMargin={8}
-              minTickGap={32}
-              tickFormatter={(value) => {
-                const date = new Date(value);
-                return date.toLocaleDateString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                });
-              }}
+        {isLoading || isPending ? (
+          <LoadingChart />
+        ) : (
+          <Suspense fallback={<LoadingChart />}>
+            <WatchTimeChartView
+              data={data}
+              dateRange={{ startDate, endDate }}
             />
-            <ChartTooltip
-              cursor={false}
-              formatter={(value, name, item) => (
-                <div className="flex flex-row items-center w-full">
-                  <div
-                    className="w-2 h-2 rounded-[2px] mr-2"
-                    style={{ backgroundColor: item.color }}
-                  ></div>
-                  <p className="">{name}</p>
-                  <p className="ml-auto">
-                    {formatDuration(Number(value), "minutes")}
-                  </p>
-                </div>
-              )}
-              content={<ChartTooltipContent indicator="dashed" />}
-            />
-            <Bar
-              dataKey="Episode"
-              fill={chartConfig.Episode.color}
-              radius={[4, 4, 0, 0]}
-              name="Episode"
-            />
-            <Bar
-              dataKey="Movie"
-              fill={chartConfig.Movie.color}
-              radius={[4, 4, 0, 0]}
-              name="Movie"
-            />
-            <Bar
-              dataKey="Other"
-              fill={chartConfig.Other.color}
-              radius={[4, 4, 0, 0]}
-              name="Other"
-            />
-          </BarChart>
-        </ChartContainer>
+          </Suspense>
+        )}
       </CardContent>
     </Card>
   );
-};
+}

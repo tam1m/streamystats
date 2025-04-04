@@ -110,7 +110,8 @@ defmodule StreamystatServer.Jellyfin.Client do
       StartIndex: start_index,
       Limit: limit,
       EnableImageTypes: "Primary,Backdrop,Banner,Thumb",
-      IsFolder: false
+      IsFolder: false,
+      IsPlaceHolder: false
     }
 
     # Add ImageTypes parameter if provided

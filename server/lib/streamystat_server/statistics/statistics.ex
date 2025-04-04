@@ -8,21 +8,75 @@ defmodule StreamystatServer.Statistics.Statistics do
   require Logger
 
   def create_playback_stat(attrs \\ %{}) do
-    # This function is kept for backward compatibility
-    # but delegates to create_playback_session
     StreamystatServer.Contexts.PlaybackSessions.create_playback_session(attrs)
   end
 
-  def get_formatted_stats(start_date, end_date, server_id, user_id \\ nil) do
-    stats = get_stats(start_date, end_date, server_id, user_id)
+  # Optimize the watchtime_per_day_stats function to do aggregation in the database
+  def get_watchtime_per_day_stats(start_date, end_date, server_id, user_id \\ nil) do
+    # Convert dates to datetimes
+    start_datetime = to_datetime(start_date)
+    end_datetime = to_datetime(end_date, :end_of_day)
 
-    %{
-      most_watched_items: get_top_watched_items(stats),
-      watchtime_per_day: get_watchtime_per_day(stats),
-      average_watchtime_per_week_day: get_average_watchtime_per_week_day(stats),
-      total_watch_time: get_total_watch_time(stats),
-      most_watched_date: get_most_watched_date(stats)
-    }
+    # Build the base query with proper filters
+    query =
+      from ps in PlaybackSession,
+        left_join: i in Item,
+        on: ps.item_jellyfin_id == i.jellyfin_id and ps.server_id == i.server_id,
+        where: ps.start_time >= ^start_datetime and ps.start_time <= ^end_datetime,
+      where: ps.server_id == ^server_id
+
+    # Apply user filter if needed
+    query = if user_id, do: query |> where([ps], ps.user_jellyfin_id == ^user_id), else: query
+
+    # Use SQL date_trunc to group by day and type, performing the aggregation in the database
+    watchtime_data =
+        query
+      |> group_by([ps, i], [fragment("date_trunc('day', ?)", ps.start_time), i.type])
+      |> select([ps, i], %{
+        date: fragment("date_trunc('day', ?)", ps.start_time),
+        item_type: coalesce(i.type, "Unknown"),
+        total_duration: sum(ps.play_duration)
+      })
+      |> Repo.all()
+
+    # Format the result as expected
+    formatted_data =
+      watchtime_data
+      |> Enum.group_by(&Date.to_iso8601(&1.date))
+    |> Enum.map(fn {date, items} ->
+      %{
+        date: date,
+          watchtime_by_type: Enum.map(items, fn item ->
+            %{
+              item_type: item.item_type,
+              total_duration: item.total_duration || 0
+            }
+          end)
+      }
+    end)
+    |> Enum.sort_by(& &1.date)
+
+    %{watchtime_per_day: formatted_data}
+  end
+
+  # Optimize get_formatted_stats to avoid retrieving all data at once
+  def get_formatted_stats(start_date, end_date, server_id, user_id \\ nil) do
+    # Get total_watch_time directly from database
+    total_watch_time = get_total_watch_time_db(server_id, user_id)
+
+    # Get most_watched_date directly from database
+    most_watched_date = get_most_watched_date_db(server_id, user_id)
+
+    # Get top_watched_items directly from database
+    most_watched_items = get_top_watched_items_db(server_id, user_id)
+    # Get average_watchtime_per_week_day directly from database
+    average_watchtime_per_week_day = get_average_watchtime_per_week_day_db(server_id, user_id)
+      %{
+      most_watched_items: most_watched_items,
+      average_watchtime_per_week_day: average_watchtime_per_week_day,
+      total_watch_time: total_watch_time,
+      most_watched_date: most_watched_date
+      }
   end
 
   def get_unwatched_items(server_id, type \\ "Movie", page \\ 1, per_page \\ 20) do
@@ -99,7 +153,7 @@ defmodule StreamystatServer.Statistics.Statistics do
         Repo.one(from(l in Library, where: l.server_id == ^server_id, select: count())),
       users_count: Repo.one(from(u in User, where: u.server_id == ^server_id, select: count()))
     }
-  end
+end
 
   def get_item_statistics(
         server_id,
@@ -251,7 +305,109 @@ defmodule StreamystatServer.Statistics.Statistics do
     end
   end
 
-  defp get_stats(start_date, end_date, server_id, user_id) do
+  # Optimized database functions that avoid loading all data into memory
+
+  # Get total watch time directly from the database
+  defp get_total_watch_time_db(server_id, user_id) do
+    query =
+      from ps in PlaybackSession,
+      where: ps.server_id == ^server_id,
+      select: sum(ps.play_duration)
+
+    query = if user_id, do: query |> where([ps], ps.user_jellyfin_id == ^user_id), else: query
+
+    Repo.one(query) || 0
+  end
+
+  # Get most watched date directly from the database
+  defp get_most_watched_date_db(server_id, user_id) do
+    query =
+      from ps in PlaybackSession,
+      where: ps.server_id == ^server_id,
+      group_by: [fragment("date(start_time)")],
+      select: %{
+        date: fragment("date(start_time)"),
+        total_duration: sum(ps.play_duration)
+      },
+      order_by: [desc: sum(ps.play_duration)],
+      limit: 1
+
+    query = if user_id, do: query |> where([ps], ps.user_jellyfin_id == ^user_id), else: query
+
+    Repo.one(query) || %{date: nil, total_duration: 0}
+  end
+
+  # Get top watched items directly from the database
+  defp get_top_watched_items_db(server_id, user_id) do
+    # First, get a list of distinct item types to create our categories
+    item_types_query =
+      from i in Item,
+      where: i.server_id == ^server_id,
+      distinct: i.type,
+      where: not is_nil(i.type),
+      select: i.type
+
+    item_types = Repo.all(item_types_query)
+
+    # Then, for each type, get the top 10 items
+    Enum.reduce(item_types, %{}, fn item_type, acc ->
+      query =
+        from ps in PlaybackSession,
+        join: i in Item, on: ps.item_jellyfin_id == i.jellyfin_id and ps.server_id == i.server_id,
+        where: ps.server_id == ^server_id and i.type == ^item_type,
+        group_by: [i.id, i.jellyfin_id, i.name, i.type],
+        select: %{
+          id: i.id,
+          jellyfin_id: i.jellyfin_id,
+          name: i.name,
+          type: i.type,
+          original_title: i.original_title,
+          production_year: i.production_year,
+          series_name: i.series_name,
+          season_name: i.season_name,
+          index_number: i.index_number,
+          primary_image_tag: i.primary_image_tag,
+          primary_image_aspect_ratio: i.primary_image_aspect_ratio,
+          server_id: i.server_id,
+          total_play_count: count(ps.id),
+          total_play_duration: sum(ps.play_duration)
+        },
+        order_by: [desc: sum(ps.play_duration)],
+        limit: 10
+
+      query = if user_id, do: query |> where([ps], ps.user_jellyfin_id == ^user_id), else: query
+
+      items = Repo.all(query)
+      Map.put(acc, item_type, items)
+    end)
+  end
+
+  # Get average watchtime per week day directly from the database
+  defp get_average_watchtime_per_week_day_db(server_id, user_id) do
+    query =
+      from ps in PlaybackSession,
+      where: ps.server_id == ^server_id,
+      group_by: [fragment("EXTRACT(DOW FROM start_time)")],
+      select: %{
+        day_of_week: fragment("EXTRACT(DOW FROM start_time)::integer + 1"), # PostgreSQL uses 0-6 for Sun-Sat, we want 1-7
+        play_count: count(ps.id),
+        total_duration: sum(ps.play_duration)
+      }
+
+    query = if user_id, do: query |> where([ps], ps.user_jellyfin_id == ^user_id), else: query
+
+    Repo.all(query)
+    |> Enum.map(fn day ->
+      average_duration = if day.play_count > 0, do: day.total_duration / day.play_count, else: 0
+      %{
+        day_of_week: day.day_of_week,
+        average_duration: Float.round(average_duration, 2)
+      }
+    end)
+    |> Enum.sort_by(& &1.day_of_week)
+  end
+
+  defp get_stats_with_date_filter(start_date, end_date, server_id, user_id) do
     start_datetime = to_datetime(start_date)
     end_datetime = to_datetime(end_date, :end_of_day)
 
@@ -260,6 +416,29 @@ defmodule StreamystatServer.Statistics.Statistics do
         left_join: i in Item,
         on: ps.item_jellyfin_id == i.jellyfin_id and ps.server_id == i.server_id,
         where: ps.start_time >= ^start_datetime and ps.start_time <= ^end_datetime,
+        order_by: [asc: ps.start_time],
+        preload: [:user],
+        select: %{
+          date_created: ps.start_time,
+          item_id: ps.item_jellyfin_id,
+          item: i,
+          user_id: ps.user_id,
+          play_duration: ps.play_duration,
+          playback_session: ps
+        }
+      )
+
+    query = if server_id, do: query |> where([ps], ps.server_id == ^server_id), else: query
+    query = if user_id, do: query |> where([ps], ps.user_jellyfin_id == ^user_id), else: query
+
+    Repo.all(query)
+  end
+
+  defp get_all_stats(server_id, user_id) do
+    query =
+      from(ps in PlaybackSession,
+        left_join: i in Item,
+        on: ps.item_jellyfin_id == i.jellyfin_id and ps.server_id == i.server_id,
         order_by: [asc: ps.start_time],
         preload: [:user],
         select: %{

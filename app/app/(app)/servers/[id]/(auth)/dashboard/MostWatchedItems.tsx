@@ -17,6 +17,7 @@ interface Props {
 }
 
 export const MostWatchedItems: React.FC<Props> = ({ data, server }) => {
+  console.log(data);
   const renderItems = (items: MostWatchedItem[], type: "Movie" | "Episode") => (
     <div>
       <h2 className="text-xl font-bold mb-4">Most Watched {type}s</h2>
