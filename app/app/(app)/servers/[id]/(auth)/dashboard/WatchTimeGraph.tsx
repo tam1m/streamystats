@@ -57,7 +57,6 @@ interface Props {
 }
 
 export const WatchTimeGraph: React.FC<Props> = ({ data }) => {
-  console.log(data);
   const searchParams = useSearchParams();
   const { updateQueryParams } = useQueryParams();
 

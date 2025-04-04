@@ -164,10 +164,6 @@ export const UserTable: React.FC<UserTableProps> = ({
     },
   });
 
-  useMemo(() => {
-    console.log(sorting);
-  }, [sorting]);
-
   return (
     <div className="w-full">
       <div className="flex items-center py-4">
