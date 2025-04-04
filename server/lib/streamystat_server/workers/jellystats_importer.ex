@@ -325,7 +325,7 @@ defmodule StreamystatServer.Workers.JellystatsImporter do
               case activity["NowPlayingItem"] do
                 %{"RunTimeTicks" => ticks} when is_integer(ticks) -> ticks
                 _ ->
-                  case get_item_by_id(server, activity["NowPlayingItemId"]) do
+                  case get_item_by_id(server, activity["EpisodeId"] || activity["NowPlayingItemId"]) do
                     %Item{runtime_ticks: ticks} when not is_nil(ticks) -> ticks
                     _ -> 0
                   end
@@ -351,6 +351,11 @@ defmodule StreamystatServer.Workers.JellystatsImporter do
                 nil
               end
 
+            # Corrected mapping for series/season/episode IDs
+            item_jellyfin_id = activity["EpisodeId"] || activity["NowPlayingItemId"]
+            series_jellyfin_id = activity["SeriesId"] || activity["NowPlayingItemId"]
+            season_jellyfin_id = activity["SeasonId"]
+
             # Build the attributes map
             attrs = %{
               user_id: user && user.id,
@@ -358,11 +363,11 @@ defmodule StreamystatServer.Workers.JellystatsImporter do
               device_id: activity["DeviceId"],
               device_name: activity["DeviceName"],
               client_name: activity["Client"],
-              item_jellyfin_id: activity["NowPlayingItemId"],
+              item_jellyfin_id: item_jellyfin_id,
               item_name: activity["NowPlayingItemName"],
-              series_jellyfin_id: activity["SeriesId"],
+              series_jellyfin_id: series_jellyfin_id,
               series_name: activity["SeriesName"],
-              season_jellyfin_id: activity["SeasonId"],
+              season_jellyfin_id: season_jellyfin_id,
               play_duration: play_duration,
               play_method: play_state["PlayMethod"] || activity["PlayMethod"],
               start_time: activity_date,
@@ -436,7 +441,7 @@ defmodule StreamystatServer.Workers.JellystatsImporter do
   defp generate_session_key(activity) do
     user_id = activity["UserId"] || ""
     device_id = activity["DeviceId"] || ""
-    item_id = activity["NowPlayingItemId"] || ""
+    item_id = activity["EpisodeId"] || activity["NowPlayingItemId"] || ""
     series_id = activity["SeriesId"] || ""
 
     if series_id != "" do
