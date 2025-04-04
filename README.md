@@ -2,7 +2,7 @@
 
 Streamystats is a statistics service for Jellyfin, providing analytics and data visualization. 📈 Built with modern advanced frameworks.
 
-> ⚠️ This is a small hobby project of mine to learn Phoenix. Don't expect fast development. Most of my time goes towards Streamyfin. 
+> ⚠️ This is a hobby project of mine. Don't expect fast development.
 
 ## ✨ Features
 
@@ -10,7 +10,7 @@ Streamystats is a statistics service for Jellyfin, providing analytics and data 
 - 👤 User-specific watch history and statistics
 - 🌟 Most popular item tracking
 - 📚 Library statistics
-- ⏱️ Graphs with advanced filtering
+- ⏱️ Watch time graphs with advanced filtering
 - 🏠 Multi-server and user support
 - 🔄 Full sync options of items, libraries and users from the settings page
 
