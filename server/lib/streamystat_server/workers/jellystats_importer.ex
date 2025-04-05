@@ -107,22 +107,22 @@ defmodule StreamystatServer.Workers.JellystatsImporter do
     # Process each type of data in separate transactions
     try do
       # Get the data from the correct structure
-      libraries = get_in(data, ["jf_libraries"]) || []
-      users = get_in(data, ["jf_users"]) || []
-      items = get_in(data, ["jf_library_items"]) || []
+      # libraries = get_in(data, ["jf_libraries"]) || []
+      # users = get_in(data, ["jf_users"]) || []
+      # items = get_in(data, ["jf_library_items"]) || []
       activities = get_in(data, ["jf_playback_activity"]) || []
 
       # Process each type of data in separate transactions
-      libraries_result = process_libraries_batch(server, libraries)
-      users_result = process_users_batch(server, users)
-      items_result = process_items_batch(server, items)
+      # libraries_result = process_libraries_batch(server, libraries)
+      # users_result = process_users_batch(server, users)
+      # items_result = process_items_batch(server, items)
       activities_result = process_playback_activities_batch(server, activities)
 
       # Combine and return results
       %{
-        libraries: libraries_result,
-        users: users_result,
-        items: items_result,
+        # libraries: libraries_result,
+        # users: users_result,
+        # items: items_result,
         activities: activities_result
       }
     rescue
@@ -142,20 +142,20 @@ defmodule StreamystatServer.Workers.JellystatsImporter do
       # Handle both single object and array cases
       data_list = if is_list(data), do: data, else: [data]
 
-      libraries =
-        data_list
-        |> Enum.flat_map(& &1["jf_libraries"] || [])
-        |> Enum.uniq_by(& &1["Id"])
+      # libraries =
+      #   data_list
+      #   |> Enum.flat_map(& &1["jf_libraries"] || [])
+      #   |> Enum.uniq_by(& &1["Id"])
 
-      users =
-        data_list
-        |> Enum.flat_map(& &1["jf_users"] || [])
-        |> Enum.uniq_by(& &1["Id"])
+      # users =
+      #   data_list
+      #   |> Enum.flat_map(& &1["jf_users"] || [])
+      #   |> Enum.uniq_by(& &1["Id"])
 
-      items =
-        data_list
-        |> Enum.flat_map(& &1["jf_library_items"] || [])
-        |> Enum.uniq_by(& &1["Id"])
+      # items =
+      #   data_list
+      #   |> Enum.flat_map(& &1["jf_library_items"] || [])
+      #   |> Enum.uniq_by(& &1["Id"])
 
       activities =
         data_list
@@ -167,16 +167,16 @@ defmodule StreamystatServer.Workers.JellystatsImporter do
                   "#{length(items)} items, #{length(activities)} activities")
 
       # Process each type of data in separate transactions
-      libraries_result = process_libraries_batch(server, libraries)
-      users_result = process_users_batch(server, users)
-      items_result = process_items_batch(server, items)
+      # libraries_result = process_libraries_batch(server, libraries)
+      # users_result = process_users_batch(server, users)
+      # items_result = process_items_batch(server, items)
       activities_result = process_playback_activities_batch(server, activities)
 
       # Combine and return results
       %{
-        libraries: libraries_result,
-        users: users_result,
-        items: items_result,
+        # libraries: libraries_result,
+        # users: users_result,
+        # items: items_result,
         activities: activities_result
       }
     rescue
@@ -340,10 +340,15 @@ defmodule StreamystatServer.Workers.JellystatsImporter do
             library = if item["ParentId"], do: Map.get(libraries_map, item["ParentId"]), else: nil
             library_id = if library, do: library.id, else: nil
 
+            type = item["Type"]
+
+            # Jellystat saves Episdoes as Series, so we need to change it to Episode
+            type = if type == "Series", do: "Episode", else: type
+
             attrs = %{
               jellyfin_id: item["Id"],
               name: item["Name"],
-              type: item["Type"],
+              type: type,
               original_title: item["OriginalTitle"],
               premiere_date: parse_jellyfin_date(item["PremiereDate"]),
               community_rating: item["CommunityRating"],
