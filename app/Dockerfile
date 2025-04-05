@@ -1,9 +1,15 @@
 FROM oven/bun:alpine AS base
 
+# Install sharp dependencies
+RUN apk add --no-cache libc6-compat
+
 # Stage 1: Install dependencies
 FROM base AS deps
 WORKDIR /app
 COPY package.json bun.lock ./
+
+# Add sharp explicitly
+RUN bun add sharp
 RUN bun install --frozen-lockfile
 
 # Stage 2: Build the application
@@ -17,8 +23,18 @@ RUN bun run build
 FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV=production
+
+# Install sharp in the production environment
+RUN apk add --no-cache libc6-compat
+COPY --from=deps /app/node_modules/sharp ./node_modules/sharp
+
+# Copy the standalone output
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/public ./public
 
 EXPOSE 3000
+ENV PORT=3000
+ENV HOSTNAME=0.0.0.0
+
 CMD ["bun", "run", "server.js"]

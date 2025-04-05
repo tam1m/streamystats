@@ -29,7 +29,11 @@ export function ActiveSessions({ server }: { server: Server }) {
       (await fetch(`/api/Sessions?serverId=${server.id}`).then((res) =>
         res.json()
       )) as ActiveSession[],
-    refetchInterval: 1000,
+    refetchInterval: 500,
+  });
+
+  const sortedSessions = data?.sort((a, b) => {
+    return b.position_ticks - a.position_ticks;
   });
 
   if (isPending) {
@@ -58,8 +62,8 @@ export function ActiveSessions({ server }: { server: Server }) {
   }
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="border-0 p-0 m-0">
+      <CardHeader className="px-0 pt-0">
         <CardTitle className="flex items-center gap-2">
           <MonitorPlay className="h-5 w-5" />
           <span>Active Sessions</span>
@@ -71,7 +75,7 @@ export function ActiveSessions({ server }: { server: Server }) {
           Currently playing content on your server
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-0 pb-0">
         <div className="space-y-4">
           {data.map((session) => (
             <div

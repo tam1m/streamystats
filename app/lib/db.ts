@@ -25,7 +25,7 @@ export type Item = {
   id?: number;
   jellyfin_id: string | null;
   name: string;
-  type: "Episode" | "Movie";
+  type: "Episode" | "Movie" | "Series";
   original_title?: string | null;
   etag?: string | null;
   date_created?: string | null;
@@ -100,6 +100,7 @@ export type Statistics = {
   most_watched_items?: {
     Movie?: MostWatchedItem[];
     Episode?: MostWatchedItem[];
+    Series?: MostWatchedItem[];
   };
   average_watchtime_per_week_day: {
     day_of_week: number;

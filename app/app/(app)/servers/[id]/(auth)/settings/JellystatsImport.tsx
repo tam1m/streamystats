@@ -130,19 +130,17 @@ export default function JellystatsImport({ serverId }: { serverId: number }) {
           <p className="font-medium">How to export data from Jellystats:</p>
           <ol className="list-decimal pl-5 space-y-1">
             <li>Open your Jellystats instance</li>
-            <li>Navigate to Settings and select the Settings tab</li>
+            <li>Navigate to Settings and select the Backup tab</li>
             <li>
-              Scroll all the way down to <em>Tasks</em> and start a backup
+              Select only <em>Activity</em> (it will appear purple when
+              selected)
             </li>
+            <li>Under settings click Settings</li>
+            <li>Scroll all the way to the end and start a backup</li>
+            <li>Navigate back to Backups</li>
             <li>
-              Scroll to the top and select <em>Backup</em>
-            </li>
-            <li>
-              Under Options choose only <em>Activity</em>
-            </li>
-            <li>
-              Select Actions on the backup you want to download and click
-              Download
+              Select Actions on the backup you just took once it is visible and
+              click Download
             </li>
             <li>Upload it here</li>
           </ol>

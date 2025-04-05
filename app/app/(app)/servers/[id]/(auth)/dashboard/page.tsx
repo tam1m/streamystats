@@ -39,10 +39,11 @@ export default async function DashboardPage({
 
   return (
     <Container>
+      <div className="mb-8">
+        <ActiveSessions server={server} />
+      </div>
       <PageTitle title="Statistics" />
       <div className="flex flex-col gap-4">
-        <ActiveSessions server={server} />
-
         <Suspense fallback={<Skeleton className="h-48 w-full" />}>
           <StatsWithSuspense
             server={server}
