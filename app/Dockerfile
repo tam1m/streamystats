@@ -1,43 +1,43 @@
-FROM oven/bun:alpine AS base
+# Base image
+FROM node:20-alpine AS base
 
-# Install sharp dependencies
+# Install system dependencies
 RUN apk add --no-cache libc6-compat
 
-# Stage 1: Install dependencies
-FROM base AS deps
+# Set working directory
 WORKDIR /app
-COPY package.json bun.lock ./
 
-# Add sharp explicitly
-RUN bun add sharp
-RUN bun install --frozen-lockfile
+# Install dependencies
+COPY package.json package-lock.json* ./
+RUN npm ci
 
-# Stage 2: Build the application
-FROM base AS builder
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
+# Copy application code
 COPY . .
-# Create public directory if it doesn't exist
-RUN mkdir -p public
-RUN bun run build
 
-# Stage 3: Production server
-FROM base AS runner
+# Build the application
+RUN npm run build
+
+# Production image
+FROM node:20-alpine AS runner
+
+# Set working directory
 WORKDIR /app
+
+# Set environment variables
 ENV NODE_ENV=production
+ENV NEXT_SHARP_PATH=/app/node_modules/sharp
 
-# Install sharp in the production environment
-RUN apk add --no-cache libc6-compat
-COPY --from=deps /app/node_modules/sharp ./node_modules/sharp
+# Install production dependencies
+COPY package.json package-lock.json* ./
+RUN npm ci --omit=dev
 
-# Copy the standalone output
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
-RUN mkdir -p ./public
-COPY --from=builder --chown=1000:1000 /app/public/. ./public/
+# Copy built application
+COPY --from=base /app/public ./public
+COPY --from=base /app/.next/standalone ./
+COPY --from=base /app/.next/static ./.next/static
 
+# Expose port
 EXPOSE 3000
-ENV PORT=3000
-ENV HOSTNAME=0.0.0.0
 
-CMD ["bun", "run", "server.js"]
+# Start the application
+CMD ["node", "server.js"]
