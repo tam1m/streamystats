@@ -115,7 +115,7 @@ export const MostWatchedItems: React.FC<Props> = ({ data, server }) => {
   );
 
   return (
-    <div className="grid grid-cols-3 gap-4">
+    <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
       {renderItems(data?.Movie || [], "Movie", "Movies")}
       {renderItems(data?.Series || [], "Series", "Series")}
       {renderItems(data?.Episode || [], "Episode", "Episodes")}
