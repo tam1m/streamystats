@@ -29,7 +29,6 @@ export default async function DashboardPage({
   let _startDate = startDate;
   let _endDate = endDate;
   if (!startDate || !endDate) {
-    console.log("Redirecting to default date range");
     _startDate = addDays(new Date(), -30).toISOString().split("T")[0];
     _endDate = new Date().toISOString().split("T")[0];
 

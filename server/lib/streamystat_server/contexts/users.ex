@@ -18,7 +18,6 @@ defmodule StreamystatServer.Contexts.Users do
   def create_initial_user(server_id, jellyfin_user) do
     Logger.info("Jellyfin user data: #{inspect(jellyfin_user, limit: :infinity, printable_limit: 500)}")
 
-    config = Map.get(jellyfin_user, "Configuration", %{})
     policy = Map.get(jellyfin_user, "Policy", %{})
 
     # Create a user record with all fields set
