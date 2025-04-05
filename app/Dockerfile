@@ -17,6 +17,8 @@ FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+# Create public directory if it doesn't exist
+RUN mkdir -p public
 RUN bun run build
 
 # Stage 3: Production server
@@ -31,7 +33,8 @@ COPY --from=deps /app/node_modules/sharp ./node_modules/sharp
 # Copy the standalone output
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
-COPY --from=builder /app/public ./public
+RUN mkdir -p ./public
+COPY --from=builder --chown=1000:1000 /app/public/. ./public/
 
 EXPOSE 3000
 ENV PORT=3000
