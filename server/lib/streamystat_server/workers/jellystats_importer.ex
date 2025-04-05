@@ -134,9 +134,6 @@ defmodule StreamystatServer.Workers.JellystatsImporter do
   end
 
   defp process_jellystats_data(server, data) do
-    # Log the received data structure
-    Logger.debug("Processing data structure: #{inspect(data, pretty: true)}")
-
     try do
       # Get the data from the correct structure
       # Handle both single object and array cases
@@ -163,8 +160,7 @@ defmodule StreamystatServer.Workers.JellystatsImporter do
         |> Enum.uniq_by(& &1["Id"])
 
       # Log counts for debugging
-      Logger.info("Found: #{length(libraries)} libraries, #{length(users)} users, " <>
-                  "#{length(items)} items, #{length(activities)} activities")
+      Logger.info("Found: #{length(activities)} activities")
 
       # Process each type of data in separate transactions
       # libraries_result = process_libraries_batch(server, libraries)
@@ -575,145 +571,107 @@ defmodule StreamystatServer.Workers.JellystatsImporter do
 
   defp create_playback_session_from_jellystats(server, activity, users_map, items_map, existing_sessions) do
     try do
-      # Get the user ID
       user_jellyfin_id = activity["UserId"]
+      user = Map.get(users_map, user_jellyfin_id)
 
-      unless user_jellyfin_id do
-        Logger.warning("Activity missing UserId: #{inspect(activity)}")
-        {:skip, "Missing UserId"}
+      unless user do
+        {:skip, "User not found in database"}
       else
-        # Look up the user in our preloaded map
-        user = Map.get(users_map, user_jellyfin_id)
+        activity_date = parse_jellyfin_date(activity["ActivityDateInserted"])
+        play_duration = String.to_integer(activity["PlaybackDuration"])
+        item_jellyfin_id = activity["EpisodeId"] || activity["NowPlayingItemId"]
 
-        # Skip if user not found in database
-        unless user do
-          {:skip, "User not found in database"}
-        else
-          # Extract dates
-          activity_date = parse_jellyfin_date(activity["ActivityDateInserted"])
+        item = Map.get(items_map, item_jellyfin_id)
 
-          unless activity_date do
-            Logger.warning("Invalid or missing ActivityDateInserted: #{activity["ActivityDateInserted"]}")
-            {:skip, "Invalid activity date"}
+        runtime_ticks =
+          case item do
+            %Item{runtime_ticks: ticks} when not is_nil(ticks) -> ticks
+            _ -> 0
+          end
+
+        percent_complete =
+          if runtime_ticks > 0 do
+            # Convert play_duration from seconds to ticks for comparison
+            play_duration_ticks = play_duration * 10_000
+            # Calculate percentage
+            (play_duration_ticks / runtime_ticks) * 100.0
           else
-            # Extract position and duration from PlayState
-            play_state = activity["PlayState"] || %{}
-            position_ticks = play_state["PositionTicks"]
+            # Default to 0 if we can't calculate
+            0.0
+          end
 
-            # Calculate play duration from the PlaybackDuration field (in seconds)
-            play_duration =
-              case activity["PlaybackDuration"] do
-                x when is_binary(x) -> String.to_integer(x)
-                x when is_integer(x) -> x
-                _ -> 0
-              end
+        # Session is considered completed if progress is > 90%
+        completed = percent_complete > 90.0
 
-            # Item ID for lookup
-            item_jellyfin_id = activity["EpisodeId"] || activity["NowPlayingItemId"]
+        end_time =
+          if activity_date && play_duration && play_duration > 0 do
+            DateTime.add(activity_date, play_duration, :second)
+          else
+            nil
+          end
 
-            # Get item from preloaded map
-            item = Map.get(items_map, item_jellyfin_id)
+        series_jellyfin_id = activity["NowPlayingItemId"]
+        season_jellyfin_id = activity["SeasonId"]
 
-            # Try to get runtime_ticks from different sources
-            runtime_ticks =
-              case activity["NowPlayingItem"] do
-                %{"RunTimeTicks" => ticks} when is_integer(ticks) -> ticks
-                _ ->
-                  case item do
-                    %Item{runtime_ticks: ticks} when not is_nil(ticks) -> ticks
-                    _ -> 0
-                  end
-              end
+        attrs = %{
+          user_id: user && user.id,
+          user_jellyfin_id: user_jellyfin_id,
+          device_id: activity["DeviceId"],
+          device_name: activity["DeviceName"],
+          client_name: activity["Client"],
+          item_jellyfin_id: item_jellyfin_id,
+          item_name: activity["NowPlayingItemName"],
+          series_jellyfin_id: series_jellyfin_id,
+          series_name: activity["SeriesName"],
+          season_jellyfin_id: season_jellyfin_id,
+          play_duration: play_duration,
+          play_method: activity["PlayMethod"],
+          start_time: activity_date,
+          end_time: end_time,
+          position_ticks: activity["PlayState"]["PositionTicks"],
+          runtime_ticks: runtime_ticks,
+          percent_complete: percent_complete,
+          completed: completed,
+          server_id: server.id
+        }
 
-            # Safely calculate percent complete
-            percent_complete =
-              if position_ticks && runtime_ticks && runtime_ticks > 0 do
-                percentage = position_ticks / runtime_ticks * 100
-                Float.round(percentage, 2)
-              else
-                0.0
-              end
+        # Check if this session already exists in our lookup map
+        existing_key = {item_jellyfin_id, user_jellyfin_id, activity_date}
+        existing_session = Map.get(existing_sessions, existing_key)
 
-            # Session is considered completed if progress is > 90%
-            completed = percent_complete > 90.0
+        if is_nil(existing_session) do
+          result = %PlaybackSession{}
+          |> PlaybackSession.changeset(attrs)
+          |> Repo.insert(timeout: @db_timeout)
 
-            # Calculate end time
-            end_time =
-              if activity_date && play_duration && play_duration > 0 do
-                DateTime.add(activity_date, play_duration, :second)
-              else
-                nil
-              end
+          case result do
+            {:ok, session} ->
+              {:ok, :created, session}
+            {:error, changeset} ->
+              Logger.error("Failed to create playback session: #{inspect(changeset.errors)}")
+              {:error, changeset}
+          end
+        else
+          # Only update if the new data has more information
+          if should_update_session?(existing_session, attrs) do
+            result = existing_session
+            |> PlaybackSession.changeset(attrs)
+            |> Repo.update(timeout: @db_timeout)
 
-            # Corrected mapping for series/season/episode IDs
-            series_jellyfin_id = activity["SeriesId"] || activity["NowPlayingItemId"]
-            season_jellyfin_id = activity["SeasonId"]
-
-            # Build the attributes map
-            attrs = %{
-              user_id: user && user.id,
-              user_jellyfin_id: user_jellyfin_id,
-              device_id: activity["DeviceId"],
-              device_name: activity["DeviceName"],
-              client_name: activity["Client"],
-              item_jellyfin_id: item_jellyfin_id,
-              item_name: activity["NowPlayingItemName"],
-              series_jellyfin_id: series_jellyfin_id,
-              series_name: activity["SeriesName"],
-              season_jellyfin_id: season_jellyfin_id,
-              play_duration: play_duration,
-              play_method: play_state["PlayMethod"] || activity["PlayMethod"],
-              start_time: activity_date,
-              end_time: end_time,
-              position_ticks: position_ticks,
-              runtime_ticks: runtime_ticks,
-              percent_complete: percent_complete,
-              completed: completed,
-              server_id: server.id
-            }
-
-            # Check if this session already exists in our lookup map
-            existing_key = {item_jellyfin_id, user_jellyfin_id, activity_date}
-            existing_session = Map.get(existing_sessions, existing_key)
-
-            if is_nil(existing_session) do
-              result = %PlaybackSession{}
-              |> PlaybackSession.changeset(attrs)
-              |> Repo.insert(timeout: @db_timeout)
-
-              case result do
-                {:ok, session} ->
-                  {:ok, :created, session}
-                {:error, changeset} ->
-                  Logger.error("Failed to create playback session: #{inspect(changeset.errors)}")
-                  {:error, changeset}
-              end
-            else
-              # Only update if the new data has more information
-              if should_update_session?(existing_session, attrs) do
-                result = existing_session
-                |> PlaybackSession.changeset(attrs)
-                |> Repo.update(timeout: @db_timeout)
-
-                case result do
-                  {:ok, session} ->
-                    {:ok, :updated, session}
-                  {:error, changeset} ->
-                    Logger.error("Failed to update playback session: #{inspect(changeset.errors)}")
-                    {:error, changeset}
-                end
-              else
-                {:skip, "Existing session has better data"}
-              end
+            case result do
+              {:ok, session} ->
+                {:ok, :updated, session}
+              {:error, changeset} ->
+                Logger.error("Failed to update playback session: #{inspect(changeset.errors)}")
+                {:error, changeset}
             end
+          else
+            {:skip, "Existing session has better data"}
           end
         end
       end
-    rescue
-      e ->
-        Logger.error("Exception processing playback activity: #{inspect(e, pretty: true)}")
-        Logger.error("Activity: #{inspect(activity, pretty: true)}")
-        {:error, e}
+    catch
+      _ -> {:error, "Unexpected error occurred"}
     end
   end
 

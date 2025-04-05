@@ -1,14 +1,14 @@
 import { Container } from "@/components/Container";
 import { PageTitle } from "@/components/PageTitle";
+import { Skeleton } from "@/components/ui/skeleton";
 import { getServer } from "@/lib/db";
 import { addDays } from "date-fns";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import { ActiveSessionsWithSuspense } from "./ActiveSessionsWithSuspense";
+import { ActiveSessions } from "./ActiveSessions";
 import Graph from "./Graph";
 import LoadingSessions from "./LoadingSessions";
 import StatsWithSuspense from "./StatsWithSuspense";
-import { Skeleton } from "@/components/ui/skeleton";
 
 export default async function DashboardPage({
   params,
@@ -41,9 +41,7 @@ export default async function DashboardPage({
     <Container>
       <PageTitle title="Statistics" />
       <div className="flex flex-col gap-4">
-        <Suspense fallback={<LoadingSessions />}>
-          <ActiveSessionsWithSuspense server={server} />
-        </Suspense>
+        <ActiveSessions server={server} />
 
         <Suspense fallback={<Skeleton className="h-48 w-full" />}>
           <StatsWithSuspense

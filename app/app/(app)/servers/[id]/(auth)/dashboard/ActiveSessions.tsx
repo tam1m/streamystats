@@ -16,37 +16,27 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { ActiveSession, Server } from "@/lib/db";
+import { useQuery } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
 import { Clock, Film, MonitorPlay, Pause, Play, Tv, User } from "lucide-react";
-import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useTransition } from "react";
+import LoadingSessions from "./LoadingSessions";
 import { Poster } from "./Poster";
 
-export function ActiveSessions({
-  server,
-  sessions,
-}: {
-  server: Server;
-  sessions: ActiveSession[];
-}) {
-  const pathname = usePathname();
-  const [_, startTransition] = useTransition();
-  const router = useRouter();
+export function ActiveSessions({ server }: { server: Server }) {
+  const { data, isPending } = useQuery({
+    queryKey: ["activeSessions", server.id],
+    queryFn: async () =>
+      (await fetch(`/api/Sessions?serverId=${server.id}`).then((res) =>
+        res.json()
+      )) as ActiveSession[],
+    refetchInterval: 1000,
+  });
 
-  const refreshData = () => {
-    startTransition(async () => {
-      router.refresh();
-    });
-  };
+  if (isPending) {
+    return <LoadingSessions />;
+  }
 
-  useEffect(() => {
-    refreshData();
-    const intervalId = setInterval(refreshData, 5000);
-
-    return () => clearInterval(intervalId);
-  }, [server.id, pathname]);
-
-  if (sessions.length === 0) {
+  if (!data || data?.length === 0) {
     return (
       <Card>
         <CardHeader>
@@ -74,7 +64,7 @@ export function ActiveSessions({
           <MonitorPlay className="h-5 w-5" />
           <span>Active Sessions</span>
           <Badge variant="outline" className="ml-2">
-            {sessions.length}
+            {data.length}
           </Badge>
         </CardTitle>
         <CardDescription>
@@ -83,7 +73,7 @@ export function ActiveSessions({
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          {sessions.map((session) => (
+          {data.map((session) => (
             <div
               key={session.session_key}
               className="flex flex-col md:flex-row md:items-center border rounded-lg p-4  items-start"
