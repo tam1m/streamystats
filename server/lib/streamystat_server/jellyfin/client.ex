@@ -109,7 +109,9 @@ defmodule StreamystatServer.Jellyfin.Client do
       Fields: Enum.join(@default_item_fields, ","),
       StartIndex: start_index,
       Limit: limit,
-      EnableImageTypes: "Primary,Backdrop,Banner,Thumb"
+      EnableImageTypes: "Primary,Backdrop,Banner,Thumb",
+      IsFolder: false,
+      IsPlaceHolder: false
     }
 
     # Add ImageTypes parameter if provided

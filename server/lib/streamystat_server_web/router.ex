@@ -44,13 +44,15 @@ defmodule StreamystatServerWeb.Router do
       get("/servers/:server_id/sync/tasks/:task_id", SyncController, :show_task)
       get("/servers/:server_id/activities", ActivityController, :index)
       post("/servers/:server_id/tautulli/import", TautulliImportController, :import)
+      post("/servers/:server_id/jellystats/import", JellystatsImportController, :import)
     end
 
     # Protected routes
     scope "/servers/:server_id", as: :protected do
       pipe_through(:auth)
 
-      get("/active-sessions", ActiveSessionsController, :index)  # New endpoint for active sessions
+      get("/active-sessions", ActiveSessionsController, :index)
+      get("/statistics/watchtime_per_day", UserStatisticsController, :watchtime_per_day)
       get("/statistics", UserStatisticsController, :index)
       get("/statistics/history", UserStatisticsController, :history)
       get("/statistics/items", UserStatisticsController, :items)

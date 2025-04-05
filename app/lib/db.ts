@@ -25,7 +25,7 @@ export type Item = {
   id?: number;
   jellyfin_id: string | null;
   name: string;
-  type: "Episode" | "Movie";
+  type: "Episode" | "Movie" | "Series";
   original_title?: string | null;
   etag?: string | null;
   date_created?: string | null;
@@ -100,16 +100,8 @@ export type Statistics = {
   most_watched_items?: {
     Movie?: MostWatchedItem[];
     Episode?: MostWatchedItem[];
+    Series?: MostWatchedItem[];
   };
-  watchtime_per_day: [
-    {
-      date: string;
-      watchtime_by_type: {
-        item_type: string;
-        total_duration: number;
-      }[];
-    }
-  ];
   average_watchtime_per_week_day: {
     day_of_week: number;
     average_duration: number;
@@ -120,6 +112,16 @@ export type Statistics = {
     total_duration: number;
   };
 };
+
+export type WatchTimePerDay = [
+  {
+    date: string;
+    watchtime_by_type: {
+      item_type: string;
+      total_duration: number;
+    }[];
+  }
+];
 
 export type PlaybackActivity = {
   id: number;
@@ -500,6 +502,55 @@ export const getStatistics = async (
 
     const data = await res.json();
     return data.data as Statistics;
+  } catch (e) {
+    return null;
+  }
+};
+
+export const getWatchTimeGraph = async (
+  serverId: number,
+  startDate: string,
+  endDate: string
+): Promise<WatchTimePerDay | null> => {
+  try {
+    if (!startDate || !endDate) {
+      return null;
+    }
+
+    if (new Date(startDate) > new Date(endDate)) {
+      return null;
+    }
+
+    if (new Date(endDate) > new Date()) {
+      return null;
+    }
+
+    const queryParams = new URLSearchParams({
+      start_date: startDate,
+      end_date: endDate,
+    });
+
+    const res = await fetch(
+      process.env.API_URL +
+        "/servers/" +
+        serverId +
+        "/statistics/watchtime_per_day" +
+        "?" +
+        queryParams,
+      {
+        cache: "no-store",
+        headers: {
+          Authorization: `Bearer ${await getToken()}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+    if (!res.ok) {
+      return null;
+    }
+
+    const data = await res.json();
+    return data.data as WatchTimePerDay;
   } catch (e) {
     return null;
   }

@@ -1,82 +1,61 @@
 import { Container } from "@/components/Container";
 import { PageTitle } from "@/components/PageTitle";
-import { getActiveSessions, getServer, getStatistics, getUser } from "@/lib/db";
-import { redirect } from "next/navigation";
-import { MostWatchedItems } from "./MostWatchedItems";
-import { WatchTimeGraph } from "./WatchTimeGraph";
-import { WatchTimePerWeekDay } from "./WatchTimePerWeekDay";
-import { getMe } from "@/lib/me";
-import TotalWatchTime from "./TotalWatchTime";
-import MostWatchedDate from "./MostWatchedDate";
+import { Skeleton } from "@/components/ui/skeleton";
+import { getServer } from "@/lib/db";
 import { addDays } from "date-fns";
-import { ActiveSessions } from "./ActiveSessions";
+import { redirect } from "next/navigation";
 import { Suspense } from "react";
+import { ActiveSessions } from "./ActiveSessions";
+import Graph from "./Graph";
 import LoadingSessions from "./LoadingSessions";
+import StatsWithSuspense from "./StatsWithSuspense";
 
 export default async function DashboardPage({
   params,
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ start_date: string; end_date: string }>;
+  searchParams: Promise<{ startDate: string; endDate: string }>;
 }) {
   const { id } = await params;
-  const { start_date, end_date } = await searchParams;
+  const { startDate, endDate } = await searchParams;
   const server = await getServer(id);
-  const me = await getMe();
-  const user = await getUser(me?.name, server?.id);
 
   if (!server) {
     // User has not added a server yet
     redirect("/setup");
   }
 
-  let startDate = start_date;
-  let endDate = end_date;
-
-  // Set default start and end dates if not provided 7 days ago and today
+  let _startDate = startDate;
+  let _endDate = endDate;
   if (!startDate || !endDate) {
-    startDate = addDays(new Date(), -7).toISOString().split("T")[0];
-    endDate = new Date().toISOString().split("T")[0];
-  }
+    _startDate = addDays(new Date(), -30).toISOString().split("T")[0];
+    _endDate = new Date().toISOString().split("T")[0];
 
-  const data = await getStatistics(server.id, startDate, endDate);
-  const sessions = await getActiveSessions(server.id);
+    redirect(
+      `/servers/${id}/dashboard?startDate=${_startDate}&endDate=${_endDate}`
+    );
+  }
 
   return (
     <Container>
+      <div className="mb-8">
+        <ActiveSessions server={server} />
+      </div>
       <PageTitle title="Statistics" />
-      <Suspense fallback={<LoadingSessions />}>
-        <div className="mb-6">
-          <ActiveSessions server={server} sessions={sessions} />
-        </div>
-      </Suspense>
+      <div className="flex flex-col gap-4">
+        <Suspense fallback={<Skeleton className="h-48 w-full" />}>
+          <StatsWithSuspense
+            server={server}
+            startDate={_startDate}
+            endDate={_endDate}
+          />
+        </Suspense>
 
-      {data?.most_watched_items && data.watchtime_per_day ? (
-        <div className="flex flex-col gap-6">
-          <div className="flex md:flex-row flex-col gap-2">
-            <TotalWatchTime data={data.total_watch_time} />
-            <MostWatchedDate data={data.most_watched_date} />
-          </div>
-          <MostWatchedItems data={data.most_watched_items} server={server} />
-          <WatchTimeGraph data={data.watchtime_per_day} />
-          <WatchTimePerWeekDay data={data.average_watchtime_per_week_day} />
-        </div>
-      ) : (
-        <div>
-          <p>You don't have any statistics yet.</p>
-          {user?.is_administrator ? (
-            <p>
-              If you know that you have watch statistics please run the full
-              sync task from the settings.
-            </p>
-          ) : (
-            <p className="text-neutral-500">
-              Watch some movies or tv-shows first!
-            </p>
-          )}
-        </div>
-      )}
+        <Suspense fallback={<Skeleton className="h-48 w-full" />}>
+          <Graph server={server} startDate={_startDate} endDate={_endDate} />
+        </Suspense>
+      </div>
     </Container>
   );
 }

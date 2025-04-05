@@ -149,12 +149,6 @@ export function TautulliMappingModal({
       userMappings: userMappings.filter((m) => m.jellyfinUserId !== null),
     };
 
-    console.log({
-      tautulliUrl,
-      apiKey,
-      mappings: validMappings,
-    });
-
     try {
       setIsLoading(true);
       const stringMappings: Record<string, string> = {

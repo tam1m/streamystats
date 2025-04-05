@@ -42,7 +42,8 @@ defmodule StreamystatServerWeb.Endpoint do
   plug Plug.Parsers,
     parsers: [:urlencoded, :multipart, :json],
     pass: ["*/*"],
-    json_decoder: Phoenix.json_library()
+    json_decoder: Phoenix.json_library(),
+    length: 1_073_741_824
 
   plug Plug.MethodOverride
   plug Plug.Head

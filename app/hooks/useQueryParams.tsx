@@ -1,35 +1,52 @@
 import { useRouter, useSearchParams } from "next/navigation";
+import { useTransition, useState, useEffect } from "react";
 
 /**
- * Hook for managing query parameters in the URL
- * @returns Function to update query parameters
+ * Hook for managing query parameters in the URL with Suspense support
  */
-export function useQueryParams() {
+export function useQueryParams<T = any>() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [isPending, startTransition] = useTransition();
+  const [isLoading, setIsLoading] = useState(false);
 
   /**
-   * Updates URL query parameters
-   * @param params Record of key-value pairs to update in the URL
-   * @param options Additional options like scroll behavior
+   * Updates URL query parameters and triggers Suspense
    */
   const updateQueryParams = (
     params: Record<string, string | null>,
     options: { scroll?: boolean } = { scroll: false }
   ) => {
-    const newSearchParams = new URLSearchParams(searchParams.toString());
+    setIsLoading(true); // Show loading state immediately
 
-    // Update or remove each parameter
-    Object.entries(params).forEach(([key, value]) => {
-      if (value === null) {
-        newSearchParams.delete(key);
-      } else {
-        newSearchParams.set(key, value);
-      }
+    // Start a transition to update the route
+    startTransition(() => {
+      const newSearchParams = new URLSearchParams(searchParams.toString());
+
+      // Update or remove each parameter
+      Object.entries(params).forEach(([key, value]) => {
+        if (value === null) {
+          newSearchParams.delete(key);
+        } else {
+          newSearchParams.set(key, value);
+        }
+      });
+
+      router.replace(`?${newSearchParams.toString()}`, {
+        scroll: options.scroll,
+      });
     });
-
-    router.push(`?${newSearchParams.toString()}`, { scroll: options.scroll });
   };
 
-  return { updateQueryParams };
+  // Reset loading state when the transition completes
+  useEffect(() => {
+    if (!isPending) {
+      setIsLoading(false);
+    }
+  }, [isPending]);
+
+  return {
+    updateQueryParams,
+    isLoading: isLoading || isPending,
+  };
 }

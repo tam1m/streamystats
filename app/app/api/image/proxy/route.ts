@@ -16,13 +16,6 @@ export async function GET(request: NextRequest) {
     const quality = searchParams.get("quality") || "96";
     const type = searchParams.get("type") || "Primary";
 
-    console.log("Image proxy request params:", {
-      serverId,
-      itemId,
-      imageTag,
-      type,
-    });
-
     if (!serverId || !itemId || !imageTag) {
       return new NextResponse("Missing required parameters", { status: 400 });
     }
@@ -43,12 +36,6 @@ export async function GET(request: NextRequest) {
     }
 
     const server = await serverResponse.json();
-    console.log("Server info:", {
-      id: server.id,
-      name: server.name,
-      url: server.url,
-      hasApiKey: !!server.api_key,
-    });
 
     // Ensure server URL is defined and properly formatted
     if (!server.url) {
@@ -63,7 +50,6 @@ export async function GET(request: NextRequest) {
 
     // Construct the Jellyfin image URL with EXACTLY the same format as your example
     const imageUrl = `${serverUrl}/Items/${itemId}/Images/${type}?fillHeight=${fillHeight}&fillWidth=${fillWidth}&quality=${quality}&tag=${imageTag}`;
-    console.log("Jellyfin image URL:", imageUrl);
 
     // Fetch the image from Jellyfin
     const imageResponse = await fetch(imageUrl, {
@@ -91,12 +77,10 @@ export async function GET(request: NextRequest) {
 
     // Get the image data
     const imageData = await imageResponse.arrayBuffer();
-    console.log(`Received image data: ${imageData.byteLength} bytes`);
 
     // Get the content type
     const contentType =
       imageResponse.headers.get("content-type") || "image/jpeg";
-    console.log("Content type:", contentType);
 
     // Return the image with the correct content type
     return new NextResponse(imageData, {

@@ -7,10 +7,16 @@ defmodule StreamystatServerWeb.UserStatisticsJSON do
     %{data: for(activity <- watch_activity, do: data(activity))}
   end
 
+  def watchtime_per_day(%{watchtime_stats: watchtime_stats}) do
+    %{
+      data: watchtime_stats.watchtime_per_day
+    }
+  end
+
   defp data(activity) do
     %{
       id: activity.id,
-      date_created: activity.inserted_at || activity.start_time,
+      date_created: activity.start_time || activity.inserted_at ,
       item_id: activity.item_jellyfin_id,
       item_type: get_item_type(activity),
       item_name: activity.item_name,
@@ -25,6 +31,8 @@ defmodule StreamystatServerWeb.UserStatisticsJSON do
       user: get_user_data(activity)
     }
   end
+
+
 
   defp get_item_type(%{series_jellyfin_id: series_id}) when not is_nil(series_id), do: "Episode"
   defp get_item_type(_), do: "Movie"

@@ -37,7 +37,6 @@ export const GenreStatsGraph: React.FC<Props> = ({
   className,
   ...props
 }) => {
-  console.log(data);
   return (
     <Card {...props} className={cn("", className)}>
       <CardHeader className="items-center pb-4">

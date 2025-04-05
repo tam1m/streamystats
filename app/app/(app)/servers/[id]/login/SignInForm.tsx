@@ -39,9 +39,10 @@ const FormSchema = z.object({
 
 interface Props {
   server: Server;
+  servers: Server[];
 }
 
-export const SignInForm: React.FC<Props> = ({ server }) => {
+export const SignInForm: React.FC<Props> = ({ server, servers }) => {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const form = useForm<z.infer<typeof FormSchema>>({
@@ -74,7 +75,10 @@ export const SignInForm: React.FC<Props> = ({ server }) => {
     <div className="flex h-screen w-full items-center justify-center px-4">
       <Card className="mx-auto lg:min-w-[400px]">
         <CardHeader>
-          <CardTitle className="text-2xl">Log in</CardTitle>
+          <CardTitle className="text-2xl">
+            Log in to{" "}
+            <span className="font-bold text-blue-500">{server.name}</span>
+          </CardTitle>
           <CardDescription>
             Log in to Streamystats by using your Jellyfin account
           </CardDescription>
@@ -93,7 +97,7 @@ export const SignInForm: React.FC<Props> = ({ server }) => {
                     <FormLabel>Username</FormLabel>
                     <FormControl>
                       <Input
-                        placeholder="Enter your Jellyfin username"
+                        placeholder="John"
                         {...field}
                         autoComplete="username"
                       />
@@ -114,7 +118,7 @@ export const SignInForm: React.FC<Props> = ({ server }) => {
                     <FormControl>
                       <Input
                         type="password"
-                        placeholder="Enter your Jellyfin password"
+                        placeholder="**********"
                         {...field}
                         autoComplete="current-password"
                       />
@@ -128,6 +132,40 @@ export const SignInForm: React.FC<Props> = ({ server }) => {
               <Button type="submit">{loading ? <Spinner /> : "Sign In"}</Button>
             </form>
           </Form>
+          <div className="mt-6 space-y-4">
+            <div className="flex items-center">
+              <div className="h-px flex-1 bg-border"></div>
+              <span className="px-2 text-xs text-muted-foreground">
+                Or select another server
+              </span>
+              <div className="h-px flex-1 bg-border"></div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="grid gap-2">
+                {servers
+                  .filter((s) => s.id !== server.id)
+                  .map((s) => (
+                    <Button
+                      key={s.id}
+                      variant="outline"
+                      className="flex w-full justify-between rainbow-border-glow"
+                      onClick={() => router.push(`/servers/${s.id}/login`)}
+                    >
+                      <span className="font-medium">{s.name}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {s.url}
+                      </span>
+                    </Button>
+                  ))}
+                {servers.filter((s) => s.id !== server.id).length === 0 && (
+                  <p className="text-center text-sm text-muted-foreground py-2">
+                    No other servers available
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>

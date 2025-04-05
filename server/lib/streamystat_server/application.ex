@@ -18,6 +18,7 @@ defmodule StreamystatServer.Application do
       StreamystatServer.Workers.SyncTask,
       StreamystatServer.Workers.SessionPoller,
       StreamystatServer.Workers.TautulliImporter,
+      StreamystatServer.Workers.JellystatsImporter,
       {Task, &start_full_sync/0}
     ]
 

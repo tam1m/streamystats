@@ -1,5 +1,6 @@
 "use client";
 
+import { JellyfinSession } from "@/app/api/Sessions/route";
 import { Item, Server } from "@/lib/db";
 import Image from "next/image";
 import { useEffect, useMemo, useState, memo } from "react";

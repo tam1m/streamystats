@@ -8,34 +8,87 @@ defmodule StreamystatServer.Statistics.Statistics do
   require Logger
 
   def create_playback_stat(attrs \\ %{}) do
-    # This function is kept for backward compatibility
-    # but delegates to create_playback_session
     StreamystatServer.Contexts.PlaybackSessions.create_playback_session(attrs)
   end
 
-  def get_formatted_stats(start_date, end_date, server_id, user_id \\ nil) do
-    stats = get_stats(start_date, end_date, server_id, user_id)
 
-    %{
-      most_watched_items: get_top_watched_items(stats),
-      watchtime_per_day: get_watchtime_per_day(stats),
-      average_watchtime_per_week_day: get_average_watchtime_per_week_day(stats),
-      total_watch_time: get_total_watch_time(stats),
-      most_watched_date: get_most_watched_date(stats)
-    }
+  def get_watchtime_per_day_stats(start_date, end_date, server_id, user_id \\ nil) do
+
+    start_datetime = to_datetime(start_date)
+    end_datetime = to_datetime(end_date, :end_of_day)
+
+
+    query =
+      from ps in PlaybackSession,
+        left_join: i in Item,
+        on: ps.item_jellyfin_id == i.jellyfin_id and ps.server_id == i.server_id,
+        where: ps.start_time >= ^start_datetime and ps.start_time <= ^end_datetime,
+      where: ps.server_id == ^server_id
+
+
+    query = if user_id, do: query |> where([ps], ps.user_jellyfin_id == ^user_id), else: query
+
+
+    watchtime_data =
+        query
+      |> group_by([ps, i], [fragment("date_trunc('day', ?)", ps.start_time), i.type])
+      |> select([ps, i], %{
+        date: fragment("date_trunc('day', ?)", ps.start_time),
+        item_type: coalesce(i.type, "Unknown"),
+        total_duration: sum(ps.play_duration)
+      })
+      |> Repo.all()
+
+
+    formatted_data =
+      watchtime_data
+      |> Enum.group_by(&Date.to_iso8601(&1.date))
+    |> Enum.map(fn {date, items} ->
+      %{
+        date: date,
+          watchtime_by_type: Enum.map(items, fn item ->
+            %{
+              item_type: item.item_type,
+              total_duration: item.total_duration || 0
+            }
+          end)
+      }
+    end)
+    |> Enum.sort_by(& &1.date)
+
+    %{watchtime_per_day: formatted_data}
+  end
+
+  def get_formatted_stats(_start_date, _end_date, server_id, user_id \\ nil) do
+
+    total_watch_time = get_total_watch_time_db(server_id, user_id)
+
+
+    most_watched_date = get_most_watched_date_db(server_id, user_id)
+
+
+    most_watched_items = get_top_watched_items_db(server_id, user_id)
+
+    average_watchtime_per_week_day = get_average_watchtime_per_week_day_db(server_id, user_id)
+      %{
+      most_watched_items: most_watched_items,
+      average_watchtime_per_week_day: average_watchtime_per_week_day,
+      total_watch_time: total_watch_time,
+      most_watched_date: most_watched_date
+      }
   end
 
   def get_unwatched_items(server_id, type \\ "Movie", page \\ 1, per_page \\ 20) do
-    # Validate type parameter
+
     type = if type in ["Movie", "Series", "Episode"], do: type, else: "Movie"
 
-    # Build a subquery to find all item ids that have been watched
+
     watched_items_query =
       from ps in PlaybackSession,
       where: ps.server_id == ^server_id,
       select: ps.item_jellyfin_id
 
-    # Main query to find all items of given type that don't have playback sessions
+
     query =
       from i in Item,
       where: i.server_id == ^server_id and i.type == ^type,
@@ -43,17 +96,17 @@ defmodule StreamystatServer.Statistics.Statistics do
       order_by: [desc: i.date_created],
       select: i
 
-    # Calculate pagination values
+
     offset = (page - 1) * per_page
 
-    # Execute query with pagination
+
     items =
       query
       |> limit(^per_page)
       |> offset(^offset)
       |> Repo.all()
 
-    # Count total items for pagination metadata
+
     total_items =
       from(i in Item,
         where: i.server_id == ^server_id and i.type == ^type,
@@ -62,10 +115,10 @@ defmodule StreamystatServer.Statistics.Statistics do
       )
       |> Repo.one()
 
-    # Calculate total pages
+
     total_pages = div(total_items + per_page - 1, per_page)
 
-    # Return paginated result with metadata
+
     %{
       items: items,
       page: page,
@@ -99,7 +152,7 @@ defmodule StreamystatServer.Statistics.Statistics do
         Repo.one(from(l in Library, where: l.server_id == ^server_id, select: count())),
       users_count: Repo.one(from(u in User, where: u.server_id == ^server_id, select: count()))
     }
-  end
+end
 
   def get_item_statistics(
         server_id,
@@ -111,7 +164,7 @@ defmodule StreamystatServer.Statistics.Statistics do
       ) do
     per_page = 20
 
-    # Validate and normalize sort parameters
+
     sort_by =
       case sort_by do
         :watch_count -> :watch_count
@@ -126,7 +179,7 @@ defmodule StreamystatServer.Statistics.Statistics do
         _ -> :desc
       end
 
-    # Determine which content types to include based on the filter
+
     content_types =
       case content_type do
         "Movie" -> ["Movie"]
@@ -135,7 +188,7 @@ defmodule StreamystatServer.Statistics.Statistics do
         _ -> ["Movie", "Episode", "Series"]
       end
 
-    # Base query for items of specified content types
+
     base_query =
       from(i in Item,
         left_join: ps in PlaybackSession,
@@ -150,7 +203,7 @@ defmodule StreamystatServer.Statistics.Statistics do
         }
       )
 
-    # Apply search filter if provided
+
     query =
       if search do
         search_term = "%#{search}%"
@@ -167,7 +220,7 @@ defmodule StreamystatServer.Statistics.Statistics do
         base_query
       end
 
-    # Apply sorting
+
     query =
       case {sort_by, sort_order} do
         {:watch_count, :asc} ->
@@ -183,7 +236,7 @@ defmodule StreamystatServer.Statistics.Statistics do
           order_by(query, [i, ps], desc: coalesce(sum(ps.play_duration), 0))
       end
 
-    # Paginate items
+
     offset = (page - 1) * per_page
 
     items =
@@ -192,14 +245,14 @@ defmodule StreamystatServer.Statistics.Statistics do
       |> offset(^offset)
       |> Repo.all()
 
-    # Count total items
+
     total_items_query =
       from(i in Item,
         where: i.server_id == ^server_id and i.type in ^content_types,
         select: i.id
       )
 
-    # Apply the same search filter to the count query
+
     total_items_query =
       if search do
         search_term = "%#{search}%"
@@ -216,7 +269,7 @@ defmodule StreamystatServer.Statistics.Statistics do
         total_items_query
       end
 
-    # Fetch total item count
+
     total_items = total_items_query |> Repo.aggregate(:count, :id)
     total_pages = div(total_items + per_page - 1, per_page)
 
@@ -251,31 +304,160 @@ defmodule StreamystatServer.Statistics.Statistics do
     end
   end
 
-  defp get_stats(start_date, end_date, server_id, user_id) do
-    start_datetime = to_datetime(start_date)
-    end_datetime = to_datetime(end_date, :end_of_day)
-
+  defp get_total_watch_time_db(server_id, user_id) do
     query =
-      from(ps in PlaybackSession,
-        left_join: i in Item,
-        on: ps.item_jellyfin_id == i.jellyfin_id and ps.server_id == i.server_id,
-        where: ps.start_time >= ^start_datetime and ps.start_time <= ^end_datetime,
-        order_by: [asc: ps.start_time],
-        preload: [:user],
-        select: %{
-          date_created: ps.start_time,
-          item_id: ps.item_jellyfin_id,
-          item: i,
-          user_id: ps.user_id,
-          play_duration: ps.play_duration,
-          playback_session: ps
-        }
-      )
+      from ps in PlaybackSession,
+      where: ps.server_id == ^server_id,
+      select: sum(ps.play_duration)
 
-    query = if server_id, do: query |> where([ps], ps.server_id == ^server_id), else: query
+    query = if user_id, do: query |> where([ps], ps.user_jellyfin_id == ^user_id), else: query
+
+    Repo.one(query) || 0
+  end
+
+  defp get_most_watched_date_db(server_id, user_id) do
+    query =
+      from ps in PlaybackSession,
+      where: ps.server_id == ^server_id,
+      group_by: [fragment("date(start_time)")],
+      select: %{
+        date: fragment("date(start_time)"),
+        total_duration: sum(ps.play_duration)
+      },
+      order_by: [desc: sum(ps.play_duration)],
+      limit: 1
+
+    query = if user_id, do: query |> where([ps], ps.user_jellyfin_id == ^user_id), else: query
+
+    Repo.one(query) || %{date: nil, total_duration: 0}
+  end
+
+    defp get_top_watched_items_db(server_id, user_id) do
+    # First, get a list of distinct item types to create our categories
+    item_types_query =
+      from i in Item,
+      where: i.server_id == ^server_id,
+      distinct: i.type,
+      where: not is_nil(i.type),
+      select: i.type
+
+    item_types = Repo.all(item_types_query)
+
+    # Calculate top series separately by aggregating episodes
+    series_stats = get_top_watched_series(server_id, user_id)
+
+    # Then, for each type, get the top 10 items
+    item_types
+    |> Enum.reduce(%{}, fn item_type, acc ->
+      query =
+        from ps in PlaybackSession,
+        join: i in Item, on: ps.item_jellyfin_id == i.jellyfin_id and ps.server_id == i.server_id,
+        where: ps.server_id == ^server_id and i.type == ^item_type,
+        group_by: [i.id, i.jellyfin_id, i.name, i.type],
+        select: %{
+          id: i.id,
+          jellyfin_id: i.jellyfin_id,
+          name: i.name,
+          type: i.type,
+          original_title: i.original_title,
+          production_year: i.production_year,
+          series_name: i.series_name,
+          season_name: i.season_name,
+          index_number: i.index_number,
+          primary_image_tag: i.primary_image_tag,
+          primary_image_aspect_ratio: i.primary_image_aspect_ratio,
+          server_id: i.server_id,
+          total_play_count: count(ps.id),
+          total_play_duration: sum(ps.play_duration)
+        },
+        order_by: [desc: sum(ps.play_duration)],
+        limit: 10
+
+      query = if user_id, do: query |> where([ps], ps.user_jellyfin_id == ^user_id), else: query
+
+      items = Repo.all(query)
+      Map.put(acc, item_type, items)
+    end)
+    |> Map.put("Series", series_stats) # Add the series stats to the result
+  end
+
+    defp get_top_watched_series(server_id, user_id) do
+    query =
+      from ps in PlaybackSession,
+      join: i in Item, on: ps.item_jellyfin_id == i.jellyfin_id and ps.server_id == i.server_id,
+      where: ps.server_id == ^server_id and i.type == "Episode" and not is_nil(i.series_id),
+      group_by: [i.series_id, i.series_name, i.server_id],
+      select: %{
+        # Use series_id as the jellyfin_id for the series
+        jellyfin_id: i.series_id,
+        name: i.series_name,
+        type: "Series",
+        # These fields won't be available at the series level from episodes, so use null
+        original_title: nil,
+        production_year: nil,
+        series_name: i.series_name,
+        season_name: nil,
+        index_number: nil,
+        # Get image information from the first matching episode (this might not be ideal)
+        primary_image_tag: fragment("(array_agg(?))[1]", i.series_primary_image_tag),
+        primary_image_aspect_ratio: fragment("(array_agg(?))[1]", i.primary_image_aspect_ratio),
+        server_id: i.server_id,
+        # Aggregate statistics
+        total_play_count: count(ps.id),
+        total_play_duration: sum(ps.play_duration),
+        # Count unique episodes watched
+        unique_episodes_watched: count(fragment("DISTINCT ?", i.jellyfin_id))
+      },
+      order_by: [desc: sum(ps.play_duration)],
+      limit: 10
+
+    # Add user filter if needed
+    query = if user_id, do: query |> where([ps], ps.user_jellyfin_id == ^user_id), else: query
+
+    series = Repo.all(query)
+
+    # Enhance series data with actual series items where available
+    series = Enum.map(series, fn series_stat ->
+      # Try to find the actual series item to get better metadata
+      series_item = Repo.get_by(Item, jellyfin_id: series_stat.jellyfin_id, server_id: server_id)
+
+      if series_item do
+        # If we found the actual series item, use its image data
+        %{series_stat |
+          primary_image_tag: series_item.primary_image_tag || series_stat.primary_image_tag,
+          primary_image_aspect_ratio: series_item.primary_image_aspect_ratio || series_stat.primary_image_aspect_ratio,
+          production_year: series_item.production_year
+        }
+      else
+        series_stat
+      end
+    end)
+
+    series
+  end
+
+  defp get_average_watchtime_per_week_day_db(server_id, user_id) do
+    query =
+      from ps in PlaybackSession,
+      where: ps.server_id == ^server_id,
+      group_by: [fragment("EXTRACT(DOW FROM start_time)")],
+      select: %{
+        day_of_week: fragment("EXTRACT(DOW FROM start_time)::integer + 1"),
+        play_count: count(ps.id),
+        total_duration: sum(ps.play_duration)
+      }
+
     query = if user_id, do: query |> where([ps], ps.user_jellyfin_id == ^user_id), else: query
 
     Repo.all(query)
+    |> Enum.map(fn day ->
+      average_duration = if day.play_count > 0, do: day.total_duration / day.play_count, else: 0
+      %{
+        day_of_week: day.day_of_week,
+        average_duration: Float.round(average_duration, 2)
+      }
+    end)
+    |> Enum.sort_by(& &1.day_of_week)
   end
 
   defp to_datetime(date, time \\ :beginning_of_day) do
@@ -283,190 +465,5 @@ defmodule StreamystatServer.Statistics.Statistics do
 
     date
     |> DateTime.new!(time_struct, "Etc/UTC")
-  end
-
-  defp get_total_watch_time(stats) do
-    stats
-    |> Enum.reduce(0, fn stat, acc ->
-      acc + (stat.play_duration || 0)
-    end)
-  end
-
-  defp get_top_watched_items(stats) do
-    stats
-    |> Enum.group_by(fn
-      %{item: %{type: type}} when not is_nil(type) -> type
-      _ -> "Unknown"
-    end)
-    |> Enum.map(fn {item_type, type_stats} ->
-      top_items =
-        type_stats
-        |> Enum.group_by(& &1.item_id)
-        |> Enum.map(fn {item_id, items} ->
-          total_play_count = length(items)
-          total_play_duration = Enum.sum(Enum.map(items, & &1.play_duration))
-
-                    case Enum.at(items, 0).item do
-            %Item{} = item ->
-              %{
-                id: item.id,
-                jellyfin_id: item.jellyfin_id,
-                name: item.name,
-                type: item.type,
-                original_title: item.original_title,
-                etag: item.etag,
-                date_created: item.date_created,
-                container: item.container,
-                sort_name: item.sort_name,
-                premiere_date: item.premiere_date,
-                external_urls: item.external_urls,
-                path: item.path,
-                official_rating: item.official_rating,
-                overview: item.overview,
-                genres: item.genres,
-                community_rating: item.community_rating,
-                runtime_ticks: item.runtime_ticks,
-                production_year: item.production_year,
-                is_folder: item.is_folder,
-                parent_id: item.parent_id,
-                media_type: item.media_type,
-                width: item.width,
-                height: item.height,
-                series_name: item.series_name,
-                series_id: item.series_id,
-                season_id: item.season_id,
-                season_name: item.season_name,
-                index_number: item.index_number,
-                parent_index_number: item.parent_index_number,
-                primary_image_tag: item.primary_image_tag,
-                primary_image_thumb_tag: item.primary_image_thumb_tag,
-                primary_image_logo_tag: item.primary_image_logo_tag,
-                backdrop_image_tags: item.backdrop_image_tags,
-                image_blur_hashes: item.image_blur_hashes,
-                video_type: item.video_type,
-                has_subtitles: item.has_subtitles,
-                channel_id: item.channel_id,
-                parent_backdrop_item_id: item.parent_backdrop_item_id,
-                parent_backdrop_image_tags: item.parent_backdrop_image_tags,
-                parent_thumb_item_id: item.parent_thumb_item_id,
-                parent_thumb_image_tag: item.parent_thumb_image_tag,
-                location_type: item.location_type,
-                primary_image_aspect_ratio: item.primary_image_aspect_ratio,
-                series_primary_image_tag: item.series_primary_image_tag,
-                library_id: item.library_id,
-                server_id: item.server_id,
-                total_play_count: total_play_count,
-                total_play_duration: total_play_duration,
-              }
-
-            _ ->
-              # Handle case where item might be nil
-              %{
-                id: nil,
-                jellyfin_id: item_id,
-                name: "Unknown Item",
-                type: item_type,
-                original_title: nil,
-                etag: nil,
-                date_created: nil,
-                container: nil,
-                sort_name: nil,
-                premiere_date: nil,
-                external_urls: nil,
-                path: nil,
-                official_rating: nil,
-                overview: nil,
-                genres: nil,
-                community_rating: nil,
-                runtime_ticks: nil,
-                production_year: nil,
-                is_folder: nil,
-                parent_id: nil,
-                media_type: nil,
-                width: nil,
-                height: nil,
-                series_name: nil,
-                series_id: nil,
-                season_id: nil,
-                season_name: nil,
-                index_number: nil,
-                parent_index_number: nil,
-                primary_image_tag: nil,
-                primary_image_thumb_tag: nil,
-                primary_image_logo_tag: nil,
-                backdrop_image_tags: nil,
-                image_blur_hashes: nil,
-                video_type: nil,
-                has_subtitles: nil,
-                channel_id: nil,
-                parent_backdrop_item_id: nil,
-                parent_backdrop_image_tags: nil,
-                parent_thumb_item_id: nil,
-                parent_thumb_image_tag: nil,
-                location_type: nil,
-                primary_image_aspect_ratio: nil,
-                series_primary_image_tag: nil,
-                library_id: nil,
-                server_id: nil,
-                total_play_count: total_play_count,
-                total_play_duration: total_play_duration
-              }
-          end
-        end)
-        |> Enum.sort_by(& &1.total_play_duration, :desc)
-        |> Enum.take(10)
-
-      {item_type, top_items}
-    end)
-    |> Enum.into(%{})
-  end
-
-  defp get_watchtime_per_day([]), do: []
-
-  defp get_watchtime_per_day(stats) do
-    stats
-    |> Enum.group_by(
-      fn stat ->
-        item_type = if stat.item, do: stat.item.type, else: "Unknown"
-        {DateTime.to_date(stat.date_created), item_type}
-      end,
-      fn stat -> stat.play_duration || 0 end
-    )
-    |> Enum.map(fn {{date, item_type}, durations} ->
-      %{
-        date: Date.to_iso8601(date),
-        item_type: item_type,
-        total_duration: Enum.sum(durations)
-      }
-    end)
-    |> Enum.group_by(& &1.date)
-    |> Enum.map(fn {date, items} ->
-      %{
-        date: date,
-        watchtime_by_type:
-          Enum.map(items, fn item ->
-            %{
-              item_type: item.item_type,
-              total_duration: item.total_duration
-            }
-          end)
-      }
-    end)
-    |> Enum.sort_by(& &1.date)
-  end
-
-  defp get_average_watchtime_per_week_day(stats) do
-    stats
-    |> Enum.group_by(&Date.day_of_week(DateTime.to_date(&1.date_created)))
-    |> Enum.map(fn {day_of_week, items} ->
-      total_duration = Enum.sum(Enum.map(items, &(&1.play_duration || 0)))
-      average_duration = if length(items) > 0, do: total_duration / length(items), else: 0
-
-      %{
-        day_of_week: day_of_week,
-        average_duration: Float.round(average_duration, 2)
-      }
-    end)
-    |> Enum.sort_by(& &1.day_of_week)
   end
 end
