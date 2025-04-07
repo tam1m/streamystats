@@ -60,15 +60,9 @@ defmodule StreamystatServer.Statistics.Statistics do
   end
 
   def get_formatted_stats(_start_date, _end_date, server_id, user_id \\ nil) do
-
     total_watch_time = get_total_watch_time_db(server_id, user_id)
-
-
     most_watched_date = get_most_watched_date_db(server_id, user_id)
-
-
     most_watched_items = get_top_watched_items_db(server_id, user_id)
-
     average_watchtime_per_week_day = get_average_watchtime_per_week_day_db(server_id, user_id)
       %{
       most_watched_items: most_watched_items,
@@ -79,15 +73,12 @@ defmodule StreamystatServer.Statistics.Statistics do
   end
 
   def get_unwatched_items(server_id, type \\ "Movie", page \\ 1, per_page \\ 20) do
-
     type = if type in ["Movie", "Series", "Episode"], do: type, else: "Movie"
-
 
     watched_items_query =
       from ps in PlaybackSession,
       where: ps.server_id == ^server_id,
       select: ps.item_jellyfin_id
-
 
     query =
       from i in Item,
@@ -96,16 +87,13 @@ defmodule StreamystatServer.Statistics.Statistics do
       order_by: [desc: i.date_created],
       select: i
 
-
     offset = (page - 1) * per_page
-
 
     items =
       query
       |> limit(^per_page)
       |> offset(^offset)
       |> Repo.all()
-
 
     total_items =
       from(i in Item,
@@ -115,9 +103,7 @@ defmodule StreamystatServer.Statistics.Statistics do
       )
       |> Repo.one()
 
-
     total_pages = div(total_items + per_page - 1, per_page)
-
 
     %{
       items: items,
@@ -152,7 +138,7 @@ defmodule StreamystatServer.Statistics.Statistics do
         Repo.one(from(l in Library, where: l.server_id == ^server_id, select: count())),
       users_count: Repo.one(from(u in User, where: u.server_id == ^server_id, select: count()))
     }
-end
+  end
 
   def get_item_statistics(
         server_id,
@@ -163,7 +149,6 @@ end
         content_type \\ nil
       ) do
     per_page = 20
-
 
     sort_by =
       case sort_by do
@@ -179,7 +164,6 @@ end
         _ -> :desc
       end
 
-
     content_types =
       case content_type do
         "Movie" -> ["Movie"]
@@ -188,21 +172,37 @@ end
         _ -> ["Movie", "Episode", "Series"]
       end
 
+    # First, let's create a subquery to calculate watch time for episodes grouped by series_id
+    series_watch_time_subquery =
+      from(i in Item,
+        join: ps in PlaybackSession,
+        on: ps.item_jellyfin_id == i.jellyfin_id and ps.server_id == i.server_id,
+        where: i.server_id == ^server_id and i.type == "Episode" and not is_nil(i.series_id),
+        group_by: i.series_id,
+        select: %{
+          series_id: i.series_id,
+          episodes_watch_count: count(ps.id),
+          episodes_total_watch_time: sum(ps.play_duration)
+        }
+      )
 
     base_query =
       from(i in Item,
         left_join: ps in PlaybackSession,
         on: ps.item_jellyfin_id == i.jellyfin_id and ps.server_id == i.server_id,
+        left_join: sw in subquery(series_watch_time_subquery),
+        on: i.jellyfin_id == sw.series_id,
         where: i.server_id == ^server_id and i.type in ^content_types,
-        group_by: [i.id, i.jellyfin_id, i.name, i.type],
+        group_by: [i.id, i.jellyfin_id, i.name, i.type, sw.episodes_watch_count, sw.episodes_total_watch_time],
         select: %{
           item_id: i.jellyfin_id,
           item: i,
-          watch_count: coalesce(count(ps.id), 0),
-          total_watch_time: coalesce(sum(ps.play_duration), 0)
+          watch_count: fragment("CASE WHEN ? = 'Series' THEN COALESCE(?, 0) ELSE COALESCE(COUNT(?), 0) END",
+                              i.type, sw.episodes_watch_count, ps.id),
+          total_watch_time: fragment("CASE WHEN ? = 'Series' THEN COALESCE(?, 0) ELSE COALESCE(SUM(?), 0) END",
+                                    i.type, sw.episodes_total_watch_time, ps.play_duration)
         }
       )
-
 
     query =
       if search do
@@ -210,7 +210,7 @@ end
 
         where(
           base_query,
-          [i, ps],
+          [i, ps, sw],
           ilike(i.name, ^search_term) or
             ilike(fragment("?::text", i.production_year), ^search_term) or
             ilike(i.season_name, ^search_term) or
@@ -220,22 +220,24 @@ end
         base_query
       end
 
-
     query =
       case {sort_by, sort_order} do
         {:watch_count, :asc} ->
-          order_by(query, [i, ps], asc: coalesce(count(ps.id), 0))
+          order_by(query, [i, ps, sw], asc: fragment("CASE WHEN ? = 'Series' THEN COALESCE(?, 0) ELSE COALESCE(COUNT(?), 0) END",
+                            i.type, sw.episodes_watch_count, ps.id))
 
         {:watch_count, :desc} ->
-          order_by(query, [i, ps], desc: coalesce(count(ps.id), 0))
+          order_by(query, [i, ps, sw], desc: fragment("CASE WHEN ? = 'Series' THEN COALESCE(?, 0) ELSE COALESCE(COUNT(?), 0) END",
+                            i.type, sw.episodes_watch_count, ps.id))
 
         {:total_watch_time, :asc} ->
-          order_by(query, [i, ps], asc: coalesce(sum(ps.play_duration), 0))
+          order_by(query, [i, ps, sw], asc: fragment("CASE WHEN ? = 'Series' THEN COALESCE(?, 0) ELSE COALESCE(SUM(?), 0) END",
+                            i.type, sw.episodes_total_watch_time, ps.play_duration))
 
         {:total_watch_time, :desc} ->
-          order_by(query, [i, ps], desc: coalesce(sum(ps.play_duration), 0))
+          order_by(query, [i, ps, sw], desc: fragment("CASE WHEN ? = 'Series' THEN COALESCE(?, 0) ELSE COALESCE(SUM(?), 0) END",
+                            i.type, sw.episodes_total_watch_time, ps.play_duration))
       end
-
 
     offset = (page - 1) * per_page
 
@@ -245,13 +247,12 @@ end
       |> offset(^offset)
       |> Repo.all()
 
-
+    # The total items query needs to be updated to handle the filter on content types
     total_items_query =
       from(i in Item,
         where: i.server_id == ^server_id and i.type in ^content_types,
         select: i.id
       )
-
 
     total_items_query =
       if search do
@@ -268,7 +269,6 @@ end
       else
         total_items_query
       end
-
 
     total_items = total_items_query |> Repo.aggregate(:count, :id)
     total_pages = div(total_items + per_page - 1, per_page)
@@ -332,7 +332,7 @@ end
     Repo.one(query) || %{date: nil, total_duration: 0}
   end
 
-    defp get_top_watched_items_db(server_id, user_id) do
+  defp get_top_watched_items_db(server_id, user_id) do
     # First, get a list of distinct item types to create our categories
     item_types_query =
       from i in Item,
@@ -381,48 +381,36 @@ end
     |> Map.put("Series", series_stats) # Add the series stats to the result
   end
 
-    defp get_top_watched_series(server_id, user_id) do
+  defp get_top_watched_series(server_id, user_id) do
     query =
       from ps in PlaybackSession,
       join: i in Item, on: ps.item_jellyfin_id == i.jellyfin_id and ps.server_id == i.server_id,
       where: ps.server_id == ^server_id and i.type == "Episode" and not is_nil(i.series_id),
       group_by: [i.series_id, i.series_name, i.server_id],
       select: %{
-        # Use series_id as the jellyfin_id for the series
         jellyfin_id: i.series_id,
         name: i.series_name,
         type: "Series",
-        # These fields won't be available at the series level from episodes, so use null
         original_title: nil,
         production_year: nil,
         series_name: i.series_name,
         season_name: nil,
         index_number: nil,
-        # Get image information from the first matching episode (this might not be ideal)
         primary_image_tag: fragment("(array_agg(?))[1]", i.series_primary_image_tag),
         primary_image_aspect_ratio: fragment("(array_agg(?))[1]", i.primary_image_aspect_ratio),
         server_id: i.server_id,
-        # Aggregate statistics
         total_play_count: count(ps.id),
         total_play_duration: sum(ps.play_duration),
-        # Count unique episodes watched
         unique_episodes_watched: count(fragment("DISTINCT ?", i.jellyfin_id))
       },
       order_by: [desc: sum(ps.play_duration)],
       limit: 10
 
-    # Add user filter if needed
     query = if user_id, do: query |> where([ps], ps.user_jellyfin_id == ^user_id), else: query
-
     series = Repo.all(query)
-
-    # Enhance series data with actual series items where available
     series = Enum.map(series, fn series_stat ->
-      # Try to find the actual series item to get better metadata
       series_item = Repo.get_by(Item, jellyfin_id: series_stat.jellyfin_id, server_id: server_id)
-
       if series_item do
-        # If we found the actual series item, use its image data
         %{series_stat |
           primary_image_tag: series_item.primary_image_tag || series_stat.primary_image_tag,
           primary_image_aspect_ratio: series_item.primary_image_aspect_ratio || series_stat.primary_image_aspect_ratio,

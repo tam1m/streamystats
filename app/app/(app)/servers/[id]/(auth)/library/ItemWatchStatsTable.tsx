@@ -50,6 +50,7 @@ export function ItemWatchStatsTable({
   server,
   data,
 }: ItemWatchStatsTableProps) {
+  console.log(data);
   const router = useRouter();
   const searchParams = useSearchParams();
 

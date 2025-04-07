@@ -1,7 +1,7 @@
 import { Container } from "@/components/Container";
 import { PageTitle } from "@/components/PageTitle";
 import { Badge } from "@/components/ui/badge";
-import { getServer, getUser } from "@/lib/db";
+import { getServer, getStatisticsHistory, getUser } from "@/lib/db";
 import { HistoryTable } from "../../history/HistoryTable";
 import { formatDuration } from "@/lib/utils";
 import { WatchTimePerDay } from "./WatchTimePerDay.tsx";
@@ -22,6 +22,8 @@ export default async function User({
   }
 
   const user = await getUser(name, server.id);
+  const data = await getStatisticsHistory(server.id);
+  console.log(user);
 
   if (!user) {
     redirect("/");
@@ -55,10 +57,7 @@ export default async function User({
           <div></div>
         </div>
       </div>
-      <HistoryTable
-        server={server}
-        data={user.watch_history.map((h) => ({ ...h, user: user }))}
-      />
+      <HistoryTable server={server} data={data} hideUserColumn />
       <WatchTimePerDay data={user.watch_time_per_day} />
     </Container>
   );

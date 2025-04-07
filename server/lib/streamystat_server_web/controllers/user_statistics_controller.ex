@@ -1,7 +1,9 @@
 defmodule StreamystatServerWeb.UserStatisticsController do
   use StreamystatServerWeb, :controller
   alias StreamystatServer.Statistics.Statistics
+  alias StreamystatServer.Jellyfin.Models.User
   alias StreamystatServer.Sessions.Models.PlaybackSession
+  alias StreamystatServer.Jellyfin.Models.Item
   alias StreamystatServer.Repo
   import Ecto.Query
   require Logger
@@ -63,14 +65,79 @@ defmodule StreamystatServerWeb.UserStatisticsController do
   def history(conn, params) do
     current_user = conn.assigns.current_user
 
-    query =
+    base_query =
       if is_admin?(current_user) do
-        from(ps in PlaybackSession, order_by: [desc: ps.start_time], preload: [:user])
+        from(ps in PlaybackSession,
+          join: i in Item, on: ps.item_jellyfin_id == i.jellyfin_id,
+          join: u in User, on: ps.user_id == u.id,
+          order_by: [desc: ps.start_time],
+          select: %{
+            id: ps.id,
+            date_created: ps.start_time,
+            item_id: ps.item_jellyfin_id,
+            item_type: i.type,
+            item_name: ps.item_name,
+            client_name: ps.client_name,
+            device_name: ps.device_name,
+            play_method: ps.play_method,
+            play_duration: ps.play_duration,
+            percent_complete: coalesce(ps.percent_complete, 0),
+            completed: coalesce(ps.completed, false),
+            series_name: ps.series_name,
+            season_name: i.season_name,
+            index_number: i.index_number,
+            primary_image_tag: i.primary_image_tag,
+            backdrop_image_tags: i.backdrop_image_tags,
+            image_blur_hashes: i.image_blur_hashes,
+            parent_backdrop_item_id: i.parent_backdrop_item_id,
+            parent_backdrop_image_tags: i.parent_backdrop_image_tags,
+            parent_thumb_item_id: i.parent_thumb_item_id,
+            parent_thumb_image_tag: i.parent_thumb_image_tag,
+            primary_image_aspect_ratio: i.primary_image_aspect_ratio,
+            series_primary_image_tag: i.series_primary_image_tag,
+            primary_image_thumb_tag: i.primary_image_thumb_tag,
+            primary_image_logo_tag: i.primary_image_logo_tag,
+            user_id: u.id,
+            user_name: u.name,
+            jellyfin_user_id: u.jellyfin_id
+          }
+        )
       else
         from(ps in PlaybackSession,
+          join: i in Item, on: ps.item_jellyfin_id == i.jellyfin_id,
+          join: u in User, on: ps.user_id == u.id,
           where: ps.user_jellyfin_id == ^current_user["Id"],
           order_by: [desc: ps.start_time],
-          preload: [:user]
+          select: %{
+            id: ps.id,
+            date_created: ps.start_time,
+            item_id: ps.item_jellyfin_id,
+            item_type: ps.item_type,
+            item_name: ps.item_name,
+            client_name: ps.client_name,
+            device_name: ps.device_name,
+            play_method: ps.play_method,
+            play_duration: ps.play_duration,
+            percent_complete: coalesce(ps.percent_complete, 0),
+            completed: coalesce(ps.completed, false),
+            series_name: ps.series_name,
+            season_name: i.season_name,
+            index_number: i.index_number,
+            primary_image_tag: i.primary_image_tag,
+            backdrop_image_tags: i.backdrop_image_tags,
+            image_blur_hashes: i.image_blur_hashes,
+            parent_backdrop_item_id: i.parent_backdrop_item_id,
+            parent_backdrop_image_tags: i.parent_backdrop_image_tags,
+            parent_thumb_item_id: i.parent_thumb_item_id,
+            parent_thumb_image_tag: i.parent_thumb_image_tag,
+            primary_image_aspect_ratio: i.primary_image_aspect_ratio,
+            series_primary_image_tag: i.series_primary_image_tag,
+            primary_image_thumb_tag: i.primary_image_thumb_tag,
+            primary_image_logo_tag: i.primary_image_logo_tag,
+            user_id: u.id,
+            user_name: u.name,
+            jellyfin_user_id: u.jellyfin_id
+          }
         )
       end
 
@@ -82,19 +149,18 @@ defmodule StreamystatServerWeb.UserStatisticsController do
     {per_page, _} = Integer.parse(per_page)
 
     paginated_query =
-      query
+      base_query
       |> limit(^per_page)
       |> offset((^page - 1) * ^per_page)
 
     # Add server_id filter if provided
-    paginated_query =
+    filtered_query =
       case params["server_id"] do
         nil -> paginated_query
-        server_id -> paginated_query |> where([ps], ps.server_id == ^server_id)
+        server_id -> paginated_query |> where([ps, i, u], ps.server_id == ^server_id)
       end
 
-    watch_activity = Repo.all(paginated_query)
-
+    watch_activity = Repo.all(filtered_query)
     render(conn, :history, watch_activity: watch_activity)
   end
 

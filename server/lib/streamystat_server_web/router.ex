@@ -52,8 +52,9 @@ defmodule StreamystatServerWeb.Router do
       pipe_through(:auth)
 
       get("/active-sessions", ActiveSessionsController, :index)
-      get("/statistics/watchtime_per_day", UserStatisticsController, :watchtime_per_day)
+
       get("/statistics", UserStatisticsController, :index)
+      get("/statistics/watchtime_per_day", UserStatisticsController, :watchtime_per_day)
       get("/statistics/history", UserStatisticsController, :history)
       get("/statistics/items", UserStatisticsController, :items)
       get("/statistics/library", UserStatisticsController, :library_stats)

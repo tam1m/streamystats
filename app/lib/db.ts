@@ -152,7 +152,6 @@ export type User = {
   name: string | null;
   jellyfin_id: string | null;
   watch_stats: { total_watch_time: number; total_plays: number };
-  watch_history: any[];
   watch_time_per_day: { date: string; total_duration: number }[];
   is_administrator: boolean;
   genre_stats: GenreStat[];
@@ -592,9 +591,40 @@ export const getStatisticsLibrary = async (
   return data.data;
 };
 
+export type UserPlaybackStatistics = {
+  id: string;
+  date_created: string;
+  item_id: string;
+  item_type: string;
+  item_name: string;
+  client_name: string;
+  device_name: string;
+  play_method: string;
+  play_duration: number;
+  percent_complete: number;
+  completed: boolean;
+  series_name: string | null;
+  season_name: string | null;
+  index_number: number | null;
+  primary_image_tag: string | null;
+  backdrop_image_tags: string[] | null;
+  image_blur_hashes: Record<string, Record<string, string>> | null;
+  parent_backdrop_item_id: string | null;
+  parent_backdrop_image_tags: string[] | null;
+  parent_thumb_item_id: string | null;
+  parent_thumb_image_tag: string | null;
+  primary_image_aspect_ratio: number | null;
+  series_primary_image_tag: string | null;
+  primary_image_thumb_tag: string | null;
+  primary_image_logo_tag: string | null;
+  user_id: string;
+  user_name: string;
+  jellyfin_user_id: string;
+};
+
 export const getStatisticsHistory = async (
   serverId: number
-): Promise<PlaybackActivity[]> => {
+): Promise<UserPlaybackStatistics[]> => {
   const res = await fetch(
     process.env.API_URL + "/servers/" + serverId + "/statistics/history",
     {

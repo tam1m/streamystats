@@ -2,6 +2,7 @@ defmodule StreamystatServer.Contexts.Users do
   import Ecto.Query, warn: false
   alias StreamystatServer.Repo
   alias StreamystatServer.Jellyfin.Models.User
+  alias StreamystatServer.Jellyfin.Models.Item
   alias StreamystatServer.Sessions.Models.PlaybackSession
   alias Decimal
   require Logger
@@ -117,24 +118,6 @@ defmodule StreamystatServer.Contexts.Users do
             Repo.get_by(User, name: user_id, server_id: server_id)
         end
     end
-  end
-
-  def get_user_watch_history(server_id, user_id) do
-    from(ps in PlaybackSession,
-      where: ps.server_id == ^server_id and ps.user_id == ^user_id,
-      order_by: [desc: ps.start_time],
-      select: %{
-        id: ps.id,
-        item_id: ps.item_jellyfin_id,
-        item_name: ps.item_name,
-        series_name: ps.series_name,
-        play_duration: ps.play_duration,
-        date_created: ps.start_time,
-        completed: ps.completed,
-        percent_complete: ps.percent_complete
-      }
-    )
-    |> Repo.all()
   end
 
   def get_user_watch_stats(server_id, user_id) do

@@ -5,6 +5,58 @@ defmodule StreamystatServer.Jellyfin.Models.Item do
   alias StreamystatServer.Jellyfin.Models.Library
   alias StreamystatServer.Jellyfin.Servers.Models.Server
 
+  @derive {Jason.Encoder, only: [
+    :id,
+    :jellyfin_id,
+    :name,
+    :type,
+    :original_title,
+    :etag,
+    :date_created,
+    :container,
+    :sort_name,
+    :premiere_date,
+    :external_urls,
+    :path,
+    :official_rating,
+    :overview,
+    :genres,
+    :community_rating,
+    :runtime_ticks,
+    :production_year,
+    :is_folder,
+    :parent_id,
+    :media_type,
+    :width,
+    :height,
+    :series_name,
+    :series_id,
+    :season_id,
+    :season_name,
+    :index_number,
+    :parent_index_number,
+    :primary_image_tag,
+    :backdrop_image_tags,
+    :image_blur_hashes,
+    :video_type,
+    :has_subtitles,
+    :channel_id,
+    :parent_backdrop_item_id,
+    :parent_backdrop_image_tags,
+    :parent_thumb_item_id,
+    :parent_thumb_image_tag,
+    :location_type,
+    :primary_image_aspect_ratio,
+    :series_primary_image_tag,
+    :primary_image_thumb_tag,
+    :primary_image_logo_tag,
+    :library_id,
+    :server_id,
+    :inserted_at,
+    :updated_at
+  ]}
+
+
   schema "jellyfin_items" do
     field(:jellyfin_id, :string)
     field(:name, :string)

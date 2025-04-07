@@ -35,18 +35,29 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { PlaybackActivity, Server } from "@/lib/db";
+import {
+  Item,
+  PlaybackActivity,
+  Server,
+  User,
+  UserPlaybackStatistics,
+} from "@/lib/db";
 import { useRouter } from "nextjs-toploader/app";
 import { formatDuration } from "@/lib/utils";
 
 export interface HistoryTableProps {
-  data: PlaybackActivity[];
+  data: UserPlaybackStatistics[];
   server: Server;
+  hideUserColumn?: boolean;
 }
 
-export function HistoryTable({ data, server }: HistoryTableProps) {
+export function HistoryTable({
+  data,
+  server,
+  hideUserColumn = false,
+}: HistoryTableProps) {
   const router = useRouter();
-  const columns: ColumnDef<PlaybackActivity>[] = [
+  const columns: ColumnDef<UserPlaybackStatistics>[] = [
     {
       id: "select",
       header: ({ table }) => (
@@ -77,14 +88,37 @@ export function HistoryTable({ data, server }: HistoryTableProps) {
       ),
     },
     {
-      accessorKey: "user",
-      header: () => <div className="text-right">User</div>,
+      accessorKey: "series_name",
+      header: "Series",
       cell: ({ row }) => {
-        const user = row.getValue("user") as PlaybackActivity["user"];
-        return <div className="text-right font-medium">{user.name}</div>;
+        const seriesName = row.getValue("series_name") as string | null;
+        return <div className="capitalize">{seriesName || "-"}</div>;
       },
     },
-
+    {
+      accessorKey: "season_name",
+      header: "Season",
+      cell: ({ row }) => {
+        const seasonName = row.getValue("season_name") as string | null;
+        return <div className="capitalize">{seasonName || "-"}</div>;
+      },
+    },
+    {
+      accessorKey: "index_number",
+      header: "Episode",
+      cell: ({ row }) => {
+        const indexNumber = row.getValue("index_number") as number | null;
+        return <div>{indexNumber !== null ? indexNumber : "-"}</div>;
+      },
+    },
+    {
+      accessorKey: "user_name",
+      header: () => <div className="text-right">User</div>,
+      cell: ({ row }) => {
+        const user = row.getValue("user_name") as string;
+        return <div className="text-right font-medium">{user}</div>;
+      },
+    },
     {
       accessorKey: "play_duration",
       header: () => <div className="text-right">Duration</div>,
@@ -153,7 +187,7 @@ export function HistoryTable({ data, server }: HistoryTableProps) {
               <DropdownMenuItem
                 onClick={() => {
                   router.push(
-                    `/servers/${server.id}/users/${playbackActivity.user.name}`
+                    `/servers/${server.id}/users/${playbackActivity.user_name}`
                   );
                 }}
               >
@@ -171,8 +205,18 @@ export function HistoryTable({ data, server }: HistoryTableProps) {
     []
   );
   const [columnVisibility, setColumnVisibility] =
-    React.useState<VisibilityState>({});
+    React.useState<VisibilityState>({
+      user_name: !hideUserColumn,
+    });
   const [rowSelection, setRowSelection] = React.useState({});
+
+  // Update column visibility when hideUserColumn prop changes
+  React.useEffect(() => {
+    setColumnVisibility((prev) => ({
+      ...prev,
+      user_name: !hideUserColumn,
+    }));
+  }, [hideUserColumn]);
 
   const table = useReactTable({
     data,
