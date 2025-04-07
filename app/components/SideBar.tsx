@@ -33,6 +33,16 @@ import { UserMenu } from "./UserMenu";
 
 const admin_items = [
   {
+    title: "Activity Log",
+    url: "/activities",
+    icon: ActivitySquare,
+  },
+  {
+    title: "History",
+    url: "/history",
+    icon: Calendar,
+  },
+  {
     title: "Users",
     url: "/users",
     icon: Users,
@@ -71,16 +81,7 @@ export const SideBar: React.FC<Props> = ({
         url: "/library",
         icon: Library,
       },
-      {
-        title: "History",
-        url: "/history",
-        icon: Calendar,
-      },
-      {
-        title: "Activity Log",
-        url: "/activities",
-        icon: ActivitySquare,
-      },
+
       {
         title: "Me",
         url: "/users/" + me?.name,
