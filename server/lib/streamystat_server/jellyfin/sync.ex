@@ -608,6 +608,35 @@ defmodule StreamystatServer.Jellyfin.Sync do
     # Handle additional image tags
     backdrop_image_tags = jellyfin_item["BackdropImageTags"]
 
+    name = case sanitize_string(jellyfin_item["Name"]) do
+      nil ->
+        # Try to use a sensible fallback based on other item properties
+        cond do
+          is_binary(jellyfin_item["OriginalTitle"]) and jellyfin_item["OriginalTitle"] != "" ->
+            sanitize_string(jellyfin_item["OriginalTitle"])
+          is_binary(jellyfin_item["SeriesName"]) and jellyfin_item["SeriesName"] != "" ->
+            "#{sanitize_string(jellyfin_item["SeriesName"])} - Unknown Episode"
+          is_binary(jellyfin_item["Type"]) ->
+            "Untitled #{jellyfin_item["Type"]}"
+          true ->
+            "Untitled Item"
+        end
+      "" ->
+        # Same fallback logic for empty strings
+        cond do
+          is_binary(jellyfin_item["OriginalTitle"]) and jellyfin_item["OriginalTitle"] != "" ->
+            sanitize_string(jellyfin_item["OriginalTitle"])
+          is_binary(jellyfin_item["SeriesName"]) and jellyfin_item["SeriesName"] != "" ->
+            "#{sanitize_string(jellyfin_item["SeriesName"])} - Unknown Episode"
+          is_binary(jellyfin_item["Type"]) ->
+            "Untitled #{jellyfin_item["Type"]}"
+          true ->
+            "Untitled Item"
+        end
+      valid_name ->
+        valid_name
+    end
+
     %{
       jellyfin_id: jellyfin_item["Id"],
       name: sanitize_string(jellyfin_item["Name"]),
