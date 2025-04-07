@@ -7,18 +7,76 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import { MostWatchedItem, Server, Statistics } from "@/lib/db";
 import { formatDuration } from "@/lib/utils";
-import { MoreHorizontal } from "lucide-react";
+import { MoreHorizontal, Settings } from "lucide-react";
 import { Poster } from "./Poster";
+import { useEffect, useState } from "react";
+import { Switch } from "@/components/ui/switch";
 
 interface Props {
   data: Statistics["most_watched_items"];
   server: Server;
 }
 
+// Local storage key
+const STORAGE_KEY = "mostWatchedColumnsVisibility";
+
+// Default column visibility state
+const DEFAULT_VISIBILITY = {
+  movies: true,
+  series: true,
+  episodes: true,
+};
+
 export const MostWatchedItems: React.FC<Props> = ({ data, server }) => {
+  const [visibleColumns, setVisibleColumns] = useState(DEFAULT_VISIBILITY);
+  const [initialized, setInitialized] = useState(false);
+
+  // Load saved preferences from localStorage on mount
+  useEffect(() => {
+    try {
+      const savedPreferences = localStorage.getItem(STORAGE_KEY);
+      if (savedPreferences) {
+        setVisibleColumns(JSON.parse(savedPreferences));
+      }
+    } catch (error) {
+      console.error("Failed to load column visibility preferences:", error);
+    }
+    setInitialized(true);
+  }, []);
+
+  // Save preferences to localStorage whenever they change
+  useEffect(() => {
+    if (initialized) {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(visibleColumns));
+      } catch (error) {
+        console.error("Failed to save column visibility preferences:", error);
+      }
+    }
+  }, [visibleColumns, initialized]);
+
+  const toggleColumn = (column: "movies" | "series" | "episodes") => {
+    setVisibleColumns((prev) => ({
+      ...prev,
+      [column]: !prev[column],
+    }));
+  };
+
+  // Calculate number of visible columns for grid
+  const visibleColumnCount =
+    Object.values(visibleColumns).filter(Boolean).length;
+  const gridColsClass =
+    visibleColumnCount === 1
+      ? "md:grid-cols-1"
+      : visibleColumnCount === 2
+      ? "md:grid-cols-2"
+      : "md:grid-cols-3";
+
   const renderItems = (
     items: MostWatchedItem[],
     type: "Movie" | "Episode" | "Series",
@@ -115,10 +173,58 @@ export const MostWatchedItems: React.FC<Props> = ({ data, server }) => {
   );
 
   return (
-    <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
-      {renderItems(data?.Movie || [], "Movie", "Movies")}
-      {renderItems(data?.Series || [], "Series", "Series")}
-      {renderItems(data?.Episode || [], "Episode", "Episodes")}
+    <div className="space-y-4">
+      <div className={`grid ${gridColsClass} gap-4`}>
+        {visibleColumns.movies &&
+          renderItems(data?.Movie || [], "Movie", "Movies")}
+        {visibleColumns.series &&
+          renderItems(data?.Series || [], "Series", "Series")}
+        {visibleColumns.episodes &&
+          renderItems(data?.Episode || [], "Episode", "Episodes")}
+      </div>
+      <div className="flex justify-end">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="ml-auto">
+              <Settings className="h-4 w-4 mr-2" /> Display Options
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuLabel>Visible Sections</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <div className="p-2">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm">Movies</span>
+                <Switch
+                  checked={visibleColumns.movies}
+                  onCheckedChange={() => toggleColumn("movies")}
+                />
+              </div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm">Series</span>
+                <Switch
+                  checked={visibleColumns.series}
+                  onCheckedChange={() => toggleColumn("series")}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm">Episodes</span>
+                <Switch
+                  checked={visibleColumns.episodes}
+                  onCheckedChange={() => toggleColumn("episodes")}
+                />
+              </div>
+            </div>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() => setVisibleColumns(DEFAULT_VISIBILITY)}
+              className="justify-center text-xs text-muted-foreground"
+            >
+              Reset to default
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
     </div>
   );
 };
