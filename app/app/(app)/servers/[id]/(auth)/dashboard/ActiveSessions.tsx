@@ -32,9 +32,10 @@ export function ActiveSessions({ server }: { server: Server }) {
     refetchInterval: 500,
   });
 
-  const sortedSessions = data?.sort((a, b) => {
-    return b.position_ticks - a.position_ticks;
-  });
+  const sortedSessions =
+    data?.sort((a, b) => {
+      return b.position_ticks - a.position_ticks;
+    }) || [];
 
   if (isPending) {
     return <LoadingSessions />;
@@ -77,7 +78,7 @@ export function ActiveSessions({ server }: { server: Server }) {
       </CardHeader>
       <CardContent className="px-0 pb-0">
         <div className="space-y-4">
-          {data.map((session) => (
+          {sortedSessions.map((session) => (
             <div
               key={session.session_key}
               className="flex flex-col md:flex-row md:items-center border rounded-lg p-4  items-start"
