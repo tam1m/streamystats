@@ -24,7 +24,8 @@ const LibraryDropdown = ({ libraries }: LibraryDropdownProps) => {
   const searchParams = useSearchParams();
 
   // Check if there's a libraries parameter in the URL
-  const hasLibrariesParam = searchParams.has("libraries");
+  const librariesParam = searchParams.get("libraries");
+  const hasLibrariesParam = librariesParam !== null;
 
   // Parse selected IDs from the URL, or use all library IDs if parameter is absent
   const getSelectedIds = (): number[] => {
@@ -33,13 +34,13 @@ const LibraryDropdown = ({ libraries }: LibraryDropdownProps) => {
       return libraries.map((lib) => Number.parseInt(lib.id));
     }
 
-    const libraryParam = searchParams.get("libraries");
-    if (!libraryParam) return [];
+    // If empty string, no libraries are selected - return empty array
+    if (librariesParam === "") return [];
 
-    return libraryParam
+    return librariesParam
       .split(",")
       .map((id) => Number.parseInt(id, 10))
-      .filter((id) => !isNaN(id));
+      .filter((id) => !Number.isNaN(id));
   };
 
   const selectedIds = getSelectedIds();
@@ -59,16 +60,18 @@ const LibraryDropdown = ({ libraries }: LibraryDropdownProps) => {
     const allSelected =
       newSelectedIds.length === libraries.length &&
       libraries.every((lib) =>
-        newSelectedIds.includes(Number.parseInt(lib.id)),
+        newSelectedIds.includes(Number.parseInt(lib.id))
       );
+
+    // If no libraries are selected, remove the parameter (same as all selected)
+    const noLibrariesSelected = newSelectedIds.length === 0;
 
     // Update the URL with the new selection
     updateQueryParams({
-      libraries: allSelected
-        ? null
-        : newSelectedIds.length > 0
-          ? newSelectedIds.join(",")
-          : "",
+      libraries:
+        allSelected || noLibrariesSelected
+          ? null // Remove the parameter completely instead of setting to empty string
+          : newSelectedIds.join(","),
     });
   };
 
