@@ -1,12 +1,6 @@
 "use client";
 
 import { Spinner } from "@/components/Spinner";
-import { Button } from "@/components/ui/button";
-import { deleteServer, Server } from "@/lib/db";
-import { Loader2 } from "lucide-react";
-import { useRouter } from "nextjs-toploader/app";
-import { useState } from "react";
-import { toast } from "sonner";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,6 +12,12 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { Server, deleteServer } from "@/lib/db";
+import { Loader2 } from "lucide-react";
+import { useRouter } from "nextjs-toploader/app";
+import { useState } from "react";
+import { toast } from "sonner";
 
 interface Props {
   server: Server;

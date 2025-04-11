@@ -1,7 +1,7 @@
 "use server";
 
-import { getToken } from "./token";
 import { revalidatePath } from "next/cache";
+import { getToken } from "./token";
 
 type State = {
   type: "success" | "error" | "info" | null;
@@ -10,7 +10,7 @@ type State = {
 
 export const importJellystats = async (
   prevState: State,
-  formData: FormData
+  formData: FormData,
 ): Promise<State> => {
   const file = formData.get("file") as File | null;
   const serverId = formData.get("serverId") as string;
@@ -45,7 +45,7 @@ export const importJellystats = async (
           Authorization: `Bearer ${await getToken()}`,
         },
         body: apiFormData,
-      }
+      },
     );
 
     if (!response.ok) {

@@ -1,4 +1,4 @@
-import { getWatchTimeGraph, Server } from "@/lib/db";
+import { Server, getWatchTimeGraph } from "@/lib/db";
 import { Suspense } from "react";
 import { WatchTimeGraph } from "./WatchTimeGraph";
 

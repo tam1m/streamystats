@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -11,7 +10,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select,
   SelectContent,
@@ -19,10 +20,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Input } from "@/components/ui/input";
-import { Library, startTautulliImportTask, User } from "@/lib/db";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Library, User, startTautulliImportTask } from "@/lib/db";
+import { useState } from "react";
 import { toast } from "sonner";
 
 type TautulliLibrary = {
@@ -74,18 +74,18 @@ export function TautulliMappingModal({
 
   const handleLibraryMappingChange = (
     tautulliLibraryId: string,
-    jellyfinLibraryId: string | undefined
+    jellyfinLibraryId: string | undefined,
   ) => {
     setLibraryMappings((prev) => {
       const newMappings = [...prev];
       const existingIndex = newMappings.findIndex(
-        (mapping) => mapping.tautulliLibraryId === tautulliLibraryId
+        (mapping) => mapping.tautulliLibraryId === tautulliLibraryId,
       );
 
       if (existingIndex >= 0) {
         if (jellyfinLibraryId) {
           newMappings[existingIndex].jellyfinLibraryId =
-            parseInt(jellyfinLibraryId);
+            Number.parseInt(jellyfinLibraryId);
         } else {
           // If undefined, set to null
           newMappings[existingIndex].jellyfinLibraryId = null;
@@ -94,7 +94,7 @@ export function TautulliMappingModal({
         newMappings.push({
           tautulliLibraryId,
           jellyfinLibraryId: jellyfinLibraryId
-            ? parseInt(jellyfinLibraryId)
+            ? Number.parseInt(jellyfinLibraryId)
             : null,
         });
       }
@@ -105,17 +105,18 @@ export function TautulliMappingModal({
 
   const handleUserMappingChange = (
     tautulliUserId: number,
-    jellyfinUserId: string | undefined
+    jellyfinUserId: string | undefined,
   ) => {
     setUserMappings((prev) => {
       const newMappings = [...prev];
       const existingIndex = newMappings.findIndex(
-        (mapping) => mapping.tautulliUserId === tautulliUserId
+        (mapping) => mapping.tautulliUserId === tautulliUserId,
       );
 
       if (existingIndex >= 0) {
         if (jellyfinUserId) {
-          newMappings[existingIndex].jellyfinUserId = parseInt(jellyfinUserId);
+          newMappings[existingIndex].jellyfinUserId =
+            Number.parseInt(jellyfinUserId);
         } else {
           // If undefined, set to null
           newMappings[existingIndex].jellyfinUserId = null;
@@ -123,7 +124,9 @@ export function TautulliMappingModal({
       } else {
         newMappings.push({
           tautulliUserId,
-          jellyfinUserId: jellyfinUserId ? parseInt(jellyfinUserId) : null,
+          jellyfinUserId: jellyfinUserId
+            ? Number.parseInt(jellyfinUserId)
+            : null,
         });
       }
 
@@ -144,7 +147,7 @@ export function TautulliMappingModal({
 
     const validMappings = {
       libraryMappings: libraryMappings.filter(
-        (m) => m.jellyfinLibraryId !== null
+        (m) => m.jellyfinLibraryId !== null,
       ),
       userMappings: userMappings.filter((m) => m.jellyfinUserId !== null),
     };
@@ -160,7 +163,7 @@ export function TautulliMappingModal({
         serverId,
         tautulliUrl,
         apiKey,
-        stringMappings
+        stringMappings,
       );
 
       toast.success("Import started successfully");
@@ -239,13 +242,13 @@ export function TautulliMappingModal({
                       onValueChange={(value) =>
                         handleLibraryMappingChange(
                           library.section_id,
-                          value || undefined
+                          value || undefined,
                         )
                       }
                       value={
                         libraryMappings
                           .find(
-                            (m) => m.tautulliLibraryId === library.section_id
+                            (m) => m.tautulliLibraryId === library.section_id,
                           )
                           ?.jellyfinLibraryId?.toString() || undefined
                       }
@@ -295,7 +298,7 @@ export function TautulliMappingModal({
                       onValueChange={(value) =>
                         handleUserMappingChange(
                           user.user_id,
-                          value || undefined
+                          value || undefined,
                         )
                       }
                       value={

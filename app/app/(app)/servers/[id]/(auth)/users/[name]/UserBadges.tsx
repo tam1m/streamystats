@@ -1,8 +1,8 @@
 "use client";
 
-import React from "react";
 import { Badge } from "@/components/ui/badge";
 import { User } from "@/lib/db";
+import React from "react";
 
 interface UserBadgesProps {
   user: User;

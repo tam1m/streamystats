@@ -6,16 +6,16 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Switch } from "@/components/ui/switch";
 import { MostWatchedItem, Server, Statistics } from "@/lib/db";
 import { formatDuration } from "@/lib/utils";
 import { MoreHorizontal, Settings } from "lucide-react";
-import { Poster } from "./Poster";
 import { useEffect, useState } from "react";
-import { Switch } from "@/components/ui/switch";
+import { Poster } from "./Poster";
 
 interface Props {
   data: Statistics["most_watched_items"];
@@ -74,13 +74,13 @@ export const MostWatchedItems: React.FC<Props> = ({ data, server }) => {
     visibleColumnCount === 1
       ? "md:grid-cols-1"
       : visibleColumnCount === 2
-      ? "md:grid-cols-2"
-      : "md:grid-cols-3";
+        ? "md:grid-cols-2"
+        : "md:grid-cols-3";
 
   const renderItems = (
     items: MostWatchedItem[],
     type: "Movie" | "Episode" | "Series",
-    title: string
+    title: string,
   ) => (
     <div>
       <h2 className="text-xl font-bold mb-4">Most Watched {title}</h2>

@@ -1,17 +1,19 @@
 import { Container } from "@/components/Container";
 import { PageTitle } from "@/components/PageTitle";
+import { UnwatchedTable } from "@/components/UnwatchedTable";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
-  getServer,
+  getLibraries,
   getLibraryItems,
+  getServer,
   getStatisticsLibrary,
   getUnwatchedItems,
 } from "@/lib/db";
 import { redirect } from "next/navigation";
-import { ItemWatchStatsTable } from "./ItemWatchStatsTable";
-import { LibraryStatisticsCards } from "./LibraryStatisticsCards";
-import { UnwatchedTable } from "@/components/UnwatchedTable";
 import { Suspense } from "react";
-import { Skeleton } from "@/components/ui/skeleton";
+import { ItemWatchStatsTable } from "./ItemWatchStatsTable";
+import LibraryList from "./LibraryDropdown";
+import { LibraryStatisticsCards } from "./LibraryStatisticsCards";
 
 export default async function DashboardPage({
   params,
@@ -34,6 +36,7 @@ export default async function DashboardPage({
     redirect("/not-found");
   }
 
+  const libraries = await getLibraries(server.id);
   const libraryStats = await getStatisticsLibrary(server.id);
   const items = await getLibraryItems(
     server.id,
@@ -60,7 +63,11 @@ export default async function DashboardPage({
           </div>
         }
       >
-        <ItemWatchStatsTable server={server} data={items} />
+        <ItemWatchStatsTable
+          server={server}
+          data={items}
+          libraries={libraries}
+        />
       </Suspense>
       {/* <UnwatchedTable server={server} data={unwatchedItems} /> */}
     </Container>

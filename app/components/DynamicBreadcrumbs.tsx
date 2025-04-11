@@ -1,6 +1,8 @@
 "use client";
 
+import { House, Slash } from "lucide-react";
 import { useParams, usePathname } from "next/navigation";
+import React from "react";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -8,8 +10,6 @@ import {
   BreadcrumbList,
   BreadcrumbSeparator,
 } from "./ui/breadcrumb";
-import { House, Slash } from "lucide-react";
-import React from "react";
 
 const dynamicSegments = [
   "users",

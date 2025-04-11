@@ -139,7 +139,7 @@ export const UserTable: React.FC<UserTableProps> = ({
   ]);
 
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
-    []
+    [],
   );
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>({});
@@ -214,7 +214,7 @@ export const UserTable: React.FC<UserTableProps> = ({
                         ? null
                         : flexRender(
                             header.column.columnDef.header,
-                            header.getContext()
+                            header.getContext(),
                           )}
                     </TableHead>
                   );
@@ -233,7 +233,7 @@ export const UserTable: React.FC<UserTableProps> = ({
                     <TableCell key={cell.id}>
                       {flexRender(
                         cell.column.columnDef.cell,
-                        cell.getContext()
+                        cell.getContext(),
                       )}
                     </TableCell>
                   ))}

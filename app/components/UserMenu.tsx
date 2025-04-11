@@ -4,6 +4,8 @@ import { logout } from "@/lib/db";
 import { ChevronsUpDown, Loader2, LogOut } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
+import { Spinner } from "./Spinner";
 import { Avatar, AvatarFallback } from "./ui/avatar";
 import {
   DropdownMenu,
@@ -14,8 +16,6 @@ import {
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 import { SidebarMenuButton } from "./ui/sidebar";
-import { Spinner } from "./Spinner";
-import { toast } from "sonner";
 
 interface Props {
   me?: { name?: string };

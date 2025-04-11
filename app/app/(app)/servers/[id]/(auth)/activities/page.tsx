@@ -1,10 +1,10 @@
 import { Container } from "@/components/Container";
 import { PageTitle } from "@/components/PageTitle";
+import { Skeleton } from "@/components/ui/skeleton";
 import { getActivities, getServer } from "@/lib/db";
 import { redirect } from "next/navigation";
-import { ActivityLogTable } from "./ActivityLogTable";
 import { Suspense } from "react";
-import { Skeleton } from "@/components/ui/skeleton";
+import { ActivityLogTable } from "./ActivityLogTable";
 
 export default async function ActivitiesPage({
   params,

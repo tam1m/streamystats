@@ -2,7 +2,7 @@
 
 import type { NextRequest } from "next/server";
 import { NextResponse, URLPattern } from "next/server";
-import { getServers, User } from "./lib/db";
+import { User, getServers } from "./lib/db";
 import { UserMe } from "./lib/me";
 
 enum ResultType {
@@ -76,7 +76,7 @@ const getMe = async (request: NextRequest): Promise<Result<UserMe>> => {
   } catch (e) {
     console.error(
       "Failed to parse user cookie. The cookie probably has incorrect information.",
-      e
+      e,
     );
   }
 
@@ -101,7 +101,7 @@ const validateUserAuth = async (request: NextRequest, me: UserMe) => {
           Authorization: `Bearer ${c.get("streamystats-token")?.value}`,
           "Content-Type": "application/json",
         },
-      }
+      },
     )
       .then((res) => res.json())
       .then((res) => res.data);
@@ -139,10 +139,10 @@ export async function middleware(request: NextRequest) {
   // If the server does not exist
   if (!servers.some((s) => Number(s.id) === Number(id))) {
     console.warn(
-      `Server ${id} not found, redirecting to /servers/` + servers[0].id
+      `Server ${id} not found, redirecting to /servers/` + servers[0].id,
     );
     return NextResponse.redirect(
-      new URL(`/servers/${servers[0].id}/login`, request.url)
+      new URL(`/servers/${servers[0].id}/login`, request.url),
     );
   }
 
@@ -158,7 +158,7 @@ export async function middleware(request: NextRequest) {
       response.cookies.delete("streamystats-token");
 
       return NextResponse.redirect(
-        new URL(`/servers/${servers[0].id}/login`, request.url)
+        new URL(`/servers/${servers[0].id}/login`, request.url),
       );
     }
 
@@ -166,10 +166,10 @@ export async function middleware(request: NextRequest) {
     if (meResult.type === ResultType.Success) {
       if (Number(meResult.data.serverId) !== Number(id)) {
         console.warn(
-          "User is trying to access a server they are not a member of"
+          "User is trying to access a server they are not a member of",
         );
         return NextResponse.redirect(
-          new URL(`/servers/${id}/login`, request.url)
+          new URL(`/servers/${id}/login`, request.url),
         );
       }
     }

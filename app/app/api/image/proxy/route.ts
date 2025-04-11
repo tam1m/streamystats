@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
         headers: {
           Authorization: `Bearer ${await getToken()}`,
         },
-      }
+      },
     );
 
     if (!serverResponse.ok) {

@@ -44,7 +44,7 @@ export function ActivityLogTable({ server, data }: ActivityLogTableProps) {
   const currentPage = Number(searchParams.get("page") || "1");
 
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
-    []
+    [],
   );
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>({});
@@ -162,7 +162,7 @@ export function ActivityLogTable({ server, data }: ActivityLogTableProps) {
                         ? null
                         : flexRender(
                             header.column.columnDef.header,
-                            header.getContext()
+                            header.getContext(),
                           )}
                     </TableHead>
                   );
@@ -181,7 +181,7 @@ export function ActivityLogTable({ server, data }: ActivityLogTableProps) {
                     <TableCell key={cell.id}>
                       {flexRender(
                         cell.column.columnDef.cell,
-                        cell.getContext()
+                        cell.getContext(),
                       )}
                     </TableCell>
                   ))}

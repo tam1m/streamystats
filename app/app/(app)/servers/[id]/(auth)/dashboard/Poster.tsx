@@ -3,7 +3,7 @@
 import { JellyfinSession } from "@/app/api/Sessions/route";
 import { Item, Server } from "@/lib/db";
 import Image from "next/image";
-import { useEffect, useMemo, useState, memo } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import { Blurhash } from "react-blurhash";
 
 // Define the possible image types that can be requested
@@ -220,7 +220,7 @@ const PosterComponent = ({
   // Memoized container class
   const containerClassName = useMemo(
     () => `relative w-full ${className} overflow-hidden rounded-md`,
-    [className]
+    [className],
   );
 
   const { blurhashX, blurhashY } = useMemo(() => {

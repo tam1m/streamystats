@@ -1,21 +1,5 @@
 "use client";
 
-import {
-  ColumnDef,
-  ColumnFiltersState,
-  SortingState,
-  VisibilityState,
-  flexRender,
-  getCoreRowModel,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
-  useReactTable,
-} from "@tanstack/react-table";
-import { ArrowUpDown, ChevronDown, MoreHorizontal } from "lucide-react";
-import { useSearchParams } from "next/navigation";
-import * as React from "react";
-import { useRouter } from "nextjs-toploader/app";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -35,20 +19,44 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ItemWatchStats, ItemWatchStatsResponse, Server } from "@/lib/db";
+import { useQueryParams } from "@/hooks/useQueryParams";
+import {
+  ItemWatchStats,
+  ItemWatchStatsResponse,
+  Library,
+  Server,
+} from "@/lib/db";
 import { formatDuration } from "@/lib/utils";
+import {
+  ColumnDef,
+  ColumnFiltersState,
+  SortingState,
+  VisibilityState,
+  flexRender,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  useReactTable,
+} from "@tanstack/react-table";
+import { ArrowUpDown, ChevronDown, MoreHorizontal } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { useRouter } from "nextjs-toploader/app";
+import * as React from "react";
 import { useDebounce } from "use-debounce";
 import { Poster } from "../dashboard/Poster";
-import { useQueryParams } from "@/hooks/useQueryParams";
+import LibraryDropdown from "./LibraryDropdown";
 
 export interface ItemWatchStatsTableProps {
   server: Server;
   data: ItemWatchStatsResponse;
+  libraries: Library[];
 }
 
 export function ItemWatchStatsTable({
   server,
   data,
+  libraries,
 }: ItemWatchStatsTableProps) {
   console.log(data);
   const router = useRouter();
@@ -238,16 +246,17 @@ export function ItemWatchStatsTable({
 
   return (
     <div className="w-full">
-      <div className="flex items-center py-4">
+      <div className="flex items-center justify-start py-4 gap-2">
         <Input
           placeholder="Search items..."
           value={searchInput}
           onChange={(event) => setSearchInput(event.target.value)}
-          className="max-w-sm"
+          className="max-w-sm mr-auto"
         />
+        <LibraryDropdown libraries={libraries} />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="ml-auto">
+            <Button variant="outline" className="">
               Columns <ChevronDown className="ml-2 h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>

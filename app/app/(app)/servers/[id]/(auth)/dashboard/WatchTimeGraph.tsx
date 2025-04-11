@@ -1,11 +1,13 @@
 "use client";
 
+import { format } from "date-fns";
+import { CalendarIcon } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import * as React from "react";
 import { Bar, BarChart, CartesianGrid, XAxis } from "recharts";
-import { CalendarIcon } from "lucide-react";
-import { format } from "date-fns";
-import { useSearchParams } from "next/navigation";
 
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
 import {
   Card,
   CardContent,
@@ -19,8 +21,6 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
 import {
   Popover,
   PopoverContent,
@@ -33,9 +33,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { WatchTimePerDay } from "@/lib/db";
-import { formatDuration, cn } from "@/lib/utils";
 import { useQueryParams } from "@/hooks/useQueryParams";
+import { WatchTimePerDay } from "@/lib/db";
+import { cn, formatDuration } from "@/lib/utils";
 import { Suspense, useTransition } from "react";
 
 const chartConfig = {
@@ -82,18 +82,18 @@ function WatchTimeChartView({
       // Calculate Movie and Episode watchtime
       const movieWatchtime = Math.floor(
         (item.watchtime_by_type.find((i) => i.item_type === "Movie")
-          ?.total_duration || 0) / 60
+          ?.total_duration || 0) / 60,
       );
 
       const episodeWatchtime = Math.floor(
         (item.watchtime_by_type.find((i) => i.item_type === "Episode")
-          ?.total_duration || 0) / 60
+          ?.total_duration || 0) / 60,
       );
 
       // Calculate Other watchtime (total - movie - episode)
       const totalWatchtime = item.watchtime_by_type.reduce(
         (acc, curr) => acc + Math.floor(curr.total_duration / 60),
-        0
+        0,
       );
 
       const otherWatchtime = totalWatchtime - movieWatchtime - episodeWatchtime;
@@ -118,7 +118,7 @@ function WatchTimeChartView({
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
       const dateString = d.toISOString().split("T")[0];
       const existingData = filteredData.find(
-        (item) => item.date === dateString
+        (item) => item.date === dateString,
       );
       if (existingData) {
         result.push(existingData);
@@ -330,10 +330,10 @@ export function WatchTimeGraph({ data, onLoadingChange }: Props) {
   };
 
   const [startDate, setStartDate] = React.useState<Date | undefined>(
-    startDateParam ? new Date(startDateParam) : getDefaultStartDate()
+    startDateParam ? new Date(startDateParam) : getDefaultStartDate(),
   );
   const [endDate, setEndDate] = React.useState<Date | undefined>(
-    endDateParam ? new Date(endDateParam) : defaultEndDate
+    endDateParam ? new Date(endDateParam) : defaultEndDate,
   );
 
   // Format date for query params

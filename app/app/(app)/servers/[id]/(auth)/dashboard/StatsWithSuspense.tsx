@@ -1,4 +1,4 @@
-import { getStatistics, Server } from "@/lib/db";
+import { Server, getStatistics } from "@/lib/db";
 import MostWatchedDate from "./MostWatchedDate";
 import { MostWatchedItems } from "./MostWatchedItems";
 import TotalWatchTime from "./TotalWatchTime";

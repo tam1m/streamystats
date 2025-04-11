@@ -1,6 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -9,16 +16,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Server, getUnwatchedItems } from "@/lib/db";
 import { ChevronDown, Search } from "lucide-react";
-import { getUnwatchedItems, Server } from "@/lib/db";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
   Pagination,
   PaginationContent,
@@ -28,7 +29,6 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "./ui/pagination";
-import { useRouter, useSearchParams } from "next/navigation";
 
 export interface UnwatchedItem {
   id: number;
@@ -109,19 +109,19 @@ export function UnwatchedTable({ server, data }: UnwatchedTableProps) {
         >
           1
         </PaginationLink>
-      </PaginationItem>
+      </PaginationItem>,
     );
 
     // If there are too many pages, use ellipsis
     if (totalPages > 7) {
-      let startPage = Math.max(2, page - 2);
-      let endPage = Math.min(totalPages - 1, page + 2);
+      const startPage = Math.max(2, page - 2);
+      const endPage = Math.min(totalPages - 1, page + 2);
 
       if (startPage > 2) {
         items.push(
           <PaginationItem key="ellipsis-start">
             <PaginationEllipsis />
-          </PaginationItem>
+          </PaginationItem>,
         );
       }
 
@@ -138,7 +138,7 @@ export function UnwatchedTable({ server, data }: UnwatchedTableProps) {
             >
               {i}
             </PaginationLink>
-          </PaginationItem>
+          </PaginationItem>,
         );
       }
 
@@ -146,7 +146,7 @@ export function UnwatchedTable({ server, data }: UnwatchedTableProps) {
         items.push(
           <PaginationItem key="ellipsis-end">
             <PaginationEllipsis />
-          </PaginationItem>
+          </PaginationItem>,
         );
       }
     } else {
@@ -164,7 +164,7 @@ export function UnwatchedTable({ server, data }: UnwatchedTableProps) {
             >
               {i}
             </PaginationLink>
-          </PaginationItem>
+          </PaginationItem>,
         );
       }
     }
@@ -183,7 +183,7 @@ export function UnwatchedTable({ server, data }: UnwatchedTableProps) {
           >
             {totalPages}
           </PaginationLink>
-        </PaginationItem>
+        </PaginationItem>,
       );
     }
 

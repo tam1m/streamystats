@@ -3,5 +3,5 @@ import { Server } from "../db";
 
 export const serverAtom = atomWithStorage<Server | null>(
   "selectedServer",
-  null
+  null,
 );

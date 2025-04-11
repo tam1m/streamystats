@@ -1,4 +1,4 @@
-import { clsx, type ClassValue } from "clsx";
+import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { SyncTask } from "./db";
 
@@ -8,7 +8,7 @@ export function cn(...inputs: ClassValue[]) {
 
 export function formatDuration(
   t: number,
-  unit: "seconds" | "minutes" | "hours" | "days" = "seconds"
+  unit: "seconds" | "minutes" | "hours" | "days" = "seconds",
 ): string {
   if (t === 0) return "0m";
 
@@ -46,7 +46,7 @@ export function formatDuration(
 
 export const isTaskRunning = (
   data?: SyncTask[] | null,
-  type?: SyncTask["sync_type"] | null
+  type?: SyncTask["sync_type"] | null,
 ): boolean => {
   if (!type) return false;
   if (!data) return false;
@@ -67,7 +67,7 @@ export const isTaskRunning = (
 
 export const taskLastRunAt = (
   data?: SyncTask[] | null,
-  type?: SyncTask["sync_type"] | null
+  type?: SyncTask["sync_type"] | null,
 ): string => {
   if (!type) return "Never";
   if (!data) return "Never";
@@ -77,6 +77,14 @@ export const taskLastRunAt = (
 
   const utcDate = new Date(d);
   return new Date(
-    utcDate.getTime() - utcDate.getTimezoneOffset() * 60000
+    utcDate.getTime() - utcDate.getTimezoneOffset() * 60000,
   ).toLocaleString();
+};
+
+export const formatDate = (s: string): string => {
+  const date = new Date(s);
+  return date.toLocaleString("en-UK", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
 };

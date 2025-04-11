@@ -3,7 +3,7 @@
 import { Spinner } from "@/components/Spinner";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getSyncTasks, Server, syncFullTask, SyncTask } from "@/lib/db";
+import { Server, SyncTask, getSyncTasks, syncFullTask } from "@/lib/db";
 import { isTaskRunning, taskLastRunAt } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useMemo } from "react";
@@ -25,7 +25,7 @@ export const FullSyncTask: React.FC<Props> = ({ server }) => {
 
   const running = useMemo(
     () => isTaskRunning(data, "full_sync") || false,
-    [data]
+    [data],
   );
 
   const lastRun = useMemo(() => taskLastRunAt(data, "full_sync"), [data]);

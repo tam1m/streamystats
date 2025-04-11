@@ -33,7 +33,7 @@ export default async function DashboardPage({
     _endDate = new Date().toISOString().split("T")[0];
 
     redirect(
-      `/servers/${id}/dashboard?startDate=${_startDate}&endDate=${_endDate}`
+      `/servers/${id}/dashboard?startDate=${_startDate}&endDate=${_endDate}`,
     );
   }
 

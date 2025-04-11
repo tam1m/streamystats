@@ -38,7 +38,7 @@ export const WatchTimePerDay: React.FC<Props> = ({ data }) => {
         date: new Date(item.date).toLocaleDateString(),
         minutes: Math.floor(item.total_duration / 60),
       })),
-    [data]
+    [data],
   );
 
   return (

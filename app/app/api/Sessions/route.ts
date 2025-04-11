@@ -1,4 +1,4 @@
-import { ActiveSession, getServer, Item } from "@/lib/db";
+import { ActiveSession, Item, getServer } from "@/lib/db";
 
 /**
  * Formats ticks (100-nanosecond units) to HH:MM:SS format
@@ -18,7 +18,7 @@ function formatTicks(ticks: number): string {
  * Maps a JellyfinSession to an ActiveSession
  */
 function mapJellyfinSessionToActiveSession(
-  session: JellyfinSession
+  session: JellyfinSession,
 ): ActiveSession | null {
   // Skip sessions without NowPlayingItem
   if (!session.NowPlayingItem) {
@@ -132,7 +132,7 @@ export async function GET(request: Request) {
         headers: {
           "Content-Type": "application/json",
         },
-      }
+      },
     );
   }
 }

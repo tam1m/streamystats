@@ -2,11 +2,11 @@
 
 import { Container } from "@/components/Container";
 import { getLibraries, getServer, getUser, getUsers } from "@/lib/db";
-import { redirect } from "next/navigation";
-import { Tasks } from "./Tasks";
 import { getMe } from "@/lib/me";
-import { TautulliMappingModal } from "./TautulliMappingModal";
+import { redirect } from "next/navigation";
 import JellystatsImport from "./JellystatsImport";
+import { Tasks } from "./Tasks";
+import { TautulliMappingModal } from "./TautulliMappingModal";
 
 export default async function Settings({
   params,

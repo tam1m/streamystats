@@ -4,7 +4,16 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
+import { PageTitle } from "@/components/PageTitle";
+import { Spinner } from "@/components/Spinner";
 import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   Form,
   FormControl,
@@ -15,22 +24,13 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { login, Server } from "@/lib/db";
-import { useRouter } from "nextjs-toploader/app";
-import { toast } from "sonner";
 import { tokenAtom } from "@/lib/atoms/tokenAtom";
+import { Server, login } from "@/lib/db";
 import { useAtom } from "jotai/react";
-import { useState } from "react";
 import { Loader2 } from "lucide-react";
-import { PageTitle } from "@/components/PageTitle";
-import { Spinner } from "@/components/Spinner";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { useRouter } from "nextjs-toploader/app";
+import { useState } from "react";
+import { toast } from "sonner";
 
 const FormSchema = z.object({
   username: z.string(),

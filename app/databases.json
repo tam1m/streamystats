@@ -5,6 +5,6 @@
   },
   "prod": {
     "driver": "pg",
-    "connectionString": {"ENV": "DATABASE_URL"}
+    "connectionString": { "ENV": "DATABASE_URL" }
   }
 }

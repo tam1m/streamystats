@@ -8,6 +8,13 @@ import { PageTitle } from "@/components/PageTitle";
 import { Spinner } from "@/components/Spinner";
 import { Button } from "@/components/ui/button";
 import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
   Form,
   FormControl,
   FormDescription,
@@ -21,13 +28,6 @@ import { createServer } from "@/lib/db";
 import { useRouter } from "nextjs-toploader/app";
 import { useState } from "react";
 import { toast } from "sonner";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-} from "@/components/ui/card";
 
 const FormSchema = z.object({
   url: z.string().min(2, {

@@ -1,8 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatDuration } from "@/lib/utils";
-import React from "react";
-import { Calendar } from "lucide-react";
 import { Statistics } from "@/lib/db";
+import { formatDuration } from "@/lib/utils";
+import { Calendar } from "lucide-react";
+import React from "react";
 
 const MostWatchedDate: React.FC<{ data: Statistics["most_watched_date"] }> = ({
   data,

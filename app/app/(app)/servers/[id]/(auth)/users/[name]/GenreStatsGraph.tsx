@@ -18,8 +18,8 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { GenreStat } from "@/lib/db";
-import { extend } from "lodash";
 import { cn, formatDuration } from "@/lib/utils";
+import { extend } from "lodash";
 
 const chartConfig = {
   total_duration: {

@@ -4,8 +4,8 @@ import { Server } from "@/lib/db";
 import { UserMe } from "@/lib/me";
 import {
   ActivitySquare,
-  Bookmark,
   BookOpen,
+  Bookmark,
   Calendar,
   Home,
   Layers,
@@ -18,6 +18,7 @@ import {
 import { useParams } from "next/navigation";
 import React, { useMemo } from "react";
 import { ServerSelector } from "./ServerSelector";
+import { UserMenu } from "./UserMenu";
 import {
   Sidebar,
   SidebarContent,
@@ -29,7 +30,6 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "./ui/sidebar";
-import { UserMenu } from "./UserMenu";
 
 const admin_items = [
   {

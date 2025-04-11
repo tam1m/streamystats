@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -11,10 +11,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Info, Upload, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
-import { useFormState, useFormStatus } from "react-dom";
 import { importJellystats } from "@/lib/importJellystats";
+import { AlertCircle, CheckCircle2, Info, Loader2, Upload } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { useFormState, useFormStatus } from "react-dom";
 
 // Form submit button with loading state
 function SubmitButton({ hasFile }: { hasFile: boolean }) {

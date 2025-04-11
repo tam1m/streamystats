@@ -1,5 +1,5 @@
 import { useRouter, useSearchParams } from "next/navigation";
-import { useTransition, useState, useEffect } from "react";
+import { useEffect, useState, useTransition } from "react";
 
 /**
  * Hook for managing query parameters in the URL with Suspense support
@@ -15,7 +15,7 @@ export function useQueryParams<T = any>() {
    */
   const updateQueryParams = (
     params: Record<string, string | null>,
-    options: { scroll?: boolean } = { scroll: false }
+    options: { scroll?: boolean } = { scroll: false },
   ) => {
     setIsLoading(true); // Show loading state immediately
 
