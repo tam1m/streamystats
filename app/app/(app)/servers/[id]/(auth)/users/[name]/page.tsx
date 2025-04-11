@@ -2,28 +2,29 @@ import { Container } from "@/components/Container";
 import { PageTitle } from "@/components/PageTitle";
 import { Badge } from "@/components/ui/badge";
 import { getServer, getStatisticsHistory, getUser } from "@/lib/db";
-import { HistoryTable } from "../../history/HistoryTable";
 import { formatDuration } from "@/lib/utils";
-import { WatchTimePerDay } from "./WatchTimePerDay.tsx";
 import { redirect } from "next/navigation";
+import { HistoryTable } from "../../history/HistoryTable";
 import { GenreStatsGraph } from "./GenreStatsGraph";
 import UserBadges from "./UserBadges";
+import { WatchTimePerDay } from "./WatchTimePerDay.tsx";
 
 export default async function User({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string; name: string }>;
+  searchParams: Promise<{ page: string }>;
 }) {
   const { id, name } = await params;
+  const { page } = await searchParams;
   const server = await getServer(id);
 
   if (!server) {
     redirect("/");
   }
 
-  const user = await getUser(name, server.id);
-  const data = await getStatisticsHistory(server.id);
-  console.log(user);
+  const user = await getUser(name, server.id, page);
 
   if (!user) {
     redirect("/");
@@ -54,10 +55,9 @@ export default async function User({
         </div>
         <div className="grid grid-rows-2 md:grid-rows-1 md:grid-cols-2 items-center gap-2">
           <GenreStatsGraph data={user.genre_stats} className="w-full" />
-          <div></div>
         </div>
       </div>
-      <HistoryTable server={server} data={data} hideUserColumn />
+      <HistoryTable server={server} data={user.watch_history} hideUserColumn />
       <WatchTimePerDay data={user.watch_time_per_day} />
     </Container>
   );

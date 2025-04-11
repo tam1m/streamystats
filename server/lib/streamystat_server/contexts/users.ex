@@ -256,6 +256,78 @@ defmodule StreamystatServer.Contexts.Users do
     calculate_longest_streak(days_watched)
   end
 
+  def get_user_watch_history(server_id, user_id, params \\ %{}) do
+    # Base query for a specific user
+    base_query =
+      from(ps in PlaybackSession,
+        join: i in Item, on: ps.item_jellyfin_id == i.jellyfin_id,
+        join: u in User, on: ps.user_id == u.id,
+        where: ps.server_id == ^server_id and ps.user_id == ^user_id,
+        order_by: [desc: ps.start_time],
+        select: %{
+          id: ps.id,
+          date_created: ps.start_time,
+          item_id: ps.item_jellyfin_id,
+          item_type: i.type,
+          item_name: ps.item_name,
+          client_name: ps.client_name,
+          device_name: ps.device_name,
+          play_method: ps.play_method,
+          play_duration: ps.play_duration,
+          percent_complete: coalesce(ps.percent_complete, 0),
+          completed: coalesce(ps.completed, false),
+          series_name: ps.series_name,
+          season_name: i.season_name,
+          index_number: i.index_number,
+          primary_image_tag: i.primary_image_tag,
+          backdrop_image_tags: i.backdrop_image_tags,
+          image_blur_hashes: i.image_blur_hashes,
+          parent_backdrop_item_id: i.parent_backdrop_item_id,
+          parent_backdrop_image_tags: i.parent_backdrop_image_tags,
+          parent_thumb_item_id: i.parent_thumb_item_id,
+          parent_thumb_image_tag: i.parent_thumb_image_tag,
+          primary_image_aspect_ratio: i.primary_image_aspect_ratio,
+          series_primary_image_tag: i.series_primary_image_tag,
+          primary_image_thumb_tag: i.primary_image_thumb_tag,
+          primary_image_logo_tag: i.primary_image_logo_tag,
+          user_id: u.id,
+          user_name: u.name,
+          jellyfin_user_id: u.jellyfin_id
+        }
+      )
+
+    # Count total items for pagination metadata
+    total_items_query =
+      from ps in PlaybackSession,
+      where: ps.server_id == ^server_id and ps.user_id == ^user_id,
+      select: count(ps.id)
+
+    total_items = Repo.one(total_items_query)
+
+    # Add pagination
+    page = params["page"] || "1"
+    per_page = params["per_page"] || "20"
+    {page, _} = Integer.parse(page)
+    {per_page, _} = Integer.parse(per_page)
+
+    # Calculate total pages
+    total_pages = ceil(total_items / per_page)
+
+    paginated_query =
+      base_query
+      |> limit(^per_page)
+      |> offset((^page - 1) * ^per_page)
+
+    # Return the watch history data with pagination metadata
+    %{
+      page: page,
+      per_page: per_page,
+      total_items: total_items,
+      total_pages: total_pages,
+      data: Repo.all(paginated_query)
+    }
+  end
+
   # Helper to calculate streak from list of dates
   defp calculate_longest_streak([]), do: 0
 

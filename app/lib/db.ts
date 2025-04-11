@@ -147,6 +147,14 @@ export type GenreStat = {
   watch_time: number;
 };
 
+export type UserWatchHisotryResponse = {
+  page: number;
+  per_page: number;
+  total_items: number;
+  total_pages: number;
+  data: UserPlaybackStatistics[];
+};
+
 export type User = {
   id: string;
   name: string | null;
@@ -156,6 +164,7 @@ export type User = {
   is_administrator: boolean;
   genre_stats: GenreStat[];
   longest_streak: number; // days
+  watch_history: UserWatchHisotryResponse;
 };
 
 export type ActiveSession = {
@@ -212,7 +221,7 @@ export const createServer = async (
   url: string,
   api_key: string
 ): Promise<Server> => {
-  const result = await fetch(process.env.API_URL + "/servers", {
+  const result = await fetch(`${process.env.API_URL}/servers`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -380,20 +389,29 @@ export const getUsers = async (serverId: number): Promise<User[]> => {
 
 export const getUser = async (
   name?: string,
-  serverId?: number
+  serverId?: number,
+  page?: string
 ): Promise<User | null> => {
   if (!name || !serverId) return null;
 
-  const res = await fetch(
-    process.env.API_URL + "/servers/" + serverId + "/users/" + name,
-    {
-      cache: "no-store",
-      headers: {
-        Authorization: `Bearer ${await getToken()}`,
-        "Content-Type": "application/json",
-      },
-    }
-  );
+  // Build URL with query parameters if pagination params are provided
+  let url = process.env.API_URL + "/servers/" + serverId + "/users/" + name;
+
+  if (page !== undefined) {
+    const params = new URLSearchParams();
+    if (page !== undefined) params.append("page", page);
+
+    // Append query parameters to URL
+    url += "?" + params.toString();
+  }
+
+  const res = await fetch(url, {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${await getToken()}`,
+      "Content-Type": "application/json",
+    },
+  });
 
   if (!res.ok) {
     return null;
@@ -622,26 +640,45 @@ export type UserPlaybackStatistics = {
   jellyfin_user_id: string;
 };
 
+export type HisotryResponse = {
+  page: number;
+  per_page: number;
+  total_items: number;
+  total_pages: number;
+  data: UserPlaybackStatistics[];
+};
+
 export const getStatisticsHistory = async (
-  serverId: number
-): Promise<UserPlaybackStatistics[]> => {
-  const res = await fetch(
-    process.env.API_URL + "/servers/" + serverId + "/statistics/history",
-    {
-      cache: "no-store",
-      headers: {
-        Authorization: `Bearer ${await getToken()}`,
-        "Content-Type": "application/json",
-      },
-    }
+  serverId: number,
+  page = "1"
+): Promise<HisotryResponse> => {
+  // Build URL with query parameters
+  const url = new URL(
+    `${process.env.API_URL}/servers/${serverId}/statistics/history`
   );
 
+  url.searchParams.append("page", page);
+
+  const res = await fetch(url.toString(), {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${await getToken()}`,
+      "Content-Type": "application/json",
+    },
+  });
+
   if (!res.ok) {
-    return [];
+    return {
+      page: 1,
+      per_page: 0,
+      total_items: 0,
+      total_pages: 1,
+      data: [],
+    };
   }
 
   const data = await res.json();
-  return data.data;
+  return data;
 };
 
 export type ActivityLogEntry = {

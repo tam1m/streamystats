@@ -1,6 +1,5 @@
 "use client";
 
-import * as React from "react";
 import {
   ColumnDef,
   ColumnFiltersState,
@@ -14,6 +13,7 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import { ArrowUpDown, ChevronDown, MoreHorizontal } from "lucide-react";
+import * as React from "react";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -35,18 +35,21 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Item,
-  PlaybackActivity,
-  Server,
-  User,
-  UserPlaybackStatistics,
-} from "@/lib/db";
-import { useRouter } from "nextjs-toploader/app";
+import { Server, UserPlaybackStatistics } from "@/lib/db";
 import { formatDuration } from "@/lib/utils";
+import { useRouter } from "nextjs-toploader/app";
+import { useQueryParams } from "@/hooks/useQueryParams";
+import { useSearchParams } from "next/navigation";
+import { useDebounce } from "use-debounce";
 
 export interface HistoryTableProps {
-  data: UserPlaybackStatistics[];
+  data: {
+    page: number;
+    per_page: number;
+    total_items: number;
+    total_pages: number;
+    data: UserPlaybackStatistics[];
+  };
   server: Server;
   hideUserColumn?: boolean;
 }
@@ -56,7 +59,51 @@ export function HistoryTable({
   server,
   hideUserColumn = false,
 }: HistoryTableProps) {
+  console.log(data);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { updateQueryParams, isLoading } = useQueryParams();
+
+  // Get current values from URL query params
+  const currentPage = Number(searchParams.get("page") || "1");
+  const currentSearch = searchParams.get("search") || "";
+  const currentSortBy = searchParams.get("sort_by") || "";
+  const currentSortOrder = searchParams.get("sort_order") || "";
+
+  // Local state for search input before debouncing
+  const [searchInput, setSearchInput] = React.useState<string>(currentSearch);
+  const [debouncedSearch] = useDebounce(searchInput, 500);
+
+  // Update URL when debounced search changes
+  React.useEffect(() => {
+    if (debouncedSearch !== currentSearch) {
+      updateQueryParams({
+        search: debouncedSearch || null,
+        page: "1", // Reset to first page on search change
+      });
+    }
+  }, [debouncedSearch]);
+
+  // Create sorting state based on URL parameters
+  const sorting: SortingState = currentSortBy
+    ? [{ id: currentSortBy, desc: currentSortOrder === "desc" }]
+    : [];
+
+  const handleSortChange = (columnId: string) => {
+    if (currentSortBy !== columnId) {
+      // New column, default to ascending
+      updateQueryParams({
+        sort_by: columnId,
+        sort_order: "asc",
+      });
+    } else {
+      // Same column, toggle direction
+      updateQueryParams({
+        sort_order: currentSortOrder === "asc" ? "desc" : "asc",
+      });
+    }
+  };
+
   const columns: ColumnDef<UserPlaybackStatistics>[] = [
     {
       id: "select",
@@ -134,7 +181,7 @@ export function HistoryTable({
         return (
           <Button
             variant="ghost"
-            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+            onClick={() => handleSortChange("date_created")}
           >
             Date
             <ArrowUpDown className="ml-2 h-4 w-4" />
@@ -200,7 +247,6 @@ export function HistoryTable({
     },
   ];
 
-  const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
   );
@@ -209,6 +255,13 @@ export function HistoryTable({
       user_name: !hideUserColumn,
     });
   const [rowSelection, setRowSelection] = React.useState({});
+
+  // Handle pagination with URL query params
+  const handlePageChange = (newPage: number) => {
+    updateQueryParams({
+      page: newPage.toString(),
+    });
+  };
 
   // Update column visibility when hideUserColumn prop changes
   React.useEffect(() => {
@@ -219,9 +272,8 @@ export function HistoryTable({
   }, [hideUserColumn]);
 
   const table = useReactTable({
-    data,
+    data: data?.data || [],
     columns,
-    onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
@@ -230,26 +282,18 @@ export function HistoryTable({
     onColumnVisibilityChange: setColumnVisibility,
     onRowSelectionChange: setRowSelection,
     state: {
-      sorting,
+      sorting, // We keep this to display the current sort state
       columnFilters,
       columnVisibility,
       rowSelection,
     },
+    manualPagination: true,
+    pageCount: data?.total_pages || -1,
   });
 
   return (
     <div className="w-full">
       <div className="flex items-center py-4">
-        <Input
-          placeholder="Filter item names..."
-          value={
-            (table.getColumn("item_name")?.getFilterValue() as string) ?? ""
-          }
-          onChange={(event) =>
-            table.getColumn("item_name")?.setFilterValue(event.target.value)
-          }
-          className="max-w-sm"
-        />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" className="ml-auto">
@@ -327,25 +371,32 @@ export function HistoryTable({
           </TableBody>
         </Table>
       </div>
-      <div className="flex items-center justify-end space-x-2 py-4">
-        <div className="flex-1 text-sm text-muted-foreground">
-          {table.getFilteredSelectedRowModel().rows.length} of{" "}
-          {table.getFilteredRowModel().rows.length} row(s) selected.
+      <div className="flex items-center justify-between space-x-2 py-4">
+        <div>
+          <p className="text-sm text-neutral-500">
+            {((data?.page || 0) - 1) * (data?.per_page || 20) + 1} -{" "}
+            {((data?.page || 0) - 1) * (data?.per_page || 20) +
+              (data?.data?.length || 0)}{" "}
+            of {data?.total_items || 0} results.
+            {rowSelection && Object.keys(rowSelection).length > 0 && (
+              <> ({Object.keys(rowSelection).length} selected)</>
+            )}
+          </p>
         </div>
         <div className="space-x-2">
           <Button
             variant="outline"
             size="sm"
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
+            onClick={() => handlePageChange(currentPage - 1)}
+            disabled={currentPage <= 1 || isLoading}
           >
             Previous
           </Button>
           <Button
             variant="outline"
             size="sm"
-            onClick={() => table.nextPage()}
-            disabled={!table.getCanNextPage()}
+            onClick={() => handlePageChange(currentPage + 1)}
+            disabled={currentPage >= (data?.total_pages || 1) || isLoading}
           >
             Next
           </Button>

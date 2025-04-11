@@ -5,7 +5,11 @@ defmodule StreamystatServerWeb.UserStatisticsJSON do
 
   def history(%{watch_activity: watch_activity}) do
     %{
-      data: for activity <- watch_activity do
+      page: watch_activity.page,
+      per_page: watch_activity.per_page,
+      total_items: watch_activity.total_items,
+      total_pages: watch_activity.total_pages,
+      data: for activity <- watch_activity.data do
         %{
           id: activity.id,
           date_created: activity.date_created,

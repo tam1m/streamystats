@@ -141,6 +141,17 @@ defmodule StreamystatServerWeb.UserStatisticsController do
         )
       end
 
+    # Add server_id filter if provided
+    filtered_base_query =
+      case params["server_id"] do
+        nil -> base_query
+        server_id -> base_query |> where([ps, i, u], ps.server_id == ^server_id)
+      end
+
+    # Count total items for pagination metadata
+    count_query = from q in subquery(filtered_base_query), select: count(q.id)
+    total_items = Repo.one(count_query)
+
     # Add pagination
     page = params["page"] || "1"
     per_page = params["per_page"] || "20"
@@ -148,20 +159,27 @@ defmodule StreamystatServerWeb.UserStatisticsController do
     {page, _} = Integer.parse(page)
     {per_page, _} = Integer.parse(per_page)
 
+    # Calculate total pages
+    total_pages = ceil(total_items / per_page)
+
     paginated_query =
-      base_query
+      filtered_base_query
       |> limit(^per_page)
       |> offset((^page - 1) * ^per_page)
 
-    # Add server_id filter if provided
-    filtered_query =
-      case params["server_id"] do
-        nil -> paginated_query
-        server_id -> paginated_query |> where([ps, i, u], ps.server_id == ^server_id)
-      end
+    # Get the paginated data
+    watch_activity = Repo.all(paginated_query)
 
-    watch_activity = Repo.all(filtered_query)
-    render(conn, :history, watch_activity: watch_activity)
+    # Construct response with pagination metadata
+    response = %{
+      page: page,
+      per_page: per_page,
+      total_items: total_items,
+      total_pages: total_pages,
+      data: watch_activity
+    }
+
+    render(conn, :history, watch_activity: response)
   end
 
   def items(conn, %{"server_id" => server_id} = params) do

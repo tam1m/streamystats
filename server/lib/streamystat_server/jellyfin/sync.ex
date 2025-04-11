@@ -605,7 +605,6 @@ defmodule StreamystatServer.Jellyfin.Sync do
         _ -> nil
       end
 
-    # Handle additional image tags
     backdrop_image_tags = jellyfin_item["BackdropImageTags"]
 
     name = case sanitize_string(jellyfin_item["Name"]) do
