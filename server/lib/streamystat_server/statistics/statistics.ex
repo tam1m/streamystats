@@ -146,7 +146,8 @@ defmodule StreamystatServer.Statistics.Statistics do
         search \\ nil,
         sort_by \\ :total_watch_time,
         sort_order \\ :desc,
-        content_type \\ nil
+        content_type \\ nil,
+        libraries \\ nil
       ) do
     per_page = 20
 
@@ -204,6 +205,14 @@ defmodule StreamystatServer.Statistics.Statistics do
         }
       )
 
+    # Add library filtering if libraries parameter is present
+    base_query =
+      if libraries do
+        from([i, ps, sw] in base_query, where: i.library_id in ^libraries)
+      else
+        base_query
+      end
+
     query =
       if search do
         search_term = "%#{search}%"
@@ -247,12 +256,20 @@ defmodule StreamystatServer.Statistics.Statistics do
       |> offset(^offset)
       |> Repo.all()
 
-    # The total items query needs to be updated to handle the filter on content types
+    # The total items query needs to be updated to handle the filter on content types and libraries
     total_items_query =
       from(i in Item,
         where: i.server_id == ^server_id and i.type in ^content_types,
         select: i.id
       )
+
+    # Apply library filtering to total count query as well
+    total_items_query =
+      if libraries do
+        from(i in total_items_query, where: i.library_id in ^libraries)
+      else
+        total_items_query
+      end
 
     total_items_query =
       if search do
@@ -281,7 +298,8 @@ defmodule StreamystatServer.Statistics.Statistics do
       total_pages: total_pages,
       sort_by: sort_by,
       sort_order: sort_order,
-      content_type: content_type
+      content_type: content_type,
+      libraries: libraries
     }
   end
 

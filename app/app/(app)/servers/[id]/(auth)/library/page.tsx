@@ -26,10 +26,18 @@ export default async function DashboardPage({
     sort_by: string;
     type: "Movie" | "Episode" | "Series";
     sort_order: string;
+    libraries: string;
   }>;
 }) {
   const { id } = await params;
-  const { page, search, sort_by, sort_order, type } = await searchParams;
+  const {
+    page,
+    search,
+    sort_by,
+    sort_order,
+    type,
+    libraries: libraryIds,
+  } = await searchParams;
   const server = await getServer(id);
 
   if (!server) {
@@ -44,7 +52,8 @@ export default async function DashboardPage({
     sort_order,
     sort_by,
     type,
-    search
+    search,
+    libraryIds
   );
 
   return (

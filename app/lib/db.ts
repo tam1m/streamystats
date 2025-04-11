@@ -759,7 +759,8 @@ export const getLibraryItems = async (
   sort_order = "desc",
   sort_by = "total_watch_time",
   type?: "Movie" | "Episode" | "Series",
-  search?: string
+  search?: string,
+  libraries?: string
 ): Promise<ItemWatchStatsResponse> => {
   const queryParams = new URLSearchParams({
     page: page,
@@ -767,6 +768,7 @@ export const getLibraryItems = async (
     sort_by,
     search: search || "",
     type: type || "",
+    libraries: libraries || "",
   });
 
   if (search) {

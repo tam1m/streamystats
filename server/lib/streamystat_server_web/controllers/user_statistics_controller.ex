@@ -221,12 +221,34 @@ defmodule StreamystatServerWeb.UserStatisticsController do
         _ -> nil
       end
 
+    # Handle libraries filter
+    libraries =
+      case params["libraries"] do
+        nil -> nil
+        "" -> nil
+        libraries_string ->
+          libraries_string
+          |> String.split(",")
+          |> Enum.map(fn id ->
+            case Integer.parse(String.trim(id)) do
+              {library_id, _} -> library_id
+              _ -> nil
+            end
+          end)
+          |> Enum.reject(&is_nil/1)
+          |> then(fn
+            [] -> nil
+            ids -> ids
+          end)
+      end
+
     Logger.debug(
       "Page: #{page}, Search: #{inspect(search)}, ID: #{inspect(server_id)}, " <>
-      "Sort By: #{sort_by}, Sort Order: #{sort_order}, Type: #{inspect(content_type)}"
+      "Sort By: #{sort_by}, Sort Order: #{sort_order}, Type: #{inspect(content_type)}, " <>
+      "Libraries: #{inspect(libraries)}"
     )
 
-    item_stats = Statistics.get_item_statistics(server_id, page, search, sort_by, sort_order, content_type)
+    item_stats = Statistics.get_item_statistics(server_id, page, search, sort_by, sort_order, content_type, libraries)
     render(conn, :items, item_stats: item_stats)
   end
 
