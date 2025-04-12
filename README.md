@@ -18,6 +18,7 @@ Streamystats is a statistics service for Jellyfin, providing analytics and data 
 
 - [x] Personal statistics only visible to that user
 - [x] Remove the use of the playback reporting plugin
+- [ ] Only sync certain libraries
 - [ ] Individual item statistics
 - [ ] More statistics about unwatched items and maybe the possibility to remove old or unwatched items
 - [ ] More granular sync options
