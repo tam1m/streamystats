@@ -108,6 +108,12 @@ defmodule StreamystatServer.Jellyfin.Models.Item do
   end
 
   def changeset(item, attrs) do
+    attrs = Map.update(attrs, :name, "Untitled Item", fn
+      nil -> "Untitled Item"
+      "" -> "Untitled Item"
+      existing -> existing
+    end)
+
     item
     |> cast(attrs, [
       :jellyfin_id,
