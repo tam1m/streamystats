@@ -1,12 +1,10 @@
 "use server";
 
 import { Container } from "@/components/Container";
-import { getLibraries, getServer, getUser, getUsers } from "@/lib/db";
-import { getMe } from "@/lib/me";
+import { getServer } from "@/lib/db";
 import { redirect } from "next/navigation";
 import JellystatsImport from "./JellystatsImport";
 import { Tasks } from "./Tasks";
-import { TautulliMappingModal } from "./TautulliMappingModal";
 
 export default async function Settings({
   params,
@@ -15,9 +13,6 @@ export default async function Settings({
 }) {
   const { id } = await params;
   const server = await getServer(id);
-
-  const me = await getMe();
-  const user = await getUser(me?.name, server?.id);
 
   if (!server) {
     redirect("/setup");
@@ -29,15 +24,13 @@ export default async function Settings({
   return (
     <Container className="">
       <h1 className="text-3xl font-bold mb-8">Settings</h1>
-      {user?.is_administrator ? (
-        <>
-          <Tasks server={server} />
-          <div className="mt-8">
-            <h2 className="text-2xl font-semibold mb-4">Jellystat import</h2>
+      <Tasks server={server} />
+      <div className="mt-8">
+        <h2 className="text-2xl font-semibold mb-4">Jellystat import</h2>
 
-            <JellystatsImport serverId={server.id} />
-          </div>
-          {/* <div className="mt-8">
+        <JellystatsImport serverId={server.id} />
+      </div>
+      {/* <div className="mt-8">
             <h2 className="text-2xl font-semibold mb-4">
               Tautulli Integration
             </h2>
@@ -53,10 +46,6 @@ export default async function Settings({
               serverId={server.id}
             />
           </div> */}
-        </>
-      ) : (
-        <p>You are not an administrator of this server.</p>
-      )}
     </Container>
   );
 }
