@@ -22,7 +22,6 @@ export const isUserAdmin = async (): Promise<boolean> => {
   const me = await getMe();
 
   if (!me) {
-    console.warn("No user found in cookies");
     return false;
   }
 
