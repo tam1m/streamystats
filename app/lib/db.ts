@@ -3,6 +3,7 @@
 import { cookies, headers } from "next/headers";
 import { getMe, UserMe } from "./me";
 import { getToken } from "./token";
+import { ItemStatistics } from "@/components/ItemDetails";
 
 export type Server = {
   id: number;
@@ -441,6 +442,30 @@ export const getLibraries = async (serverId: number): Promise<Library[]> => {
   );
   if (!res.ok) {
     return [];
+  }
+  const data = await res.json();
+  return data.data;
+};
+
+export const getItemStatistics = async (
+  serverId: number | string,
+  itemId: number | string
+): Promise<{
+  item: Item;
+  statistics: ItemStatistics;
+} | null> => {
+  const res = await fetch(
+    `${process.env.API_URL}/servers/${serverId}/statistics/items/${itemId}`,
+    {
+      cache: "no-store",
+      headers: {
+        Authorization: `Bearer ${await getToken()}`,
+        "Content-Type": "application/json",
+      },
+    }
+  );
+  if (!res.ok) {
+    
   }
   const data = await res.json();
   return data.data;

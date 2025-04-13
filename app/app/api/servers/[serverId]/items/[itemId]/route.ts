@@ -36,7 +36,6 @@ export const GET = async (
 
     if (!res.ok) {
       const errorText = await res.text();
-      // Pass through the error status from the API
       if (res.status === 404)
         return Response.json({ error: "Item not found" }, { status: 404 });
       if (res.status === 401)
