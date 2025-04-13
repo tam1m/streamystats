@@ -33,6 +33,11 @@ const PATTERNS = [
       pathname.groups,
   ],
   [
+    new URLPattern({ pathname: "/servers/:id/items/:itemId" }),
+    ({ pathname }: { pathname: { groups: { id: string; itemId: string } } }) =>
+      pathname.groups,
+  ],
+  [
     new URLPattern({ pathname: "/servers/:id/:page" }),
     ({ pathname }: { pathname: { groups: { id: string } } }) => pathname.groups,
   ],

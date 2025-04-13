@@ -257,6 +257,26 @@ defmodule StreamystatServerWeb.UserStatisticsController do
     render(conn, :library_stats, stats: stats)
   end
 
+  def item_details(conn, %{"server_id" => server_id, "item_id" => item_id}) do
+    current_user = conn.assigns.current_user
+
+    item_stats =
+      if is_admin?(current_user) do
+        Statistics.get_item_details_statistics(server_id, item_id)
+      else
+        Statistics.get_item_details_statistics(server_id, item_id, current_user["Id"])
+      end
+
+    case item_stats do
+      nil ->
+        conn
+        |> put_status(:not_found)
+        |> json(%{error: "Item not found"})
+      _ ->
+        render(conn, :item_details, item_stats: item_stats)
+    end
+  end
+
   defp is_admin?(user) do
     user["Policy"]["IsAdministrator"] == true
   end
