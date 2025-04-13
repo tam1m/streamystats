@@ -190,7 +190,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // If the user is trying to access a server they are not a member of
-  if (meResult.type === ResultType.Success) {
+  if (meResult.type === ResultType.Success && id) {
     if (Number(meResult.data.serverId) !== Number(id)) {
       console.warn(
         "User is trying to access a server they are not a member of"
