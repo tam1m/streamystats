@@ -20,7 +20,7 @@ export const GET = async (
 
     // If no Authorization header is present, fallback to getToken()
     if (!token) {
-      token = (await getToken()) ?? null;
+      token = `Bearer ${await getToken()}`;
     }
 
     const res = await fetch(
@@ -28,7 +28,7 @@ export const GET = async (
       {
         cache: "no-store",
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: token,
           "Content-Type": "application/json",
         },
       }
