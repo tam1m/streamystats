@@ -27,7 +27,7 @@ export function ActiveSessions({ server }: { server: Server }) {
     queryKey: ["activeSessions", server.id],
     queryFn: async () =>
       (await fetch(`/api/Sessions?serverId=${server.id}`).then((res) =>
-        res.json(),
+        res.json()
       )) as ActiveSession[],
     refetchInterval: 500,
   });
