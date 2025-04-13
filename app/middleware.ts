@@ -169,9 +169,13 @@ export async function middleware(request: NextRequest) {
 
   const servers = await getServers();
 
+  const isSetup = request.url.includes("/setup");
+
+  console.log(request.url, isSetup);
+
   // If there are no servers, redirect to /setup
   if (servers.length === 0) {
-    console.warn("No servers found, redirecting to setup");
+    if (isSetup) return response;
     return NextResponse.redirect(new URL("/setup", request.url));
   }
 
