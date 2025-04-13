@@ -1,6 +1,8 @@
 "use server";
 
 import { cookies } from "next/headers";
+import { User } from "./db";
+import { getToken } from "./token";
 
 export type UserMe = {
   id?: string;
@@ -14,4 +16,33 @@ export const getMe = async (): Promise<UserMe | null> => {
   const user = userStr?.value ? JSON.parse(userStr.value) : undefined;
 
   return user ? (user as UserMe) : null;
+};
+
+export const isUserAdmin = async (): Promise<boolean> => {
+  const me = await getMe();
+
+  if (!me) {
+    console.warn("No user found in cookies");
+    return false;
+  }
+
+  try {
+    const user: User = await fetch(
+      `${process.env.API_URL}/servers/${me.serverId}/users/${me.id}`,
+      {
+        cache: "no-store",
+        headers: {
+          Authorization: `Bearer ${await getToken()}`,
+          "Content-Type": "application/json",
+        },
+      }
+    )
+      .then((res) => res.json())
+      .then((res) => res.data);
+
+    return user && user.is_administrator === true;
+  } catch (e) {
+    console.error("Failed to check if user is admin", e);
+    return false;
+  }
 };
