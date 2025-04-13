@@ -1,7 +1,7 @@
 "use server";
 
 import { cookies, headers } from "next/headers";
-import { getMe } from "./me";
+import { getMe, UserMe } from "./me";
 import { getToken } from "./token";
 
 export type Server = {
@@ -243,7 +243,7 @@ export const createServer = async (
 
 export const getServers = async (): Promise<Server[]> => {
   try {
-    const res = await fetch(process.env.API_URL + "/servers", {
+    const res = await fetch(`${process.env.API_URL}/servers`, {
       cache: "no-store",
     });
 
@@ -262,7 +262,7 @@ export const getServer = async (
   serverId: number | string
 ): Promise<Server | null> => {
   try {
-    const res = await fetch(process.env.API_URL + "/servers/" + serverId, {
+    const res = await fetch(`${process.env.API_URL}/servers/${serverId}`, {
       cache: "no-store",
     });
 
@@ -286,7 +286,7 @@ export const login = async ({
   username: string;
   password?: string | null;
 }): Promise<void> => {
-  const res = await fetch(process.env.API_URL + "/login", {
+  const res = await fetch(`${process.env.API_URL}/login`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -323,8 +323,8 @@ export const login = async ({
   cookies().set(
     "streamystats-user",
     JSON.stringify({
-      name: user["Name"],
-      id: user["Id"],
+      name: user.Name,
+      id: user.Id,
       serverId,
     }),
     {
@@ -368,16 +368,13 @@ export const deleteServer = async (serverId: number): Promise<void> => {
 };
 
 export const getUsers = async (serverId: number): Promise<User[]> => {
-  const res = await fetch(
-    process.env.API_URL + "/servers/" + serverId + "/users",
-    {
-      cache: "no-store",
-      headers: {
-        Authorization: `Bearer ${await getToken()}`,
-        "Content-Type": "application/json",
-      },
-    }
-  );
+  const res = await fetch(`${process.env.API_URL}/servers/${serverId}/users`, {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${await getToken()}`,
+      "Content-Type": "application/json",
+    },
+  });
 
   if (!res.ok) {
     return [];
@@ -395,14 +392,14 @@ export const getUser = async (
   if (!name || !serverId) return null;
 
   // Build URL with query parameters if pagination params are provided
-  let url = process.env.API_URL + "/servers/" + serverId + "/users/" + name;
+  let url = `${process.env.API_URL}/servers/${serverId}/users/${name}`;
 
   if (page !== undefined) {
     const params = new URLSearchParams();
     if (page !== undefined) params.append("page", page);
 
     // Append query parameters to URL
-    url += "?" + params.toString();
+    url += `?${params.toString()}`;
   }
 
   const res = await fetch(url, {
@@ -433,7 +430,7 @@ export interface Library {
 
 export const getLibraries = async (serverId: number): Promise<Library[]> => {
   const res = await fetch(
-    process.env.API_URL + "/servers/" + serverId + "/libraries",
+    `${process.env.API_URL}/servers/${serverId}/libraries`,
     {
       cache: "no-store",
       headers: {
@@ -456,7 +453,7 @@ export const startTautulliImportTask = async (
   mappings: Record<string, string>
 ) => {
   const res = await fetch(
-    process.env.API_URL + "/admin/servers/" + serverId + "/tautulli/import",
+    `${process.env.API_URL}/admin/servers/${serverId}/tautulli/import`,
     {
       method: "POST",
       headers: {
@@ -499,12 +496,7 @@ export const getStatistics = async (
     });
 
     const res = await fetch(
-      process.env.API_URL +
-        "/servers/" +
-        serverId +
-        "/statistics" +
-        "?" +
-        queryParams,
+      `${process.env.API_URL}/servers/${serverId}/statistics?${queryParams}`,
       {
         cache: "no-store",
         headers: {
@@ -548,12 +540,7 @@ export const getWatchTimeGraph = async (
     });
 
     const res = await fetch(
-      process.env.API_URL +
-        "/servers/" +
-        serverId +
-        "/statistics/watchtime_per_day" +
-        "?" +
-        queryParams,
+      `${process.env.API_URL}/servers/${serverId}/statistics/watchtime_per_day?${queryParams}`,
       {
         cache: "no-store",
         headers: {
@@ -585,7 +572,7 @@ export const getStatisticsLibrary = async (
   serverId: number
 ): Promise<LibraryStatistics> => {
   const res = await fetch(
-    process.env.API_URL + "/servers/" + serverId + "/statistics/library",
+    `${process.env.API_URL}/servers/${serverId}/statistics/library`,
     {
       cache: "no-store",
       headers: {
@@ -844,27 +831,20 @@ export const logout = async (): Promise<void> => {
 };
 
 export const getSyncTasks = async (serverId: number): Promise<SyncTask[]> => {
-  return fetch(
-    process.env.API_URL + "/admin/servers/" + serverId + "/sync/tasks",
-    {
-      cache: "no-store",
-      headers: {
-        Authorization: `Bearer ${await getToken()}`,
-        "Content-Type": "application/json",
-      },
-    }
-  )
+  return fetch(`${process.env.API_URL}/admin/servers/${serverId}/sync/tasks`, {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${await getToken()}`,
+      "Content-Type": "application/json",
+    },
+  })
     .then((res) => res.json())
     .then((data) => data.data);
 };
 
 export const getSyncTask = async (serverId: number, taskId: number) => {
   return fetch(
-    process.env.API_URL +
-      "/admin/servers/" +
-      serverId +
-      "/sync/tasks/" +
-      taskId,
+    `${process.env.API_URL}/admin/servers/${serverId}/sync/tasks/${taskId}`,
     {
       cache: "no-store",
       headers: {

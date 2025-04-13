@@ -162,8 +162,6 @@ export async function middleware(request: NextRequest) {
 
   const { id, page, name } = params(request.url);
 
-  console.log(id, page, name, request.url);
-
   const servers = await getServers();
 
   // If there are no servers, redirect to /setup
