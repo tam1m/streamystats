@@ -1,6 +1,7 @@
 "use server";
 
 import { DynamicBreadcrumbs } from "@/components/DynamicBreadcrumbs";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import { FadeInWrapper } from "@/components/FadeInWrapper";
 import { SideBar } from "@/components/SideBar";
 import { SuspenseLoading } from "@/components/SuspenseLoading";
@@ -25,7 +26,7 @@ export default async function layout({ children, params }: Props) {
   const me = await getMe();
 
   if (!me) {
-    redirect("/servers/" + id + "/login");
+    redirect(`/servers/${id}/login`);
   }
 
   const user = await getUser(me?.name, server?.id);
@@ -45,7 +46,9 @@ export default async function layout({ children, params }: Props) {
               <Separator orientation="vertical" />
               <DynamicBreadcrumbs />
             </div>
-            <FadeInWrapper>{children}</FadeInWrapper>
+            <ErrorBoundary>
+              <FadeInWrapper>{children}</FadeInWrapper>
+            </ErrorBoundary>
           </main>
         </Suspense>
       </>
