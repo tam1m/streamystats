@@ -9,7 +9,7 @@ export default async function HistoryPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ page?: string;  }>;
+  searchParams: Promise<{ page?: string }>;
 }) {
   const { id } = await params;
   const { page } = await searchParams;
@@ -20,8 +20,6 @@ export default async function HistoryPage({
   }
 
   const data = await getStatisticsHistory(server.id, page);
-  console.log("getStatisticsHistory", data.total_items);
-
   return (
     <Container>
       <PageTitle title="History" />

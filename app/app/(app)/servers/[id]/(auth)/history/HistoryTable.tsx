@@ -59,7 +59,6 @@ export function HistoryTable({
   server,
   hideUserColumn = false,
 }: HistoryTableProps) {
-  console.log(data);
   const router = useRouter();
   const searchParams = useSearchParams();
   const { updateQueryParams, isLoading } = useQueryParams();
