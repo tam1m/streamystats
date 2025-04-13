@@ -44,6 +44,41 @@ defmodule StreamystatServerWeb.UserStatisticsJSON do
     }
   end
 
+  def item_details(%{item_stats: item_stats}) do
+    %{
+      data: %{
+        item: %{
+          id: item_stats.item.id,
+          jellyfin_id: item_stats.item.jellyfin_id,
+          name: item_stats.item.name,
+          type: item_stats.item.type,
+          original_title: item_stats.item.original_title,
+          overview: item_stats.item.overview,
+          production_year: item_stats.item.production_year,
+          runtime_ticks: item_stats.item.runtime_ticks,
+          genres: item_stats.item.genres,
+          community_rating: item_stats.item.community_rating,
+          official_rating: item_stats.item.official_rating,
+          series_name: item_stats.item.series_name,
+          season_name: item_stats.item.season_name,
+          index_number: item_stats.item.index_number,
+          primary_image_tag: item_stats.item.primary_image_tag,
+          primary_image_aspect_ratio: item_stats.item.primary_image_aspect_ratio
+        },
+        statistics: %{
+          total_views: item_stats.total_views,
+          total_watch_time: item_stats.total_watch_time,
+          completion_rate: item_stats.completion_rate,
+          last_watched: item_stats.last_watched,
+          first_watched: item_stats.first_watched,
+          users_watched: item_stats.users_watched,
+          watch_history: item_stats.watch_history,
+          watch_count_by_month: item_stats.watch_count_by_month
+        }
+      }
+    }
+  end
+
   def watchtime_per_day(%{watchtime_stats: watchtime_stats}) do
     %{
       data: watchtime_stats.watchtime_per_day
