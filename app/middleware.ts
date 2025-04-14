@@ -195,7 +195,14 @@ export async function middleware(request: NextRequest) {
     console.error("User is not logged in, removing cookies.", meResult.error);
     response.cookies.delete("streamystats-user");
     response.cookies.delete("streamystats-token");
-    return NextResponse.redirect(new URL(`/servers/${id}/login`, request.url));
+    if (id)
+      return NextResponse.redirect(
+        new URL(`/servers/${id}/login`, request.url)
+      );
+
+    return NextResponse.redirect(
+      new URL(`/servers/${servers[0].id}/login`, request.url)
+    );
   }
 
   // If the user is trying to access a server they are not a member of
