@@ -29,7 +29,11 @@ ENV NEXT_SHARP_PATH=/app/node_modules/sharp
 
 # Set version
 ARG VERSION=edge
-ENV NEXT_PUBLIC_VERSION=$VERSION
+ARG COMMIT_SHA
+ARG BUILD_TIME
+ENV NEXT_PUBLIC_VERSION=${VERSION}
+ENV NEXT_PUBLIC_COMMIT_SHA=${COMMIT_SHA}
+ENV NEXT_PUBLIC_BUILD_TIME=${BUILD_TIME}
 
 # Install production dependencies
 COPY package.json package-lock.json* ./
