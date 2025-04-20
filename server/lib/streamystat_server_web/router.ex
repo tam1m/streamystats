@@ -45,6 +45,7 @@ defmodule StreamystatServerWeb.Router do
       get("/servers/:server_id/activities", ActivityController, :index)
       post("/servers/:server_id/tautulli/import", TautulliImportController, :import)
       post("/servers/:server_id/jellystats/import", JellystatsImportController, :import)
+      post("/servers/:server_id/playback-reporting/import", PlaybackReportingImportController, :import)
     end
 
     # Protected routes
