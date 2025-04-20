@@ -27,6 +27,10 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_SHARP_PATH=/app/node_modules/sharp
 
+# Set version
+ARG VERSION=edge
+ENV NEXT_PUBLIC_VERSION=$VERSION
+
 # Install production dependencies
 COPY package.json package-lock.json* ./
 RUN npm ci --omit=dev

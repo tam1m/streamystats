@@ -52,3 +52,7 @@ First time load can take a while, depending on the size of your library.
 - Backend: Phoenix (Elixir)
 - Database: PostgreSQL
 - Containerization: Docker
+
+## Release Please
+
+`release-please github-release --dry-run --repo-url=fredrikburmester/streamystats`
