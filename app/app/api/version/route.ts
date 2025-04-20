@@ -1,4 +1,3 @@
-import type { NextApiRequest, NextApiResponse } from "next";
 import { NextRequest, NextResponse } from "next/server";
 
 type VersionResponse = {
@@ -9,126 +8,89 @@ type VersionResponse = {
 };
 
 export async function GET(
-  req: NextRequest,
-  res: NextResponse<VersionResponse>
+  _req: NextRequest,
+  _res: NextResponse<VersionResponse>
 ) {
   const currentVersion = process.env.NEXT_PUBLIC_VERSION || "edge";
+  const currentSha = process.env.NEXT_PUBLIC_COMMIT_SHA?.substring(0, 7) || "";
   const buildTime = Number.parseInt(
     process.env.NEXT_PUBLIC_BUILD_TIME || "0",
     10
   );
 
-  try {
-    // Get latest version from GitHub API
-    let latestVersion = "edge";
-    let latestCommitSha = "";
+  let latestVersion = currentVersion;
+  let latestSha = currentSha;
+  let hasUpdate = false;
 
-    // Check for latest release version
-    const releasesResponse = await fetch(
+  try {
+    // Fetch latest release version
+    const releaseRes = await fetch(
       "https://api.github.com/repos/fredrikburmester/streamystats/releases/latest",
       {
-        headers: {
-          Accept: "application/vnd.github.v3+json",
-        },
+        headers: { Accept: "application/vnd.github.v3+json" },
       }
     );
 
-    if (releasesResponse.ok) {
-      const releaseData = await releasesResponse.json();
-      latestVersion = releaseData.tag_name || "edge";
+    if (releaseRes.ok) {
+      const data = await releaseRes.json();
+      latestVersion = data.tag_name || latestVersion;
     }
 
-    // If user is on edge, check for latest commit to main
+    // Fetch latest commit SHA if on edge
     if (currentVersion === "edge") {
-      const commitsResponse = await fetch(
+      const commitRes = await fetch(
         "https://api.github.com/repos/fredrikburmester/streamystats/commits/main",
         {
-          headers: {
-            Accept: "application/vnd.github.v3+json",
-          },
+          headers: { Accept: "application/vnd.github.v3+json" },
         }
       );
 
-      if (commitsResponse.ok) {
-        const commitData = await commitsResponse.json();
-        latestCommitSha = commitData.sha.substring(0, 7);
+      if (commitRes.ok) {
+        const data = await commitRes.json();
+        latestSha = data.sha.substring(0, 7);
+        hasUpdate = currentSha !== latestSha;
       }
-    }
-
-    // Determine if there's an update
-    let hasUpdate = false;
-
-    if (currentVersion === "edge" && latestCommitSha) {
-      // For edge builds, check if there's a new commit
-      // We compare if the current version contains the commit SHA (as it might be 'edge-abc123')
-      hasUpdate = !currentVersion.includes(latestCommitSha);
-    } else if (currentVersion !== latestVersion && latestVersion !== "edge") {
-      // For version tags, compare semantic versions
+    } else if (latestVersion !== "edge") {
+      // Compare semantic versions if not on edge
       hasUpdate = compareVersions(currentVersion, latestVersion) < 0;
     }
 
-    console.log({
-      currentVersion,
-      latestCommitSha,
-      latestVersion,
-      hasUpdate,
-      buildTime,
-    });
-
-    if (res.status === 200) {
-      return new Response(
-        JSON.stringify({
-          currentVersion,
-          latestVersion:
-            currentVersion === "edge" ? latestCommitSha : latestVersion,
-          hasUpdate,
-          buildTime,
-        }),
-        {
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
-    }
-  } catch (error) {
-    console.error("Error checking for updates:", error);
+    return new Response(
+      JSON.stringify({
+        currentVersion: currentVersion === "edge" ? currentSha : currentVersion,
+        latestVersion: currentVersion === "edge" ? latestSha : latestVersion,
+        hasUpdate,
+        buildTime,
+      }),
+      {
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+  } catch (err) {
+    console.error("Error checking version:", err);
+    return new Response(
+      JSON.stringify({
+        currentVersion,
+        latestVersion: currentVersion,
+        hasUpdate: false,
+        buildTime,
+      }),
+      {
+        headers: { "Content-Type": "application/json" },
+      }
+    );
   }
-
-  return new Response(
-    JSON.stringify({
-      currentVersion,
-      latestVersion: currentVersion,
-      hasUpdate: false,
-      buildTime,
-    }),
-    {
-      headers: {
-        "Content-Type": "application/json",
-      },
-    }
-  );
 }
 
 // Simple semantic version comparator
 function compareVersions(a: string, b: string): number {
-  if (a === "edge") return -1;
-  if (b === "edge") return 1;
+  const stripV = (v: string) => (v.startsWith("v") ? v.slice(1) : v);
+  const toParts = (v: string) => stripV(v).split(".").map(Number);
+  const [aParts, bParts] = [toParts(a), toParts(b)];
 
-  // Remove 'v' prefix if present
-  const versionA = a.startsWith("v") ? a.substring(1) : a;
-  const versionB = b.startsWith("v") ? b.substring(1) : b;
-
-  const partsA = versionA.split(".").map(Number);
-  const partsB = versionB.split(".").map(Number);
-
-  for (let i = 0; i < Math.max(partsA.length, partsB.length); i++) {
-    const partA = i < partsA.length ? partsA[i] : 0;
-    const partB = i < partsB.length ? partsB[i] : 0;
-
-    if (partA !== partB) {
-      return partA - partB;
-    }
+  for (let i = 0; i < 3; i++) {
+    const diff = (aParts[i] || 0) - (bParts[i] || 0);
+    if (diff !== 0) return diff;
   }
 
   return 0;
