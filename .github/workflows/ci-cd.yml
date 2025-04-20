@@ -47,7 +47,7 @@ jobs:
           file: ./app/Dockerfile
           platforms: linux/amd64,linux/arm64
           build-args: |
-            VERSION=${{ github.ref_name }}
+            VERSION=${{ github.ref_type == 'tag' && github.ref_name || 'edge' }}
             COMMIT_SHA=${{ github.sha }}
             BUILD_TIME=$(date +%s)
           tags: ${{ steps.meta_next.outputs.tags }}
