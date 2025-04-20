@@ -40,9 +40,6 @@ export default async function Settings({
             <JellystatsImport serverId={server.id} />
           </AccordionContent>
         </AccordionItem>
-      </Accordion>
-
-      <Accordion type="single" collapsible className="mb-4">
         <AccordionItem value="playback-reporting-import">
           <AccordionTrigger className="text-2xl font-semibold">
             Playback Reporting Plugin Import
