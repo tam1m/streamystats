@@ -28,6 +28,7 @@ export async function GET(
       "https://api.github.com/repos/fredrikburmester/streamystats/releases/latest",
       {
         headers: { Accept: "application/vnd.github.v3+json" },
+        next: { revalidate: 60 },
       }
     );
 
@@ -42,6 +43,7 @@ export async function GET(
         "https://api.github.com/repos/fredrikburmester/streamystats/commits/main",
         {
           headers: { Accept: "application/vnd.github.v3+json" },
+          next: { revalidate: 60 },
         }
       );
 
@@ -71,7 +73,7 @@ export async function GET(
     return new Response(
       JSON.stringify({
         currentVersion,
-        latestVersion: currentVersion,
+        latestVersion: "",
         hasUpdate: false,
         buildTime,
       }),
