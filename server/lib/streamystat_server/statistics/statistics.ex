@@ -160,6 +160,12 @@ defmodule StreamystatServer.Statistics.Statistics do
             join: i in Item, on: ps.item_jellyfin_id == i.jellyfin_id and ps.server_id == i.server_id,
             where: ps.server_id == ^server_id and i.series_id == ^item_id)
 
+        # For seasons, we need to find all episodes that belong to this season
+        item.type == "Season" ->
+          from(ps in PlaybackSession,
+            join: i in Item, on: ps.season_jellyfin_id == i.jellyfin_id and ps.server_id == i.server_id,
+            where: ps.server_id == ^server_id and i.jellyfin_id == ^item_id)
+
         # For regular items we can directly query using the item_id
         true ->
           from(ps in PlaybackSession,
