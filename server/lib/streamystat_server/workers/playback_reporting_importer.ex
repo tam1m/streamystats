@@ -63,6 +63,14 @@ defmodule StreamystatServer.Workers.PlaybackReportingImporter do
   end
 
   @impl true
+  def handle_info({ref, result}, state) when is_reference(ref) do
+    # We don't care about the DOWN message now, so let's demonitor and flush it
+    Process.demonitor(ref, [:flush])
+    GenServer.cast(__MODULE__, {:import_complete, result})
+    {:noreply, state}
+  end
+
+  @impl true
   def handle_info({:DOWN, _ref, :process, _pid, reason}, state) do
     Logger.error("Import task crashed: #{inspect(reason)}")
     {:noreply, %{state | importing: false, current_server_id: nil}}
