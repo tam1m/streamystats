@@ -53,7 +53,7 @@ const PATTERNS = [
   ],
 ];
 
-const ADMIN_ONLY_PATHS = ["history", "settings", "activities"];
+const ADMIN_ONLY_PATHS = ["history", "settings", "activities", "users"];
 const PUBLIC_PATHS = ["login", "setup"];
 
 const params = (url: string) => {
