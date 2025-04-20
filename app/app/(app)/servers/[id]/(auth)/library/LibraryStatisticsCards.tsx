@@ -8,6 +8,7 @@ import { useSearchParams } from "next/navigation";
 
 interface Props {
   data: LibraryStatistics;
+  isAdmin: boolean;
 }
 
 // Define the filter types explicitly with their proper singular forms
@@ -20,9 +21,13 @@ interface StatItem {
   icon: React.ElementType;
   filterable: boolean;
   filterValue: FilterType;
+  adminOnly: boolean;
 }
 
-export const LibraryStatisticsCards: React.FC<Props> = ({ data }) => {
+export const LibraryStatisticsCards: React.FC<Props> = ({
+  data,
+  isAdmin = false,
+}) => {
   const { updateQueryParams } = useQueryParams();
   const searchParams = useSearchParams();
   const currentType = searchParams.get("type") as FilterType;
@@ -34,6 +39,7 @@ export const LibraryStatisticsCards: React.FC<Props> = ({ data }) => {
       icon: Film,
       filterable: true,
       filterValue: "Movie",
+      adminOnly: false,
     },
     {
       title: "Episodes",
@@ -41,6 +47,7 @@ export const LibraryStatisticsCards: React.FC<Props> = ({ data }) => {
       icon: PlaySquare,
       filterable: true,
       filterValue: "Episode",
+      adminOnly: false,
     },
     {
       title: "Series",
@@ -48,6 +55,7 @@ export const LibraryStatisticsCards: React.FC<Props> = ({ data }) => {
       icon: Tv,
       filterable: true,
       filterValue: "Series",
+      adminOnly: false,
     },
     {
       title: "Libraries",
@@ -55,6 +63,7 @@ export const LibraryStatisticsCards: React.FC<Props> = ({ data }) => {
       icon: Folder,
       filterable: false,
       filterValue: null,
+      adminOnly: false,
     },
     {
       title: "Users",
@@ -62,6 +71,7 @@ export const LibraryStatisticsCards: React.FC<Props> = ({ data }) => {
       icon: Users,
       filterable: false,
       filterValue: null,
+      adminOnly: true,
     },
   ];
 
@@ -80,6 +90,10 @@ export const LibraryStatisticsCards: React.FC<Props> = ({ data }) => {
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 md:pr-64 xl:pr-0">
       {stats.map((item) => {
         const isActive = item.filterable && item.filterValue === currentType;
+
+        if (item.adminOnly && !isAdmin) {
+          return null;
+        }
 
         return (
           <Card

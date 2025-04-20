@@ -1,19 +1,17 @@
 import { Container } from "@/components/Container";
 import { PageTitle } from "@/components/PageTitle";
-import { UnwatchedTable } from "@/components/UnwatchedTable";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   getLibraries,
   getLibraryItems,
   getServer,
-  getStatisticsLibrary,
-  getUnwatchedItems,
+  getStatisticsLibrary
 } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { ItemWatchStatsTable } from "./ItemWatchStatsTable";
-import LibraryList from "./LibraryDropdown";
 import { LibraryStatisticsCards } from "./LibraryStatisticsCards";
+import { getMe, isUserAdmin } from "@/lib/me";
 
 export default async function DashboardPage({
   params,
@@ -38,7 +36,9 @@ export default async function DashboardPage({
     type,
     libraries: libraryIds,
   } = await searchParams;
+
   const server = await getServer(id);
+  const isAdmin = await isUserAdmin();
 
   if (!server) {
     redirect("/not-found");
@@ -62,7 +62,7 @@ export default async function DashboardPage({
         title="Library"
         subtitle="Search for any movie or episode on your server."
       />
-      <LibraryStatisticsCards data={libraryStats} />
+      <LibraryStatisticsCards data={libraryStats} isAdmin={isAdmin} />
       <Suspense
         fallback={
           <div className="">
