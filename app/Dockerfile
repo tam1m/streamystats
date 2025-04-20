@@ -1,5 +1,5 @@
 # Base image
-FROM node:20-alpine AS base
+FROM node:23-alpine AS base
 
 # Install system dependencies
 RUN apk add --no-cache libc6-compat
@@ -14,19 +14,6 @@ RUN npm ci
 # Copy application code
 COPY . .
 
-# Build the application
-RUN npm run build
-
-# Production image
-FROM node:20-alpine AS runner
-
-# Set working directory
-WORKDIR /app
-
-# Set environment variables
-ENV NODE_ENV=production
-ENV NEXT_SHARP_PATH=/app/node_modules/sharp
-
 # Set version
 ARG VERSION=edge
 ARG COMMIT_SHA
@@ -34,6 +21,19 @@ ARG BUILD_TIME
 ENV NEXT_PUBLIC_VERSION=${VERSION}
 ENV NEXT_PUBLIC_COMMIT_SHA=${COMMIT_SHA}
 ENV NEXT_PUBLIC_BUILD_TIME=${BUILD_TIME}
+
+# Build the application
+RUN npm run build
+
+# Production image
+FROM node:23-alpine AS runner
+
+# Set working directory
+WORKDIR /app
+
+# Set environment variables
+ENV NODE_ENV=production
+ENV NEXT_SHARP_PATH=/app/node_modules/sharp
 
 # Install production dependencies
 COPY package.json package-lock.json* ./
