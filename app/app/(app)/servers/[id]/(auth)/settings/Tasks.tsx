@@ -15,11 +15,8 @@ export const Tasks: React.FC<TasksProps> = ({ server }) => {
   return (
     <div className="flex flex-col gap-2">
       <FullSyncTask server={server} />
-      <Separator className="my-8" />
       <UsersSyncTask server={server} />
       <LibrariesSyncTask server={server} />
-      <Separator className="my-8" />
-      <DeleteServer server={server} />
     </div>
   );
 };

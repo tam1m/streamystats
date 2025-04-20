@@ -1,18 +1,30 @@
 "use client";
 
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { importJellystats } from "@/lib/importJellystats";
-import { AlertCircle, CheckCircle2, Info, Loader2, Upload } from "lucide-react";
+import {
+  AlertCircle,
+  CheckCircle2,
+  HelpCircle,
+  Info,
+  Loader2,
+  Upload,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 
@@ -85,7 +97,7 @@ export default function JellystatsImport({ serverId }: { serverId: number }) {
           {/* Hidden input for server ID */}
           <input type="hidden" name="serverId" value={serverId} />
 
-          <div className="space-y-2">
+          <div className="space-y-2 flex flex-col">
             <label htmlFor="jellystats-file" className="text-sm font-medium">
               Jellystats JSON Export File
             </label>
@@ -124,28 +136,36 @@ export default function JellystatsImport({ serverId }: { serverId: number }) {
             <SubmitButton hasFile={!!selectedFile} />
           </div>
         </form>
+
+        <Accordion type="single" collapsible className="mt-6">
+          <AccordionItem value="instructions">
+            <AccordionTrigger className="flex items-center text-sm font-medium">
+              <HelpCircle className="mr-2 h-4 w-4" />
+              How to export data from Jellystats
+            </AccordionTrigger>
+            <AccordionContent>
+              <div className="text-sm text-muted-foreground space-y-2 pt-2 pl-1">
+                <ol className="list-decimal pl-5 space-y-1.5">
+                  <li>Open your Jellystats instance</li>
+                  <li>Navigate to Settings and select the Backup tab</li>
+                  <li>
+                    Select only <em className="font-semibold">Activity</em> (it
+                    will appear purple when selected)
+                  </li>
+                  <li>Under settings click Settings</li>
+                  <li>Scroll all the way to the end and start a backup</li>
+                  <li>Navigate back to Backups</li>
+                  <li>
+                    Select Actions on the backup you just took once it is
+                    visible and click Download
+                  </li>
+                  <li>Upload it here</li>
+                </ol>
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
       </CardContent>
-      <CardFooter className="flex flex-col items-start">
-        <div className="text-sm text-muted-foreground space-y-2">
-          <p className="font-medium">How to export data from Jellystats:</p>
-          <ol className="list-decimal pl-5 space-y-1">
-            <li>Open your Jellystats instance</li>
-            <li>Navigate to Settings and select the Backup tab</li>
-            <li>
-              Select only <em>Activity</em> (it will appear purple when
-              selected)
-            </li>
-            <li>Under settings click Settings</li>
-            <li>Scroll all the way to the end and start a backup</li>
-            <li>Navigate back to Backups</li>
-            <li>
-              Select Actions on the backup you just took once it is visible and
-              click Download
-            </li>
-            <li>Upload it here</li>
-          </ol>
-        </div>
-      </CardFooter>
     </Card>
   );
 }
