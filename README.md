@@ -27,8 +27,10 @@ Streamystats is a statistics service for Jellyfin, providing analytics and data 
 
 > Playback reporting plugin is no longer needed and Streamystats soely relies on the Jellyfin API for statistics.
 
+### Docker
+
 1. Install Docker and Docker Compose if you haven't already.
-2. Copy the `docker-compose.yml` file to your desired location. Use tag `:edge`.
+2. Copy the `docker-compose.yml` file to your desired location. Use tag `:edge` (read more below in [Version Tags](#version-tags).
 3. Change any ports if needed. Default web port is `3000`.
 4. Change the `SECRET_KEY_BASE` in the `docker-compose.yml` file to a random string. You can generate one with `openssl rand -hex 64`.
 5. Start the application with `docker-compose up -d`
@@ -36,6 +38,12 @@ Streamystats is a statistics service for Jellyfin, providing analytics and data 
 7. Follow the setup wizard to connect your Jellyfin server.
 
 First time load can take a while, depending on the size of your library.
+
+### Version Tags
+
+Version tags (e.g., `v1.2.3`) are automatically generated on release. These tags provide stable, tested reference points for production use. I recommend pinning to specific version tags for stability.
+
+The `:edge` tag always points to the latest commit on the main branch. It contains the most recent features and fixes. While typically stable, it may occasionally contain breaking changes
 
 ## 📸 Screenshots
 <img width="1545" alt="Screenshot 2024-11-06 at 21 29 48" src="https://github.com/user-attachments/assets/78c5843a-7dc4-4485-bfeb-841725b133e7">
@@ -53,6 +61,3 @@ First time load can take a while, depending on the size of your library.
 - Database: PostgreSQL
 - Containerization: Docker
 
-## Release Please
-
-`release-please github-release --dry-run --repo-url=fredrikburmester/streamystats`
