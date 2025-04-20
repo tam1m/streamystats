@@ -1,8 +1,8 @@
 {
   "release-type": "manifest",
-  "include-v-in-tag": true,         
+  "include-v-in-tag": true,
   "packages": {
-    "app":   { "release-type": "node"   },  
-    "server":{ "release-type": "elixir" }  
+    "app":   { "release-type": "node"   },
+    "server":{ "release-type": "elixir" }
   }
 }
