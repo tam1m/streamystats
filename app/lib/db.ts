@@ -105,7 +105,15 @@ export type Statistics = {
   };
   average_watchtime_per_week_day: {
     day_of_week: number;
-    average_duration: number;
+    duration: number;
+  }[];
+  watchtime_per_week_day: {
+    day_of_week: number;
+    duration: number;
+  }[];
+  watchtime_per_hour: {
+    hour: number;
+    duration: number;
   }[];
   total_watch_time: number;
   most_watched_date: {
@@ -465,7 +473,6 @@ export const getItemStatistics = async (
     }
   );
   if (!res.ok) {
-    
   }
   const data = await res.json();
   return data.data;

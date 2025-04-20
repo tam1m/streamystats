@@ -3,6 +3,7 @@ import MostWatchedDate from "./MostWatchedDate";
 import { MostWatchedItems } from "./MostWatchedItems";
 import TotalWatchTime from "./TotalWatchTime";
 import { WatchTimePerWeekDay } from "./WatchTimePerWeekDay";
+import { WatchTimePerHour } from "./WatchTimePerHour";
 
 export async function StatsWithSuspense({
   server,
@@ -24,7 +25,21 @@ export async function StatsWithSuspense({
         <MostWatchedDate data={data.most_watched_date} />
       </div>
       <MostWatchedItems data={data.most_watched_items} server={server} />
-      <WatchTimePerWeekDay data={data.average_watchtime_per_week_day} />
+      {/* <WatchTimePerWeekDay
+        data={data.average_watchtime_per_week_day}
+        title="Average Watch Time Per Day of Week"
+        subtitle="Showing average watch time for each day of the week"
+      /> */}
+      <WatchTimePerWeekDay
+        data={data.watchtime_per_week_day}
+        title="Watch Time Per Day of Week"
+        subtitle="Showing total watch time for each day of the week"
+      />
+      <WatchTimePerHour
+        data={data.watchtime_per_hour}
+        title="Watch Time Per Hour"
+        subtitle="Showing total watch time for each hour of the day"
+      />
     </div>
   );
 }

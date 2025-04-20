@@ -449,12 +449,28 @@ defmodule StreamystatServer.Jellyfin.Sync do
           |> Stream.map(fn batch ->
             if metrics_agent, do: update_metrics(metrics_agent, %{database_operations: 1})
 
+            deduplicated_batch =
+              batch
+              |> Enum.reduce(%{}, fn item, acc ->
+                key = {item.jellyfin_id, item.library_id}
+                # Keep only the most recent item if duplicates exist
+                Map.update(acc, key, item, fn existing ->
+                  if Map.get(item, :updated_at, ~N[1970-01-01 00:00:00]) >
+                    Map.get(existing, :updated_at, ~N[1970-01-01 00:00:00]) do
+                    item
+                  else
+                    existing
+                  end
+                end)
+              end)
+              |> Map.values()
+
             case Repo.insert_all(
-                   Item,
-                   batch,
-                   on_conflict: {:replace_all_except, [:id]},
-                   conflict_target: [:jellyfin_id, :library_id]
-                 ) do
+              Item,
+              deduplicated_batch,
+              on_conflict: {:replace_all_except, [:id]},
+              conflict_target: [:jellyfin_id, :library_id]
+            ) do
               {count, nil} -> {count, []}
               {count, error} -> {count, [error]}
             end
