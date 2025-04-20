@@ -64,11 +64,15 @@ defmodule StreamystatServer.Statistics.Statistics do
     most_watched_date = get_most_watched_date_db(server_id, user_id)
     most_watched_items = get_top_watched_items_db(server_id, user_id)
     average_watchtime_per_week_day = get_average_watchtime_per_week_day_db(server_id, user_id)
+    watchtime_per_week_day = get_watchtime_per_week_day_db(server_id, user_id)
+    watchtime_per_hour = get_watchtime_per_hour_db(server_id, user_id)
       %{
       most_watched_items: most_watched_items,
       average_watchtime_per_week_day: average_watchtime_per_week_day,
       total_watch_time: total_watch_time,
-      most_watched_date: most_watched_date
+      most_watched_date: most_watched_date,
+      watchtime_per_week_day: watchtime_per_week_day,
+      watchtime_per_hour: watchtime_per_hour
       }
   end
 
@@ -600,27 +604,90 @@ defmodule StreamystatServer.Statistics.Statistics do
   end
 
   defp get_average_watchtime_per_week_day_db(server_id, user_id) do
+    daily_query =
+      from p in PlaybackSession,
+        where: p.server_id == ^server_id,
+        group_by: fragment("date(?)", p.start_time),
+        select: %{
+          date: fragment("date(?)", p.start_time),
+          total: sum(p.play_duration)
+        }
+
+    daily = Repo.all(daily_query)
+
+    daily
+    |> Enum.group_by(
+        fn %{date: d} -> Date.day_of_week(d) end,
+        fn %{total: t} -> t end
+      )
+    |> Enum.map(fn {dow, totals} ->
+        sum_totals = Enum.sum(totals)
+        count_items = length(totals)
+        avg = sum_totals / count_items
+        %{day_of_week: dow, duration: Float.round(avg, 2)}
+      end)
+    |> Enum.sort_by(& &1.day_of_week)
+  end
+
+  defp get_watchtime_per_week_day_db(server_id, user_id) do
+    daily_query =
+      from p in PlaybackSession,
+        where: p.server_id == ^server_id,
+        group_by: fragment("date(?)", p.start_time),
+        select: %{
+          date: fragment("date(?)", p.start_time),
+          total: sum(p.play_duration)
+        }
+
+    daily = Repo.all(daily_query)
+
+    daily
+    |> Enum.group_by(
+        fn %{date: d} -> Date.day_of_week(d) end,
+        fn %{total: t} -> t end
+      )
+    |> Enum.map(fn {dow, totals} ->
+        total_duration = Enum.sum(totals)
+        %{day_of_week: dow, duration: total_duration}
+      end)
+    |> Enum.sort_by(& &1.day_of_week)
+  end
+
+  defp get_watchtime_per_hour_db(server_id, user_id) do
     query =
-      from ps in PlaybackSession,
-      where: ps.server_id == ^server_id,
-      group_by: [fragment("EXTRACT(DOW FROM start_time)")],
-      select: %{
-        day_of_week: fragment("EXTRACT(DOW FROM start_time)::integer + 1"),
-        play_count: count(ps.id),
-        total_duration: sum(ps.play_duration)
-      }
+      from p in PlaybackSession,
+        where: p.server_id == ^server_id,
+        group_by: fragment("EXTRACT(HOUR FROM ?)", p.start_time),
+        select: %{
+          hour: fragment("EXTRACT(HOUR FROM ?)::integer", p.start_time),
+          duration: sum(p.play_duration)
+        },
+        order_by: fragment("EXTRACT(HOUR FROM ?)", p.start_time)
 
-    query = if user_id, do: query |> where([ps], ps.user_jellyfin_id == ^user_id), else: query
+    query = if user_id, do: query |> where([p], p.user_jellyfin_id == ^user_id), else: query
 
-    Repo.all(query)
-    |> Enum.map(fn day ->
-      average_duration = if day.play_count > 0, do: day.total_duration / day.play_count, else: 0
+    # Get the results
+    hours_data = Repo.all(query)
+
+    # Fill in any missing hours with zero values
+    complete_hours =
+      Enum.reduce(0..23, %{}, fn hour, acc ->
+        Map.put(acc, hour, 0)
+      end)
+
+    # Merge the actual data with the complete set
+    filled_data =
+      Enum.reduce(hours_data, complete_hours, fn %{hour: hour, duration: duration}, acc ->
+        Map.put(acc, hour, duration)
+      end)
+
+    # Convert to final format
+    Enum.map(0..23, fn hour ->
       %{
-        day_of_week: day.day_of_week,
-        average_duration: Float.round(average_duration, 2)
+        hour: hour,
+        duration: Map.get(filled_data, hour, 0)
       }
     end)
-    |> Enum.sort_by(& &1.day_of_week)
   end
 
   defp to_datetime(date, time \\ :beginning_of_day) do

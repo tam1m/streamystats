@@ -16,8 +16,8 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-import { Statistics } from "@/lib/db";
 import { formatDuration } from "@/lib/utils";
+import { Statistics } from "@/lib/db";
 
 const chartConfig = {
   minutes: {
@@ -29,24 +29,20 @@ const chartConfig = {
 interface Props {
   title: string;
   subtitle: string;
-  data: Statistics["average_watchtime_per_week_day"];
+  data: Statistics["watchtime_per_hour"];
 }
 
-const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
-export const WatchTimePerWeekDay: React.FC<Props> = ({
+export const WatchTimePerHour: React.FC<Props> = ({
   title,
   subtitle,
   data,
 }) => {
   const formattedData = React.useMemo(() => {
-    return data
-      .map((item) => ({
-        day: dayNames[item.day_of_week - 1],
-        minutes: Math.floor(item.duration / 60),
-        dayNumber: item.day_of_week,
-      }))
-      .sort((a, b) => a.dayNumber - b.dayNumber);
+    return data.map((item) => ({
+      hour: formatHour(item.hour),
+      minutes: Math.floor(item.duration / 60),
+      rawHour: item.hour,
+    }));
   }, [data]);
 
   return (
@@ -65,10 +61,12 @@ export const WatchTimePerWeekDay: React.FC<Props> = ({
           <BarChart data={formattedData}>
             <CartesianGrid vertical={false} />
             <XAxis
-              dataKey="day"
+              dataKey="hour"
               tickLine={false}
               axisLine={false}
               tickMargin={8}
+              interval={0}
+              tick={{ fontSize: 12 }}
             />
             <YAxis
               tickLine={false}
@@ -80,20 +78,45 @@ export const WatchTimePerWeekDay: React.FC<Props> = ({
               cursor={false}
               content={
                 <ChartTooltipContent
-                  formatter={(m) => (
-                    <div className="flex flex-row items-center justify-between w-full">
-                      <p>Time</p>
-                      <p>{formatDuration(Number(m), "minutes")}</p>
-                    </div>
-                  )}
+                  formatter={(m, _, entry) => {
+                    const rawHour = entry?.payload?.rawHour;
+                    const formattedHour =
+                      rawHour !== undefined ? formatHour(rawHour, true) : "";
+
+                    return (
+                      <div className="flex flex-col gap-1">
+                        <div className="text-sm font-medium">
+                          {formattedHour}
+                        </div>
+                        <div className="flex flex-row items-center justify-between w-full">
+                          <p>Time</p>
+                          <p>{formatDuration(Number(m), "minutes")}</p>
+                        </div>
+                      </div>
+                    );
+                  }}
                   hideLabel
                 />
               }
             />
-            <Bar dataKey="minutes" fill="#2761D9" radius={8} name="Minutes" />
+            <Bar
+              dataKey="minutes"
+              fill="#2761D9"
+              radius={[4, 4, 0, 0]}
+              name="Minutes"
+              maxBarSize={16}
+            />
           </BarChart>
         </ChartContainer>
       </CardContent>
     </Card>
   );
 };
+
+// Helper function to format hours in 24-hour format
+function formatHour(hour: number, detailed = false): string {
+  if (detailed) {
+    return `${hour.toString().padStart(2, "0")}:00`;
+  }
+  return hour.toString().padStart(2, "0");
+}
