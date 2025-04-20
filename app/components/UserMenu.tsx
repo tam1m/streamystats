@@ -34,9 +34,9 @@ export const UserMenu: React.FC<Props> = ({ me }) => {
     if (!me.name) return "";
     if (me.name?.length >= 2) {
       return me.name.slice(0, 2).toUpperCase();
-    } else {
-      return me.name.toUpperCase();
     }
+
+    return me.name.toUpperCase();
   }, [me.name]);
 
   return (
