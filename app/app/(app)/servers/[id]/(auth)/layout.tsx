@@ -5,11 +5,12 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import { FadeInWrapper } from "@/components/FadeInWrapper";
 import { SideBar } from "@/components/SideBar";
 import { SuspenseLoading } from "@/components/SuspenseLoading";
+import { UpdateNotifier } from "@/components/UpdateNotifier";
 import { UserMenu } from "@/components/UserMenu";
 import { Separator } from "@/components/ui/separator";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { getServer, getServers, getUser } from "@/lib/db";
-import { getMe } from "@/lib/me";
+import { getMe, isUserAdmin } from "@/lib/me";
 import { redirect } from "next/navigation";
 import { PropsWithChildren, Suspense } from "react";
 
@@ -24,21 +25,16 @@ export default async function layout({ children, params }: Props) {
   const server = await getServer(id);
 
   const me = await getMe();
+  const isAdmin = await isUserAdmin();
 
   if (!me) {
     redirect(`/servers/${id}/login`);
   }
 
-  const user = await getUser(me?.name, server?.id);
-
   return (
     <SidebarProvider>
       <>
-        <SideBar
-          servers={servers}
-          me={me}
-          allowedToCreateServer={user?.is_administrator}
-        />
+        <SideBar servers={servers} me={me} allowedToCreateServer={isAdmin} />
         <Suspense fallback={<SuspenseLoading />}>
           <main className="flex flex-col w-full">
             <div className="flex flex-row items-center p-4 gap-2">
@@ -51,6 +47,7 @@ export default async function layout({ children, params }: Props) {
             </ErrorBoundary>
           </main>
         </Suspense>
+        {isAdmin && <UpdateNotifier />}
       </>
     </SidebarProvider>
   );
