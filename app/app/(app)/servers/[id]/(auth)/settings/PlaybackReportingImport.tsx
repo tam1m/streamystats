@@ -164,8 +164,7 @@ export default function PlaybackReportingImport({
                 <ol className="list-decimal pl-5 space-y-1.5">
                   <li>Open your Jellyfin admin dashboard</li>
                   <li>Go to the Playback Reporting plugin settings</li>
-                  <li>Click on "Export to CSV/JSON" option</li>
-                  <li>Select your preferred export format (JSON or TSV)</li>
+                  <li>Click on Save Backup Data under the Backup section</li>
                   <li>Download the exported file</li>
                   <li>Upload it here</li>
                 </ol>
