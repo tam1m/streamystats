@@ -7,6 +7,16 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"; // Import AlertDialog components
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -19,6 +29,7 @@ import { Input } from "@/components/ui/input";
 import { importPlaybackReporting } from "@/lib/importPlaybackReporting";
 import {
   AlertCircle,
+  AlertTriangle, // Import warning icon
   CheckCircle2,
   HelpCircle,
   Info,
@@ -28,7 +39,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 
-// Form submit button with loading state
+// Form submit button with loading state (remains the same)
 function SubmitButton({ hasFile }: { hasFile: boolean }) {
   const { pending } = useFormStatus();
 
@@ -56,6 +67,8 @@ export default function PlaybackReportingImport({
 }) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const formRef = useRef<HTMLFormElement>(null); // Ref for the form
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false); // State for dialog
 
   const [state, formAction] = useFormState(importPlaybackReporting, {
     type: null,
@@ -80,19 +93,48 @@ export default function PlaybackReportingImport({
         if (fileInputRef.current) {
           fileInputRef.current.value = "";
         }
+        // Optionally show an error message for invalid file type
       }
     } else {
       setSelectedFile(null);
     }
   };
 
-  // Reset the form after a successful upload
+  // Reset the form and close dialog after a successful upload
   useEffect(() => {
-    if (state.type === "success" && fileInputRef.current) {
+    if (state.type === "success") {
       setSelectedFile(null);
-      fileInputRef.current.value = "";
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+      setIsConfirmOpen(false); // Close dialog on success
     }
+    // Optionally close dialog on error too, or leave it open
+    // if (state.type === "error") {
+    //   setIsConfirmOpen(false);
+    // }
   }, [state]);
+
+  // Handle form submission: prevent default and open dialog
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    // Only proceed if a file is selected (button should be enabled)
+    if (selectedFile) {
+      e.preventDefault(); // Stop the default form submission
+      setIsConfirmOpen(true); // Open the confirmation dialog
+    }
+    // If no file is selected, the button is disabled, so this handler
+    // shouldn't technically run, but this prevents accidental submission.
+  };
+
+  // Handle the confirmation action in the dialog
+  const handleConfirmSubmit = () => {
+    // Programmatically submit the form using the formAction
+    // This ensures the useFormStatus hook works correctly
+    formRef.current?.requestSubmit();
+    // Dialog will close automatically via onOpenChange if needed,
+    // but closing it manually here is fine too.
+    // setIsConfirmOpen(false); // Let onOpenChange handle it or success useEffect
+  };
 
   return (
     <Card className="w-full">
@@ -106,7 +148,13 @@ export default function PlaybackReportingImport({
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form action={formAction} className="space-y-4">
+        {/* Bind ref and onSubmit handler to the form */}
+        <form
+          ref={formRef}
+          action={formAction}
+          onSubmit={handleSubmit}
+          className="space-y-4"
+        >
           {/* Hidden input for server ID */}
           <input type="hidden" name="serverId" value={serverId} />
 
@@ -125,11 +173,17 @@ export default function PlaybackReportingImport({
               accept=".json,application/json,.tsv,text/tab-separated-values,.txt"
               onChange={handleFileChange}
               className="cursor-pointer"
+              required // Make file input required for form validity
             />
             {selectedFile && (
               <p className="text-sm text-muted-foreground">
                 Selected file: {selectedFile.name} (
                 {(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
+              </p>
+            )}
+            {!selectedFile && fileInputRef.current?.files?.length === 0 && (
+              <p className="text-sm text-destructive">
+                Please select a .json or .tsv file.
               </p>
             )}
           </div>
@@ -149,6 +203,7 @@ export default function PlaybackReportingImport({
           )}
 
           <div className="pt-2">
+            {/* SubmitButton now triggers the handleSubmit function which opens the dialog */}
             <SubmitButton hasFile={!!selectedFile} />
           </div>
         </form>
@@ -172,6 +227,32 @@ export default function PlaybackReportingImport({
             </AccordionContent>
           </AccordionItem>
         </Accordion>
+
+        {/* Confirmation Dialog */}
+        <AlertDialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center">
+                <AlertTriangle className="mr-2 h-5 w-5 text-yellow-500" />
+                Confirm Import
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                This process may take some time depending on the file size.
+                Duplicate entries may occur if you already have data. This is
+                due to a discrepancy between the Jellyfin Playback Reporting
+                plugin and other session reporting sources. Please confirm you
+                want to proceed with the import.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              {/* Action button triggers the actual form submission */}
+              <AlertDialogAction onClick={handleConfirmSubmit}>
+                Proceed with Import
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </CardContent>
     </Card>
   );
