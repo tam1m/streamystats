@@ -18,7 +18,7 @@ export function UpdateNotifier() {
 
     toast.warning("New Version", {
       id: "update-notification",
-      description: `A new version (${newVersion}) is available. Please update the docker image.`,
+      description: `A new version (${newVersion}) is available. Please update the docker images.`,
       duration: Number.POSITIVE_INFINITY,
       dismissible: true,
       cancel: (
