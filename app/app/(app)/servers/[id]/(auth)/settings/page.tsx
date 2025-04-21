@@ -7,6 +7,13 @@ import { DeleteServer } from "./DeleteServer";
 import JellystatsImport from "./JellystatsImport";
 import { Tasks } from "./Tasks";
 import { VersionSection } from "./VersionSection";
+import PlaybackReportingImport from "./PlaybackReportingImport";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 export default async function Settings({
   params,
@@ -24,10 +31,24 @@ export default async function Settings({
     <Container className="">
       <h1 className="text-3xl font-bold mb-8">Settings</h1>
       <Tasks server={server} />
-      <div className="mb-4">
-        <h2 className="text-2xl font-semibold mb-4">Jellystat import</h2>
-        <JellystatsImport serverId={server.id} />
-      </div>
+      <Accordion type="single" collapsible className="mb-4">
+        <AccordionItem value="jellystat-import">
+          <AccordionTrigger className="text-2xl font-semibold">
+            Jellystat Import
+          </AccordionTrigger>
+          <AccordionContent>
+            <JellystatsImport serverId={server.id} />
+          </AccordionContent>
+        </AccordionItem>
+        <AccordionItem value="playback-reporting-import">
+          <AccordionTrigger className="text-2xl font-semibold">
+            Playback Reporting Plugin Import
+          </AccordionTrigger>
+          <AccordionContent>
+            <PlaybackReportingImport serverId={server.id} />
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
       <VersionSection />
       <DeleteServer server={server} />
     </Container>
