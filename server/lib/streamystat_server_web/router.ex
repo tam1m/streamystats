@@ -54,6 +54,9 @@ defmodule StreamystatServerWeb.Router do
 
       get("/active-sessions", ActiveSessionsController, :index)
 
+      get("/backup/export", BackupController, :export)
+      post("/backup/import", BackupController, :import)
+
       get("/statistics", UserStatisticsController, :index)
       get("/statistics/watchtime_per_day", UserStatisticsController, :watchtime_per_day)
       get("/statistics/history", UserStatisticsController, :history)

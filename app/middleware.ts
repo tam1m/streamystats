@@ -171,8 +171,6 @@ export async function middleware(request: NextRequest) {
 
   const isSetup = request.url.includes("/setup");
 
-  console.log(request.url, isSetup);
-
   // If there are no servers, redirect to /setup
   if (servers.length === 0) {
     if (isSetup) return response;

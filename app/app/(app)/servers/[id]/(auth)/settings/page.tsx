@@ -14,6 +14,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import DatabaseBackupRestore from "./DatabaseBackupRestore";
 
 export default async function Settings({
   params,
@@ -48,7 +49,16 @@ export default async function Settings({
             <PlaybackReportingImport serverId={server.id} />
           </AccordionContent>
         </AccordionItem>
+        <AccordionItem value="database-backup">
+          <AccordionTrigger className="text-2xl font-semibold">
+            Database Backup & Restore
+          </AccordionTrigger>
+          <AccordionContent>
+            <DatabaseBackupRestore serverId={server.id} />
+          </AccordionContent>
+        </AccordionItem>
       </Accordion>
+
       <VersionSection />
       <DeleteServer server={server} />
     </Container>

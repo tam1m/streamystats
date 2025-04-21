@@ -19,7 +19,7 @@ defmodule StreamystatServer.MixProject do
   def application do
     [
       mod: {StreamystatServer.Application, []},
-      extra_applications: [:logger, :runtime_tools]
+      extra_applications: [:logger, :runtime_tools, :temp, :exqlite]
     ]
   end
 
@@ -47,7 +47,9 @@ defmodule StreamystatServer.MixProject do
       {:dns_cluster, "~> 0.1.1"},
       {:bandit, "~> 1.5"},
       {:httpoison, "~> 2.0"},
-      {:scrivener_ecto, "~> 3.0.1"}
+      {:scrivener_ecto, "~> 3.0.1"},
+      {:temp,      "~> 0.4"},
+      {:exqlite, "~> 0.29"}
     ]
   end
 
