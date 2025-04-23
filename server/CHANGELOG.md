@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.5.0](https://github.com/fredrikburmester/streamystats/compare/v1.4.0...v1.5.0) (2025-04-23)
+
+
+### Features
+
+* import transcoding info when importing from jellystat ([8085ac9](https://github.com/fredrikburmester/streamystats/commit/8085ac913aee9a3a84fd98b7623e67530b46e8b6))
+* new transcoding statistics ([f08b8d1](https://github.com/fredrikburmester/streamystats/commit/f08b8d1e9431a68a645f31013c49c0cfdb75fab2))
+
+
+### Bug Fixes
+
+* arm64 build error ([7be28fc](https://github.com/fredrikburmester/streamystats/commit/7be28fc542c7971a445d7caf1e154e6a5c54c437))
+* errors ([fa657b8](https://github.com/fredrikburmester/streamystats/commit/fa657b85baccc266166d845e6a36f37c05ae8e4e))
+
 ## [1.4.0](https://github.com/fredrikburmester/streamystats/compare/v1.3.0...v1.4.0) (2025-04-21)
 
 
