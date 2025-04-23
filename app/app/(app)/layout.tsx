@@ -14,7 +14,6 @@ export default function layout({ children }: Props) {
     <QueryClientProvider client={queryClient}>
       {children}
       <VersionBadge />
-      <UpdateNotifier />
     </QueryClientProvider>
   );
 }
