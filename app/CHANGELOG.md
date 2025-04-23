@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.5.0](https://github.com/fredrikburmester/streamystats/compare/streamystat-v1.4.0...streamystat-v1.5.0) (2025-04-23)
+
+
+### Features
+
+* new transcoding statistics ([f08b8d1](https://github.com/fredrikburmester/streamystats/commit/f08b8d1e9431a68a645f31013c49c0cfdb75fab2))
+* new transcoding statistics cards ([d28f6ea](https://github.com/fredrikburmester/streamystats/commit/d28f6ea65c227b95d1e98ad08baf8db695dbfe53))
+
+
+### Bug Fixes
+
+* alert dialog broke import ([5d23841](https://github.com/fredrikburmester/streamystats/commit/5d23841cb622a90c101d21629bf4700cf7a579e2))
+* move statistics placement ([f3bc735](https://github.com/fredrikburmester/streamystats/commit/f3bc735d0fa8f28fe40e3a9244d436e2ad4e297c))
+* use correct tz ([0d2082e](https://github.com/fredrikburmester/streamystats/commit/0d2082e6d6ccf37c27b80d53f3f5526560b3d7a4))
+
 ## [1.4.0](https://github.com/fredrikburmester/streamystats/compare/streamystat-v1.3.0...streamystat-v1.4.0) (2025-04-21)
 
 
