@@ -997,6 +997,7 @@ defmodule StreamystatServer.Statistics.Statistics do
   end
 
   defp convert_decimal_to_float(nil), do: nil
+
   defp convert_decimal_to_float(map) when is_map(map) do
     map
     |> Enum.map(fn
