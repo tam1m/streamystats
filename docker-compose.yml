@@ -9,6 +9,7 @@ services:
       - backend
     environment:
       API_URL: "http://phoenix:4000/api"
+      TZ: "Europe/Stockholm"
 
   phoenix:
     image: fredrikburmester/streamystats-phoenix:edge
