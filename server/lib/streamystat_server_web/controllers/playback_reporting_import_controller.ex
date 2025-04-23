@@ -13,7 +13,10 @@ defmodule StreamystatServerWeb.PlaybackReportingImportController do
 
         conn
         |> put_status(:accepted)
-        |> render(:import, message: "Playback Reporting import started successfully", status: "processing")
+        |> render(:import,
+          message: "Playback Reporting import started successfully",
+          status: "processing"
+        )
 
       {:error, reason} ->
         conn
@@ -38,9 +41,11 @@ defmodule StreamystatServerWeb.PlaybackReportingImportController do
         case read_body(conn) do
           {:ok, body, _} when body != "" ->
             case Jason.decode(body) do
-              {:ok, _} -> {:ok, body, "json"} # Verify it's valid JSON
+              # Verify it's valid JSON
+              {:ok, _} -> {:ok, body, "json"}
               {:error, _} -> {:error, "Invalid JSON format in request body"}
             end
+
           _ ->
             {:error, "No import data provided"}
         end
@@ -58,13 +63,15 @@ defmodule StreamystatServerWeb.PlaybackReportingImportController do
               {:ok, _} -> {:ok, content, "json"}
               {:error, _} -> {:error, "Invalid JSON content in uploaded file"}
             end
-          {:error, reason} -> {:error, "Failed to read uploaded file: #{inspect(reason)}"}
+
+          {:error, reason} ->
+            {:error, "Failed to read uploaded file: #{inspect(reason)}"}
         end
 
       # Handle TSV files
       String.contains?(content_type, "tab-separated-values") ||
-      String.ends_with?(filename, ".tsv") ||
-      String.ends_with?(filename, ".txt") ->
+        String.ends_with?(filename, ".tsv") ||
+          String.ends_with?(filename, ".txt") ->
         case File.read(path) do
           {:ok, content} -> {:ok, content, "tsv"}
           {:error, reason} -> {:error, "Failed to read uploaded file: #{inspect(reason)}"}

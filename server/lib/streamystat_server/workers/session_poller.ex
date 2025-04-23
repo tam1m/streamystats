@@ -61,7 +61,6 @@ defmodule StreamystatServer.Workers.SessionPoller do
     {:noreply, updated_state}
   end
 
-
   defp list_servers do
     Repo.all(Server)
   end

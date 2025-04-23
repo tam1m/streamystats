@@ -17,9 +17,7 @@ defmodule StreamystatServerWeb.LibraryController do
         |> render(:"404")
 
       library ->
-        render(conn, :show,
-          library: library
-        )
+        render(conn, :show, library: library)
     end
   end
 end

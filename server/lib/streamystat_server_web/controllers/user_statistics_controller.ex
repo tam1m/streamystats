@@ -23,7 +23,12 @@ defmodule StreamystatServerWeb.UserStatisticsController do
         if is_admin?(current_user) do
           Statistics.get_watchtime_per_day_stats(start_date, end_date, server_id)
         else
-          Statistics.get_watchtime_per_day_stats(start_date, end_date, server_id, current_user["Id"])
+          Statistics.get_watchtime_per_day_stats(
+            start_date,
+            end_date,
+            server_id,
+            current_user["Id"]
+          )
         end
 
       render(conn, :watchtime_per_day, watchtime_stats: watchtime_stats)
@@ -68,8 +73,10 @@ defmodule StreamystatServerWeb.UserStatisticsController do
     base_query =
       if is_admin?(current_user) do
         from(ps in PlaybackSession,
-          join: i in Item, on: ps.item_jellyfin_id == i.jellyfin_id,
-          join: u in User, on: ps.user_id == u.id,
+          join: i in Item,
+          on: ps.item_jellyfin_id == i.jellyfin_id,
+          join: u in User,
+          on: ps.user_id == u.id,
           order_by: [desc: ps.start_time],
           select: %{
             id: ps.id,
@@ -104,8 +111,10 @@ defmodule StreamystatServerWeb.UserStatisticsController do
         )
       else
         from(ps in PlaybackSession,
-          join: i in Item, on: ps.item_jellyfin_id == i.jellyfin_id,
-          join: u in User, on: ps.user_id == u.id,
+          join: i in Item,
+          on: ps.item_jellyfin_id == i.jellyfin_id,
+          join: u in User,
+          on: ps.user_id == u.id,
           where: ps.user_jellyfin_id == ^current_user["Id"],
           order_by: [desc: ps.start_time],
           select: %{
@@ -149,7 +158,7 @@ defmodule StreamystatServerWeb.UserStatisticsController do
       end
 
     # Count total items for pagination metadata
-    count_query = from q in subquery(filtered_base_query), select: count(q.id)
+    count_query = from(q in subquery(filtered_base_query), select: count(q.id))
     total_items = Repo.one(count_query)
 
     # Add pagination
@@ -224,8 +233,12 @@ defmodule StreamystatServerWeb.UserStatisticsController do
     # Handle libraries filter
     libraries =
       case params["libraries"] do
-        nil -> nil
-        "" -> nil
+        nil ->
+          nil
+
+        "" ->
+          nil
+
         libraries_string ->
           libraries_string
           |> String.split(",")
@@ -244,11 +257,21 @@ defmodule StreamystatServerWeb.UserStatisticsController do
 
     Logger.debug(
       "Page: #{page}, Search: #{inspect(search)}, ID: #{inspect(server_id)}, " <>
-      "Sort By: #{sort_by}, Sort Order: #{sort_order}, Type: #{inspect(content_type)}, " <>
-      "Libraries: #{inspect(libraries)}"
+        "Sort By: #{sort_by}, Sort Order: #{sort_order}, Type: #{inspect(content_type)}, " <>
+        "Libraries: #{inspect(libraries)}"
     )
 
-    item_stats = Statistics.get_item_statistics(server_id, page, search, sort_by, sort_order, content_type, libraries)
+    item_stats =
+      Statistics.get_item_statistics(
+        server_id,
+        page,
+        search,
+        sort_by,
+        sort_order,
+        content_type,
+        libraries
+      )
+
     render(conn, :items, item_stats: item_stats)
   end
 
@@ -272,6 +295,7 @@ defmodule StreamystatServerWeb.UserStatisticsController do
         conn
         |> put_status(:not_found)
         |> json(%{error: "Item not found"})
+
       _ ->
         render(conn, :item_details, item_stats: item_stats)
     end

@@ -115,12 +115,15 @@ defmodule StreamystatServer.Jellyfin.Client do
     }
 
     # Add ImageTypes parameter if provided
-    params = if image_types do
-      image_types_str = if is_list(image_types), do: Enum.join(image_types, ","), else: image_types
-      Map.put(params, :ImageTypes, image_types_str)
-    else
-      params
-    end
+    params =
+      if image_types do
+        image_types_str =
+          if is_list(image_types), do: Enum.join(image_types, ","), else: image_types
+
+        Map.put(params, :ImageTypes, image_types_str)
+      else
+        params
+      end
 
     case get(url, headers, params: params) do
       {:ok, %{status_code: 200, body: body}} ->
@@ -128,11 +131,11 @@ defmodule StreamystatServer.Jellyfin.Client do
           {:ok, decoded_body} ->
             # Returns {items, total_count}
             {:ok, {decoded_body["Items"] || [], decoded_body["TotalRecordCount"] || 0}}
+
           {:error, decode_error} ->
             Logger.error("Failed to decode items JSON: #{inspect(decode_error)}")
             {:error, "JSON decode error"}
         end
-
 
       {:ok, %{status_code: status_code}} ->
         {:error, "Unexpected status code: #{status_code}"}
@@ -142,7 +145,13 @@ defmodule StreamystatServer.Jellyfin.Client do
     end
   end
 
-  def get_items_with_images(server, library_id, start_index, limit, image_types \\ ["Primary", "Thumb", "Backdrop"]) do
+  def get_items_with_images(
+        server,
+        library_id,
+        start_index,
+        limit,
+        image_types \\ ["Primary", "Thumb", "Backdrop"]
+      ) do
     get_items_page(server, library_id, start_index, limit, image_types)
   end
 

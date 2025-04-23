@@ -53,6 +53,7 @@ defmodule StreamystatServer.Auth do
             case StreamystatServer.Contexts.Users.create_initial_user(server.id, parsed_body) do
               {:ok, user} ->
                 {:ok, user.id}
+
               {:error, _reason} ->
                 {:error, "Failed to create user in the database"}
             end

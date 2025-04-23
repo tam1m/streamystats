@@ -45,14 +45,18 @@ defmodule StreamystatServer.Jellyfin.Sync do
           # Delete users that no longer exist in Jellyfin
           {deleted_count, _} =
             from(u in User,
-                where: u.server_id == ^server.id and u.jellyfin_id not in ^jellyfin_ids)
+              where: u.server_id == ^server.id and u.jellyfin_id not in ^jellyfin_ids
+            )
             |> Repo.delete_all()
 
           {updated_count, deleted_count}
         end)
         |> case do
           {:ok, {updated_count, deleted_count}} ->
-            Logger.info("Successfully synced users for server #{server.name} - Updated: #{updated_count}, Deleted: #{deleted_count}")
+            Logger.info(
+              "Successfully synced users for server #{server.name} - Updated: #{updated_count}, Deleted: #{deleted_count}"
+            )
+
             {:ok, %{updated: updated_count, deleted: deleted_count}}
 
           {:error, reason} ->
@@ -106,12 +110,9 @@ defmodule StreamystatServer.Jellyfin.Sync do
   end
 
   def sync_items(server, user_options \\ %{}) do
-
     start_time = System.monotonic_time(:millisecond)
 
-
     options = Map.merge(@sync_options, user_options)
-
 
     metrics = %{
       libraries_processed: 0,
@@ -122,70 +123,62 @@ defmodule StreamystatServer.Jellyfin.Sync do
       start_time: DateTime.utc_now()
     }
 
-
     {:ok, metrics_agent} = Agent.start_link(fn -> metrics end)
 
     Logger.info("Starting item sync for all libraries")
 
-    result = case Client.get_libraries(server) do
-      {:ok, libraries} ->
+    result =
+      case Client.get_libraries(server) do
+        {:ok, libraries} ->
+          max_concurrency = options.max_library_concurrency
 
-        max_concurrency = options.max_library_concurrency
+          results =
+            Task.async_stream(
+              libraries,
+              fn library ->
+                update_metrics(metrics_agent, %{api_requests: 1})
 
-        results =
-          Task.async_stream(
-            libraries,
-            fn library ->
+                result = sync_library_items(server, library["Id"], metrics_agent, options)
 
-              update_metrics(metrics_agent, %{api_requests: 1})
+                update_metrics(metrics_agent, %{libraries_processed: 1})
 
-
-              result = sync_library_items(server, library["Id"], metrics_agent, options)
-
-
-              update_metrics(metrics_agent, %{libraries_processed: 1})
-
-              result
-            end,
-            max_concurrency: max_concurrency,
-            timeout: 600_000
-          )
-          |> Enum.map(fn {:ok, result} -> result end)
-
-        total_count = Enum.sum(Enum.map(results, fn {_, count, _} -> count end))
-        total_errors = Enum.flat_map(results, fn {_, _, errors} -> errors end)
-
-
-        update_metrics(metrics_agent, %{items_processed: total_count, errors: total_errors})
-
-        case total_errors do
-          [] ->
-            Logger.info("Synced #{total_count} items across all libraries")
-            {:ok, total_count}
-
-          _ ->
-            Logger.warning(
-              "Synced #{total_count} items with #{length(total_errors)} errors across all libraries"
+                result
+              end,
+              max_concurrency: max_concurrency,
+              timeout: 600_000
             )
+            |> Enum.map(fn {:ok, result} -> result end)
 
-            Logger.warning("Errors: #{inspect(total_errors)}")
-            {:partial, total_count, total_errors}
-        end
+          total_count = Enum.sum(Enum.map(results, fn {_, count, _} -> count end))
+          total_errors = Enum.flat_map(results, fn {_, _, errors} -> errors end)
 
-      {:error, reason} ->
-        update_metrics(metrics_agent, %{errors: [reason]})
-        Logger.error("Failed to fetch libraries: #{inspect(reason)}")
-        {:error, reason}
-    end
+          update_metrics(metrics_agent, %{items_processed: total_count, errors: total_errors})
 
+          case total_errors do
+            [] ->
+              Logger.info("Synced #{total_count} items across all libraries")
+              {:ok, total_count}
+
+            _ ->
+              Logger.warning(
+                "Synced #{total_count} items with #{length(total_errors)} errors across all libraries"
+              )
+
+              Logger.warning("Errors: #{inspect(total_errors)}")
+              {:partial, total_count, total_errors}
+          end
+
+        {:error, reason} ->
+          update_metrics(metrics_agent, %{errors: [reason]})
+          Logger.error("Failed to fetch libraries: #{inspect(reason)}")
+          {:error, reason}
+      end
 
     end_time = System.monotonic_time(:millisecond)
     duration_ms = end_time - start_time
 
-
     final_metrics = Agent.get(metrics_agent, & &1)
     Agent.stop(metrics_agent)
-
 
     Logger.info("""
     Sync completed for server #{server.name}
@@ -197,18 +190,14 @@ defmodule StreamystatServer.Jellyfin.Sync do
     Errors: #{length(final_metrics.errors)}
     """)
 
-
     {result, final_metrics}
   end
 
   def sync_activities(server, user_options \\ %{}) do
-
     start_time = System.monotonic_time(:millisecond)
-
 
     options = Map.merge(@sync_options, %{batch_size: 5000})
     options = Map.merge(options, user_options)
-
 
     metrics = %{
       activities_processed: 0,
@@ -219,51 +208,37 @@ defmodule StreamystatServer.Jellyfin.Sync do
       start_time: DateTime.utc_now()
     }
 
-
     {:ok, metrics_agent} = Agent.start_link(fn -> metrics end)
 
     Logger.info("Starting full activity sync for server #{server.name}")
 
-
     result =
       Stream.resource(
-
         fn -> {0, 0} end,
-
-
         fn {start_index, total_synced} ->
-
           update_metrics(metrics_agent, %{api_requests: 1})
 
           case Client.get_activities(server, start_index, options.batch_size) do
             {:ok, []} ->
-
               {:halt, {start_index, total_synced}}
 
             {:ok, activities} ->
-
               batch_size = length(activities)
               update_metrics(metrics_agent, %{activities_processed: batch_size})
-
 
               {[{activities, start_index}],
                {start_index + options.batch_size, total_synced + batch_size}}
 
             {:error, reason} ->
-
               Logger.error("Failed to fetch activities: #{inspect(reason)}")
               update_metrics(metrics_agent, %{errors: [reason]})
               {:halt, {start_index, total_synced}}
           end
         end,
-
-
         fn _ -> :ok end
       )
       |> Stream.map(fn {activities, _index} ->
-
         new_activities = Enum.map(activities, &map_activity(&1, server))
-
 
         update_metrics(metrics_agent, %{database_operations: 1})
 
@@ -279,9 +254,7 @@ defmodule StreamystatServer.Jellyfin.Sync do
         end
       end)
       |> Enum.reduce(
-
         {:ok, 0, []},
-
         fn
           {:ok, count}, {:ok, total, errors} ->
             {:ok, total + count, errors}
@@ -291,14 +264,11 @@ defmodule StreamystatServer.Jellyfin.Sync do
         end
       )
 
-
     end_time = System.monotonic_time(:millisecond)
     duration_ms = end_time - start_time
 
-
     final_metrics = Agent.get(metrics_agent, & &1)
     Agent.stop(metrics_agent)
-
 
     Logger.info("""
     Activity sync completed for server #{server.name}
@@ -326,9 +296,7 @@ defmodule StreamystatServer.Jellyfin.Sync do
   end
 
   def sync_recent_activities(server) do
-
     start_time = System.monotonic_time(:millisecond)
-
 
     metrics = %{
       activities_processed: 0,
@@ -341,7 +309,7 @@ defmodule StreamystatServer.Jellyfin.Sync do
     Logger.info("Starting recent activity sync for server #{server.name}")
 
     {result, updated_metrics} =
-        case Client.get_activities(server, 0, 25) do
+      case Client.get_activities(server, 0, 25) do
         {:ok, activities} ->
           metrics = Map.put(metrics, :activities_processed, length(activities))
           new_activities = Enum.map(activities, &map_activity(&1, server))
@@ -355,7 +323,10 @@ defmodule StreamystatServer.Jellyfin.Sync do
           rescue
             e ->
               Logger.error("Error inserting activities: #{inspect(e)}")
-              metrics = Map.update(metrics, :errors, [inspect(e)], fn errors -> [inspect(e) | errors] end)
+
+              metrics =
+                Map.update(metrics, :errors, [inspect(e)], fn errors -> [inspect(e) | errors] end)
+
               {{:error, inspect(e)}, metrics}
           end
 
@@ -364,10 +335,8 @@ defmodule StreamystatServer.Jellyfin.Sync do
           {{:error, reason}, metrics}
       end
 
-
     end_time = System.monotonic_time(:millisecond)
     duration_ms = end_time - start_time
-
 
     Logger.info("""
     Recent activity sync completed for server #{server.name}
@@ -383,14 +352,11 @@ defmodule StreamystatServer.Jellyfin.Sync do
     {result, updated_metrics}
   end
 
-
   defp sanitize_string(nil), do: nil
 
   defp sanitize_string(str) when is_binary(str) do
     str
-
     |> String.replace(<<0>>, "")
-
     |> String.replace(~r/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/, "")
   end
 
@@ -401,8 +367,8 @@ defmodule StreamystatServer.Jellyfin.Sync do
 
     with {:ok, library} <- get_library_by_jellyfin_id(jellyfin_library_id, server.id) do
       try do
-        batch_size   = options.item_page_size || @item_page_size
-        db_batch_sz  = options.db_batch_size   || @db_batch_size
+        batch_size = options.item_page_size || @item_page_size
+        db_batch_sz = options.db_batch_size || @db_batch_size
 
         {total_count, errors} =
           Stream.resource(
@@ -415,12 +381,17 @@ defmodule StreamystatServer.Jellyfin.Sync do
                   {:halt, {fetched, errs}}
 
                 {:ok, {items, _total}} ->
-                  if metrics_agent, do: update_metrics(metrics_agent, %{items_processed: length(items)})
+                  if metrics_agent,
+                    do: update_metrics(metrics_agent, %{items_processed: length(items)})
+
                   {[items], {start_idx + batch_size, fetched + length(items), errs}}
 
                 {:error, reason} ->
                   Logger.error("Error fetching items: #{inspect(reason)}")
-                  if metrics_agent, do: update_metrics(metrics_agent, %{errors: [inspect(reason)]})
+
+                  if metrics_agent,
+                    do: update_metrics(metrics_agent, %{errors: [inspect(reason)]})
+
                   {:halt, {fetched, [inspect(reason) | errs]}}
               end
             end,
@@ -437,6 +408,7 @@ defmodule StreamystatServer.Jellyfin.Sync do
               batch
               |> Enum.reduce(%{}, fn item, acc ->
                 key = {item.jellyfin_id, item.library_id}
+
                 Map.update(acc, key, item, fn existing ->
                   if item.updated_at > existing.updated_at, do: item, else: existing
                 end)
@@ -456,23 +428,31 @@ defmodule StreamystatServer.Jellyfin.Sync do
               {count, List.wrap(conflict_errors)}
             rescue
               e ->
-                Logger.error("Batch insert failed: #{Exception.message(e)} — falling back to per‑item inserts.")
+                Logger.error(
+                  "Batch insert failed: #{Exception.message(e)} — falling back to per‑item inserts."
+                )
 
                 # slow path: insert one by one
                 Enum.reduce(deduped, {0, []}, fn attrs, {c, errs_acc} ->
                   cs = Item.changeset(%Item{}, attrs)
 
                   case Repo.insert(cs,
-                        on_conflict: {:replace_all_except, [:id]},
-                        conflict_target: [:jellyfin_id, :library_id]
-                      ) do
+                         on_conflict: {:replace_all_except, [:id]},
+                         conflict_target: [:jellyfin_id, :library_id]
+                       ) do
                     {:ok, _} ->
                       {c + 1, errs_acc}
 
                     {:error, cs_err} ->
                       error_info = {attrs.jellyfin_id, cs_err.errors}
-                      Logger.error("  • Skipping item #{attrs.jellyfin_id}: #{inspect(cs_err.errors)}")
-                      if metrics_agent, do: update_metrics(metrics_agent, %{errors: [inspect(error_info)]})
+
+                      Logger.error(
+                        "  • Skipping item #{attrs.jellyfin_id}: #{inspect(cs_err.errors)}"
+                      )
+
+                      if metrics_agent,
+                        do: update_metrics(metrics_agent, %{errors: [inspect(error_info)]})
+
                       {c, [error_info | errs_acc]}
                   end
                 end)
@@ -483,12 +463,15 @@ defmodule StreamystatServer.Jellyfin.Sync do
           end)
 
         case errors do
-          []  ->
+          [] ->
             Logger.info("Synced #{total_count} items for library #{library.name}")
             {:ok, total_count, []}
 
           errs ->
-            Logger.warning("Synced #{total_count} items for library #{library.name} with #{length(errs)} errors")
+            Logger.warning(
+              "Synced #{total_count} items for library #{library.name} with #{length(errs)} errors"
+            )
+
             {:partial, total_count, errs}
         end
       rescue
@@ -505,26 +488,26 @@ defmodule StreamystatServer.Jellyfin.Sync do
 
       {:error, reason} ->
         if metrics_agent, do: update_metrics(metrics_agent, %{errors: [inspect(reason)]})
-        Logger.error("Failed to sync items for Jellyfin library #{jellyfin_library_id}: #{inspect(reason)}")
+
+        Logger.error(
+          "Failed to sync items for Jellyfin library #{jellyfin_library_id}: #{inspect(reason)}"
+        )
+
         {:error, 0, [inspect(reason)]}
     end
   end
 
-
-
   defp update_metrics(nil, _updates), do: :ok
+
   defp update_metrics(agent, updates) do
     Agent.update(agent, fn metrics ->
       Map.merge(metrics, updates, fn _k, v1, v2 ->
-
         if is_integer(v1) and is_integer(v2) do
           v1 + v2
         else
-
           if is_list(v1) and is_list(v2) do
             v1 ++ v2
           else
-
             v2
           end
         end
@@ -619,34 +602,43 @@ defmodule StreamystatServer.Jellyfin.Sync do
 
     backdrop_image_tags = jellyfin_item["BackdropImageTags"]
 
-    name = case sanitize_string(jellyfin_item["Name"]) do
-      nil ->
-        # Try to use a sensible fallback based on other item properties
-        cond do
-          is_binary(jellyfin_item["OriginalTitle"]) and jellyfin_item["OriginalTitle"] != "" ->
-            sanitize_string(jellyfin_item["OriginalTitle"])
-          is_binary(jellyfin_item["SeriesName"]) and jellyfin_item["SeriesName"] != "" ->
-            "#{sanitize_string(jellyfin_item["SeriesName"])} - Unknown Episode"
-          is_binary(jellyfin_item["Type"]) ->
-            "Untitled #{jellyfin_item["Type"]}"
-          true ->
-            "Untitled Item"
-        end
-      "" ->
-        # Same fallback logic for empty strings
-        cond do
-          is_binary(jellyfin_item["OriginalTitle"]) and jellyfin_item["OriginalTitle"] != "" ->
-            sanitize_string(jellyfin_item["OriginalTitle"])
-          is_binary(jellyfin_item["SeriesName"]) and jellyfin_item["SeriesName"] != "" ->
-            "#{sanitize_string(jellyfin_item["SeriesName"])} - Unknown Episode"
-          is_binary(jellyfin_item["Type"]) ->
-            "Untitled #{jellyfin_item["Type"]}"
-          true ->
-            "Untitled Item"
-        end
-      valid_name ->
-        valid_name
-    end
+    name =
+      case sanitize_string(jellyfin_item["Name"]) do
+        nil ->
+          # Try to use a sensible fallback based on other item properties
+          cond do
+            is_binary(jellyfin_item["OriginalTitle"]) and jellyfin_item["OriginalTitle"] != "" ->
+              sanitize_string(jellyfin_item["OriginalTitle"])
+
+            is_binary(jellyfin_item["SeriesName"]) and jellyfin_item["SeriesName"] != "" ->
+              "#{sanitize_string(jellyfin_item["SeriesName"])} - Unknown Episode"
+
+            is_binary(jellyfin_item["Type"]) ->
+              "Untitled #{jellyfin_item["Type"]}"
+
+            true ->
+              "Untitled Item"
+          end
+
+        "" ->
+          # Same fallback logic for empty strings
+          cond do
+            is_binary(jellyfin_item["OriginalTitle"]) and jellyfin_item["OriginalTitle"] != "" ->
+              sanitize_string(jellyfin_item["OriginalTitle"])
+
+            is_binary(jellyfin_item["SeriesName"]) and jellyfin_item["SeriesName"] != "" ->
+              "#{sanitize_string(jellyfin_item["SeriesName"])} - Unknown Episode"
+
+            is_binary(jellyfin_item["Type"]) ->
+              "Untitled #{jellyfin_item["Type"]}"
+
+            true ->
+              "Untitled Item"
+          end
+
+        valid_name ->
+          valid_name
+      end
 
     %{
       jellyfin_id: jellyfin_item["Id"],

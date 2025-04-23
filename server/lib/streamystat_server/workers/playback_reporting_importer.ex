@@ -34,19 +34,30 @@ defmodule StreamystatServer.Workers.PlaybackReportingImporter do
   @impl true
   def handle_cast({:import, server_id, data, file_type}, state) do
     if state.importing do
-      Logger.info("Playback Reporting import already in progress for server_id: #{state.current_server_id}, skipping new request for server_id: #{server_id}")
+      Logger.info(
+        "Playback Reporting import already in progress for server_id: #{state.current_server_id}, skipping new request for server_id: #{server_id}"
+      )
+
       {:noreply, state}
     else
       data_size = if is_binary(data), do: String.length(data), else: "unknown"
-      Logger.info("Starting Playback Reporting import for server_id: #{server_id} with file type: #{file_type}, data size: #{data_size} bytes")
+
+      Logger.info(
+        "Starting Playback Reporting import for server_id: #{server_id} with file type: #{file_type}, data size: #{data_size} bytes"
+      )
 
       # Spawn the import process
-      task = Task.async(fn ->
-        Logger.info("Import task started for server_id: #{server_id}")
-        result = do_import(server_id, data, file_type)
-        Logger.info("Import task completed for server_id: #{server_id} with result: #{inspect(result)}")
-        result
-      end)
+      task =
+        Task.async(fn ->
+          Logger.info("Import task started for server_id: #{server_id}")
+          result = do_import(server_id, data, file_type)
+
+          Logger.info(
+            "Import task completed for server_id: #{server_id} with result: #{inspect(result)}"
+          )
+
+          result
+        end)
 
       # Monitor the task for failures
       Process.monitor(task.pid)
@@ -58,7 +69,10 @@ defmodule StreamystatServer.Workers.PlaybackReportingImporter do
 
   @impl true
   def handle_cast({:import_complete, result}, state) do
-    Logger.info("Playback Reporting import completed for server_id: #{state.current_server_id}, result: #{inspect(result)}")
+    Logger.info(
+      "Playback Reporting import completed for server_id: #{state.current_server_id}, result: #{inspect(result)}"
+    )
+
     {:noreply, %{state | importing: false, current_server_id: nil}}
   end
 
@@ -87,13 +101,18 @@ defmodule StreamystatServer.Workers.PlaybackReportingImporter do
         Logger.info("Found server: #{server.name} (ID: #{server.id})")
 
         # Process data based on file type
-        activities = case file_type do
-          "json" -> decode_json_data(data)
-          "tsv" -> parse_tsv_data(data)
-          _ ->
-            Logger.error("Unsupported file type: #{file_type}")
-            []
-        end
+        activities =
+          case file_type do
+            "json" ->
+              decode_json_data(data)
+
+            "tsv" ->
+              parse_tsv_data(data)
+
+            _ ->
+              Logger.error("Unsupported file type: #{file_type}")
+              []
+          end
 
         # Process the data sections
         process_playback_activities_batch(server, activities)
@@ -116,6 +135,7 @@ defmodule StreamystatServer.Workers.PlaybackReportingImporter do
         # Log the structure to help debug
         Logger.debug("Decoded JSON structure: #{inspect(decoded, pretty: true)}")
         decoded
+
       {:error, error} ->
         Logger.error("Failed to decode JSON data: #{inspect(error)}")
         []
@@ -142,30 +162,42 @@ defmodule StreamystatServer.Workers.PlaybackReportingImporter do
     Logger.debug("Sample lines: #{inspect(sample_lines)}")
 
     # Process each line into a map
-    parsed_activities = Enum.map(lines, fn line ->
-      fields = String.split(line, "\t")
-      Logger.debug("Line has #{length(fields)} fields: #{inspect(fields)}")
+    parsed_activities =
+      Enum.map(lines, fn line ->
+        fields = String.split(line, "\t")
+        Logger.debug("Line has #{length(fields)} fields: #{inspect(fields)}")
 
-      # Check if we have enough fields - adjust based on your TSV format
-      case fields do
-        [date, user_id, item_id, item_type, item_name, playback_method, client_name, device_name, play_duration | _rest] ->
-          %{
-            "DateCreated" => date,
-            "UserId" => user_id,
-            "ItemId" => item_id,
-            "ItemType" => item_type,
-            "ItemName" => item_name,
-            "PlaybackMethod" => playback_method,
-            "ClientName" => client_name,
-            "DeviceName" => device_name,
-            "PlayDuration" => play_duration
-          }
-        _ ->
-          Logger.warning("Skipping invalid TSV line: #{line}")
-          nil
-      end
-    end)
-    |> Enum.reject(&is_nil/1)
+        # Check if we have enough fields - adjust based on your TSV format
+        case fields do
+          [
+            date,
+            user_id,
+            item_id,
+            item_type,
+            item_name,
+            playback_method,
+            client_name,
+            device_name,
+            play_duration | _rest
+          ] ->
+            %{
+              "DateCreated" => date,
+              "UserId" => user_id,
+              "ItemId" => item_id,
+              "ItemType" => item_type,
+              "ItemName" => item_name,
+              "PlaybackMethod" => playback_method,
+              "ClientName" => client_name,
+              "DeviceName" => device_name,
+              "PlayDuration" => play_duration
+            }
+
+          _ ->
+            Logger.warning("Skipping invalid TSV line: #{line}")
+            nil
+        end
+      end)
+      |> Enum.reject(&is_nil/1)
 
     Logger.info("Successfully parsed #{length(parsed_activities)} activities from TSV data")
 
@@ -184,26 +216,30 @@ defmodule StreamystatServer.Workers.PlaybackReportingImporter do
 
     try do
       # Process in smaller batches to prevent crashes
-      results = activities
-      |> Enum.chunk_every(@batch_size)
-      |> Enum.reduce(%{created: 0, updated: 0, skipped: 0, errors: 0}, fn batch, acc ->
-        # Add error handling with retry logic around each batch
-        case safe_process_batch(server, batch, acc) do
-          {:ok, batch_results} ->
-            # Combine results from this batch with overall results
-            %{
-              created: acc.created + batch_results.created,
-              updated: acc.updated + batch_results.updated,
-              skipped: acc.skipped + batch_results.skipped,
-              errors: acc.errors + batch_results.errors
-            }
-          {:error, _reason} ->
-            # Just count the entire batch as errors
-            %{acc | errors: acc.errors + length(batch)}
-        end
-      end)
+      results =
+        activities
+        |> Enum.chunk_every(@batch_size)
+        |> Enum.reduce(%{created: 0, updated: 0, skipped: 0, errors: 0}, fn batch, acc ->
+          # Add error handling with retry logic around each batch
+          case safe_process_batch(server, batch, acc) do
+            {:ok, batch_results} ->
+              # Combine results from this batch with overall results
+              %{
+                created: acc.created + batch_results.created,
+                updated: acc.updated + batch_results.updated,
+                skipped: acc.skipped + batch_results.skipped,
+                errors: acc.errors + batch_results.errors
+              }
 
-      Logger.info("Processed #{length(activities)} playback activities: created=#{results.created}, updated=#{results.updated}, skipped=#{results.skipped}, errors=#{results.errors}")
+            {:error, _reason} ->
+              # Just count the entire batch as errors
+              %{acc | errors: acc.errors + length(batch)}
+          end
+        end)
+
+      Logger.info(
+        "Processed #{length(activities)} playback activities: created=#{results.created}, updated=#{results.updated}, skipped=#{results.skipped}, errors=#{results.errors}"
+      )
 
       results
     rescue
@@ -213,17 +249,25 @@ defmodule StreamystatServer.Workers.PlaybackReportingImporter do
     end
   end
 
-  defp process_playback_activities_batch(_, _), do: %{created: 0, updated: 0, skipped: 0, errors: 0}
+  defp process_playback_activities_batch(_, _),
+    do: %{created: 0, updated: 0, skipped: 0, errors: 0}
 
   # Safely load users in a separate transaction
   defp safely_load_users(server) do
     try do
-      users_map = Repo.transaction(fn ->
-        users_query = from u in User,
-                  where: u.server_id == ^server.id,
-                  select: {u.jellyfin_id, u}
-        Repo.all(users_query, timeout: @db_timeout)
-      end, timeout: @db_timeout)
+      users_map =
+        Repo.transaction(
+          fn ->
+            users_query =
+              from(u in User,
+                where: u.server_id == ^server.id,
+                select: {u.jellyfin_id, u}
+              )
+
+            Repo.all(users_query, timeout: @db_timeout)
+          end,
+          timeout: @db_timeout
+        )
 
       case users_map do
         {:ok, results} -> {:ok, Map.new(results)}
@@ -239,12 +283,19 @@ defmodule StreamystatServer.Workers.PlaybackReportingImporter do
   # Safely load items in a separate transaction
   defp safely_load_items(server) do
     try do
-      items_map = Repo.transaction(fn ->
-        items_query = from i in Item,
-                    where: i.server_id == ^server.id,
-                    select: {i.jellyfin_id, i}
-        Repo.all(items_query, timeout: @db_timeout)
-      end, timeout: @db_timeout)
+      items_map =
+        Repo.transaction(
+          fn ->
+            items_query =
+              from(i in Item,
+                where: i.server_id == ^server.id,
+                select: {i.jellyfin_id, i}
+              )
+
+            Repo.all(items_query, timeout: @db_timeout)
+          end,
+          timeout: @db_timeout
+        )
 
       case items_map do
         {:ok, results} -> {:ok, Map.new(results)}
@@ -262,7 +313,6 @@ defmodule StreamystatServer.Workers.PlaybackReportingImporter do
     # Preload users and items in separate transactions
     with {:ok, users_map} <- safely_load_users(server),
          {:ok, items_map} <- safely_load_items(server) do
-
       # Process the batch with the loaded maps
       try do
         results = process_playback_batch(server, batch, users_map, items_map)
@@ -270,6 +320,7 @@ defmodule StreamystatServer.Workers.PlaybackReportingImporter do
       rescue
         e in DBConnection.ConnectionError ->
           handle_db_error(e, server, batch, retry_count)
+
         e ->
           Logger.error("Error processing batch: #{inspect(e, pretty: true)}")
           Logger.error(Exception.format_stacktrace())
@@ -287,77 +338,107 @@ defmodule StreamystatServer.Workers.PlaybackReportingImporter do
 
     if retry_count < max_retries do
       # Wait a bit before retrying (with exponential backoff)
-      backoff = :math.pow(2, retry_count) * 1000 |> round()
-      Logger.warning("Database error, retrying batch in #{backoff}ms (attempt #{retry_count + 1}/#{max_retries}): #{inspect(error.message)}")
+      backoff = (:math.pow(2, retry_count) * 1000) |> round()
+
+      Logger.warning(
+        "Database error, retrying batch in #{backoff}ms (attempt #{retry_count + 1}/#{max_retries}): #{inspect(error.message)}"
+      )
 
       :timer.sleep(backoff)
       safe_process_batch(server, batch, %{}, retry_count + 1)
     else
-      Logger.error("Failed to process batch after #{max_retries} attempts: #{inspect(error.message)}")
+      Logger.error(
+        "Failed to process batch after #{max_retries} attempts: #{inspect(error.message)}"
+      )
+
       {:error, error}
     end
   end
 
   defp process_playback_batch(server, activities, users_map, items_map) do
     # Get the item and user ids directly
-    item_ids = Enum.map(activities, fn activity ->
-      activity["ItemId"]
-    end)
-    |> Enum.reject(&is_nil/1)
+    item_ids =
+      Enum.map(activities, fn activity ->
+        activity["ItemId"]
+      end)
+      |> Enum.reject(&is_nil/1)
 
-    user_ids = Enum.map(activities, fn activity -> activity["UserId"] end)
-    |> Enum.reject(&is_nil/1)
-    |> Enum.reject(&(&1 == ""))
+    user_ids =
+      Enum.map(activities, fn activity -> activity["UserId"] end)
+      |> Enum.reject(&is_nil/1)
+      |> Enum.reject(&(&1 == ""))
 
     # Skip the query if we have no valid IDs
-    existing_sessions = if Enum.empty?(item_ids) do
-      %{}
-    else
-      # Query for existing sessions in a smaller transaction
-      try do
-        query_result = Repo.transaction(fn ->
-          existing_query =
-            if Enum.empty?(user_ids) do
-              # Handle anonymous sessions where UserId might be empty
-              from s in PlaybackSession,
-              where: s.server_id == ^server.id and
-                    s.item_jellyfin_id in ^item_ids,
-              select: {s.item_jellyfin_id, s.start_time, s}
-            else
-              from s in PlaybackSession,
-              where: s.server_id == ^server.id and
-                    s.item_jellyfin_id in ^item_ids and
-                    s.user_jellyfin_id in ^user_ids,
-              select: {s.item_jellyfin_id, s.user_jellyfin_id, s.start_time, s}
-            end
+    existing_sessions =
+      if Enum.empty?(item_ids) do
+        %{}
+      else
+        # Query for existing sessions in a smaller transaction
+        try do
+          query_result =
+            Repo.transaction(
+              fn ->
+                existing_query =
+                  if Enum.empty?(user_ids) do
+                    # Handle anonymous sessions where UserId might be empty
+                    from(s in PlaybackSession,
+                      where:
+                        s.server_id == ^server.id and
+                          s.item_jellyfin_id in ^item_ids,
+                      select: {s.item_jellyfin_id, s.start_time, s}
+                    )
+                  else
+                    from(s in PlaybackSession,
+                      where:
+                        s.server_id == ^server.id and
+                          s.item_jellyfin_id in ^item_ids and
+                          s.user_jellyfin_id in ^user_ids,
+                      select: {s.item_jellyfin_id, s.user_jellyfin_id, s.start_time, s}
+                    )
+                  end
 
-          Repo.all(existing_query, timeout: @db_timeout)
-        end, timeout: @db_timeout)
+                Repo.all(existing_query, timeout: @db_timeout)
+              end,
+              timeout: @db_timeout
+            )
 
-        case query_result do
-          {:ok, existing_sessions_list} ->
-            # Convert to map for easier lookup
-            Enum.reduce(existing_sessions_list, %{}, fn
-              {item_id, user_id, start_time, session}, acc when is_binary(user_id) ->
-                Map.put(acc, {item_id, user_id, start_time}, session)
-              {item_id, start_time, session}, acc ->
-                Map.put(acc, {item_id, start_time}, session)
-            end)
-          _ -> %{}
+          case query_result do
+            {:ok, existing_sessions_list} ->
+              # Convert to map for easier lookup
+              Enum.reduce(existing_sessions_list, %{}, fn
+                {item_id, user_id, start_time, session}, acc when is_binary(user_id) ->
+                  Map.put(acc, {item_id, user_id, start_time}, session)
+
+                {item_id, start_time, session}, acc ->
+                  Map.put(acc, {item_id, start_time}, session)
+              end)
+
+            _ ->
+              %{}
+          end
+        rescue
+          e ->
+            Logger.error("Error querying existing sessions: #{inspect(e)}")
+            %{}
         end
-      rescue
-        e ->
-          Logger.error("Error querying existing sessions: #{inspect(e)}")
-          %{}
       end
-    end
 
     # Process each activity using smaller transactions
     Enum.reduce(activities, %{created: 0, updated: 0, skipped: 0, errors: 0}, fn activity, acc ->
       try do
-        result = Repo.transaction(fn ->
-          create_playback_session_from_report(server, activity, users_map, items_map, existing_sessions)
-        end, timeout: @db_timeout)
+        result =
+          Repo.transaction(
+            fn ->
+              create_playback_session_from_report(
+                server,
+                activity,
+                users_map,
+                items_map,
+                existing_sessions
+              )
+            end,
+            timeout: @db_timeout
+          )
 
         case result do
           {:ok, {:ok, :created, _}} -> Map.update!(acc, :created, &(&1 + 1))
@@ -371,9 +452,16 @@ defmodule StreamystatServer.Workers.PlaybackReportingImporter do
     end)
   end
 
-  defp create_playback_session_from_report(server, activity, users_map, items_map, existing_sessions) do
+  defp create_playback_session_from_report(
+         server,
+         activity,
+         users_map,
+         items_map,
+         existing_sessions
+       ) do
     try do
       user_jellyfin_id = activity["UserId"]
+
       user =
         if user_jellyfin_id && user_jellyfin_id != "" do
           Map.get(users_map, user_jellyfin_id)
@@ -382,6 +470,7 @@ defmodule StreamystatServer.Workers.PlaybackReportingImporter do
         end
 
       activity_date = parse_date(activity["DateCreated"])
+
       play_duration =
         case activity["PlayDuration"] do
           duration when is_binary(duration) -> String.to_integer(duration)
@@ -409,7 +498,7 @@ defmodule StreamystatServer.Workers.PlaybackReportingImporter do
           # Convert play_duration from seconds to ticks for comparison
           play_duration_ticks = play_duration * 10_000
           # Calculate percentage
-          (play_duration_ticks / runtime_ticks) * 100.0
+          play_duration_ticks / runtime_ticks * 100.0
         else
           # Default to 0 if we can't calculate
           0.0
@@ -431,7 +520,8 @@ defmodule StreamystatServer.Workers.PlaybackReportingImporter do
       attrs = %{
         user_id: user && user.id,
         user_jellyfin_id: if(user_jellyfin_id == "", do: nil, else: user_jellyfin_id),
-        device_id: nil, # Not provided in Playback Reporting
+        # Not provided in Playback Reporting
+        device_id: nil,
         device_name: activity["DeviceName"] || "",
         client_name: activity["ClientName"],
         item_jellyfin_id: item_jellyfin_id,
@@ -443,7 +533,8 @@ defmodule StreamystatServer.Workers.PlaybackReportingImporter do
         play_method: play_method,
         start_time: activity_date,
         end_time: end_time,
-        position_ticks: nil, # Not provided in Playback Reporting
+        # Not provided in Playback Reporting
+        position_ticks: nil,
         runtime_ticks: runtime_ticks,
         percent_complete: percent_complete,
         completed: completed,
@@ -461,13 +552,15 @@ defmodule StreamystatServer.Workers.PlaybackReportingImporter do
       existing_session = Map.get(existing_sessions, existing_key)
 
       if is_nil(existing_session) do
-        result = %PlaybackSession{}
-        |> PlaybackSession.changeset(attrs)
-        |> Repo.insert(timeout: @db_timeout)
+        result =
+          %PlaybackSession{}
+          |> PlaybackSession.changeset(attrs)
+          |> Repo.insert(timeout: @db_timeout)
 
         case result do
           {:ok, session} ->
             {:ok, :created, session}
+
           {:error, changeset} ->
             Logger.error("Failed to create playback session: #{inspect(changeset.errors)}")
             {:error, changeset}
@@ -475,13 +568,15 @@ defmodule StreamystatServer.Workers.PlaybackReportingImporter do
       else
         # Only update if the new data has more information
         if should_update_session?(existing_session, attrs) do
-          result = existing_session
-          |> PlaybackSession.changeset(attrs)
-          |> Repo.update(timeout: @db_timeout)
+          result =
+            existing_session
+            |> PlaybackSession.changeset(attrs)
+            |> Repo.update(timeout: @db_timeout)
 
           case result do
             {:ok, session} ->
               {:ok, :updated, session}
+
             {:error, changeset} ->
               Logger.error("Failed to update playback session: #{inspect(changeset.errors)}")
               {:error, changeset}
@@ -498,12 +593,14 @@ defmodule StreamystatServer.Workers.PlaybackReportingImporter do
   # Helper to map Playback Reporting's PlaybackMethod to our format
   defp map_playback_method("DirectPlay"), do: "Direct"
   defp map_playback_method("DirectStream"), do: "DirectStream"
+
   defp map_playback_method(method) when is_binary(method) do
     cond do
       String.starts_with?(method, "Transcode") -> "Transcode"
       true -> method
     end
   end
+
   defp map_playback_method(_), do: "Unknown"
 
   # Extract series name from the item name for TV episodes
@@ -513,6 +610,7 @@ defmodule StreamystatServer.Workers.PlaybackReportingImporter do
       _ -> {nil, item_name}
     end
   end
+
   defp extract_series_info(item_name, _), do: {nil, item_name}
 
   # Helper functions
@@ -527,10 +625,13 @@ defmodule StreamystatServer.Workers.PlaybackReportingImporter do
   end
 
   defp parse_date(nil), do: nil
+
   defp parse_date(date) when is_binary(date) do
     # Try ISO8601 format first
     case DateTime.from_iso8601(date) do
-      {:ok, dt, _} -> dt
+      {:ok, dt, _} ->
+        dt
+
       {:error, _} ->
         # Try SQL Server datetime format
         case NaiveDateTime.from_iso8601(date) do
@@ -539,18 +640,23 @@ defmodule StreamystatServer.Workers.PlaybackReportingImporter do
               {:ok, dt} -> dt
               _ -> nil
             end
+
           _ ->
             # Try SQL Server datetime format with milliseconds
             date_pattern = ~r/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})\.(\d+)$/
+
             case Regex.run(date_pattern, date) do
               [_, year, month, day, hour, minute, second, ms] ->
                 # Build the datetime string
                 iso_string = "#{year}-#{month}-#{day}T#{hour}:#{minute}:#{second}.#{ms}Z"
+
                 case DateTime.from_iso8601(iso_string) do
                   {:ok, dt, _} -> dt
                   _ -> nil
                 end
-              _ -> nil
+
+              _ ->
+                nil
             end
         end
     end

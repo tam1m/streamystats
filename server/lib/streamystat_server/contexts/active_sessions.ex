@@ -33,9 +33,10 @@ defmodule StreamystatServer.Contexts.ActiveSessions do
     raw_sessions = SessionPoller.get_active_sessions(server_id)
 
     # Filter sessions for this specific user
-    user_sessions = Enum.filter(raw_sessions, fn session ->
-      session.user_id == user_jellyfin_id
-    end)
+    user_sessions =
+      Enum.filter(raw_sessions, fn session ->
+        session.user_id == user_jellyfin_id
+      end)
 
     # Enrich sessions with user and item data
     Enum.map(user_sessions, fn session ->
@@ -50,6 +51,7 @@ defmodule StreamystatServer.Contexts.ActiveSessions do
       _ -> server_id
     end
   end
+
   defp parse_server_id(server_id), do: server_id
 
   # Enriches session data with user and item information from the database
@@ -62,27 +64,33 @@ defmodule StreamystatServer.Contexts.ActiveSessions do
     |> Map.put(:item, format_item(item))
     |> Map.put(:formatted_position, format_ticks_as_time(session.position_ticks))
     |> Map.put(:formatted_runtime, format_ticks_as_time(session.runtime_ticks))
-    |> Map.put(:progress_percent, calculate_progress_percent(session.position_ticks, session.runtime_ticks))
+    |> Map.put(
+      :progress_percent,
+      calculate_progress_percent(session.position_ticks, session.runtime_ticks)
+    )
   end
 
   # Gets user data from database
   defp get_user(user_jellyfin_id, server_id) do
     Repo.one(
-      from u in User,
-      where: u.jellyfin_id == ^user_jellyfin_id and u.server_id == ^server_id
+      from(u in User,
+        where: u.jellyfin_id == ^user_jellyfin_id and u.server_id == ^server_id
+      )
     )
   end
 
   # Gets item data from database
   defp get_item(item_jellyfin_id, server_id) do
     Repo.one(
-      from i in Item,
-      where: i.jellyfin_id == ^item_jellyfin_id and i.server_id == ^server_id
+      from(i in Item,
+        where: i.jellyfin_id == ^item_jellyfin_id and i.server_id == ^server_id
+      )
     )
   end
 
   # Formats user data for API response
   defp format_user(nil), do: nil
+
   defp format_user(user) do
     %{
       id: user.id,
@@ -93,6 +101,7 @@ defmodule StreamystatServer.Contexts.ActiveSessions do
 
   # Formats item data for API response
   defp format_item(nil), do: nil
+
   defp format_item(item) do
     %{
       id: item.id,
@@ -119,13 +128,16 @@ defmodule StreamystatServer.Contexts.ActiveSessions do
     seconds = rem(total_seconds, 60)
     "#{pad_time(hours)}:#{pad_time(minutes)}:#{pad_time(seconds)}"
   end
+
   defp format_ticks_as_time(_), do: "00:00:00"
 
   defp pad_time(time), do: String.pad_leading("#{time}", 2, "0")
 
   # Calculates progress percentage
-  defp calculate_progress_percent(position_ticks, runtime_ticks) when is_integer(position_ticks) and is_integer(runtime_ticks) and runtime_ticks > 0 do
+  defp calculate_progress_percent(position_ticks, runtime_ticks)
+       when is_integer(position_ticks) and is_integer(runtime_ticks) and runtime_ticks > 0 do
     (position_ticks / runtime_ticks * 100) |> Float.round(1)
   end
+
   defp calculate_progress_percent(_, _), do: 0.0
 end

@@ -10,7 +10,6 @@ defmodule StreamystatServerWeb.TautulliImportController do
          {:ok, tautulli_url} <- extract_param(params, "tautulli_url"),
          {:ok, api_key} <- extract_param(params, "api_key"),
          {:ok, mappings} <- parse_mappings(params["mappings"]) do
-
       Logger.info("Starting Tautulli import for server #{server_id}")
       Logger.info("Using Tautulli URL: #{tautulli_url}")
       Logger.info("Mappings configured: #{inspect(mappings, pretty: true)}")
@@ -39,6 +38,7 @@ defmodule StreamystatServerWeb.TautulliImportController do
     case Map.fetch(params, key) do
       {:ok, value} when is_binary(value) and value != "" ->
         {:ok, value}
+
       _ ->
         {:error, "Missing or invalid parameter: #{key}"}
     end
@@ -53,16 +53,18 @@ defmodule StreamystatServerWeb.TautulliImportController do
     Logger.info("Parsed library mappings: #{inspect(library_mappings, pretty: true)}")
     Logger.info("Parsed user mappings: #{inspect(user_mappings, pretty: true)}")
 
-    {:ok, %{
-      library_mappings: library_mappings,
-      user_mappings: user_mappings
-    }}
+    {:ok,
+     %{
+       library_mappings: library_mappings,
+       user_mappings: user_mappings
+     }}
   end
 
   defp parse_mappings(mappings) when is_binary(mappings) do
     case Jason.decode(mappings) do
       {:ok, decoded} ->
         parse_mappings(decoded)
+
       {:error, _} ->
         Logger.error("Failed to parse mappings JSON: #{mappings}")
         {:error, "Invalid JSON format for mappings"}

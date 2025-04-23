@@ -27,6 +27,7 @@ defmodule StreamystatServerWeb.ActiveSessionsJSON do
   end
 
   defp format_datetime(nil), do: nil
+
   defp format_datetime(datetime) do
     datetime
     |> DateTime.truncate(:second)

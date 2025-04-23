@@ -33,6 +33,7 @@ defmodule StreamystatServer.Workers.TautulliImporter do
       {:ok, parsed} ->
         Logger.info("Successfully parsed JSON mapping: #{inspect(parsed, pretty: true)}")
         parsed
+
       {:error, error} ->
         Logger.error("Failed to parse JSON mapping: #{inspect(error)}")
         []
@@ -95,21 +96,25 @@ defmodule StreamystatServer.Workers.TautulliImporter do
   # Preload User objects for all user mappings
   defp preload_user_mappings(%{user_mappings: mappings} = all_mappings) when is_list(mappings) do
     # Convert mappings to include the actual User objects
-    loaded_mappings = Enum.map(mappings, fn mapping ->
-      case mapping do
-        %{"jellyfinUserId" => user_db_id} ->
-          # Fetch the User record to get the jellyfin_id
-          case Repo.get(User, user_db_id) do
-            %User{} = user ->
-              Logger.info("Found user with ID #{user_db_id} - jellyfin_id: #{user.jellyfin_id}")
-              Map.put(mapping, "user", user)
-            nil ->
-              Logger.warning("User with ID #{user_db_id} not found in database")
-              mapping
-          end
-        _ -> mapping
-      end
-    end)
+    loaded_mappings =
+      Enum.map(mappings, fn mapping ->
+        case mapping do
+          %{"jellyfinUserId" => user_db_id} ->
+            # Fetch the User record to get the jellyfin_id
+            case Repo.get(User, user_db_id) do
+              %User{} = user ->
+                Logger.info("Found user with ID #{user_db_id} - jellyfin_id: #{user.jellyfin_id}")
+                Map.put(mapping, "user", user)
+
+              nil ->
+                Logger.warning("User with ID #{user_db_id} not found in database")
+                mapping
+            end
+
+          _ ->
+            mapping
+        end
+      end)
 
     Map.put(all_mappings, :user_mappings, loaded_mappings)
   end
@@ -124,17 +129,34 @@ defmodule StreamystatServer.Workers.TautulliImporter do
     Logger.info("Starting Tautulli data import for server: #{server.name}")
     Logger.info("Using mappings: #{inspect(mappings, pretty: true)}")
 
-    fetch_page_and_continue(server, tautulli_url, api_key, start, length, total_processed, mappings)
+    fetch_page_and_continue(
+      server,
+      tautulli_url,
+      api_key,
+      start,
+      length,
+      total_processed,
+      mappings
+    )
   end
 
-  defp fetch_page_and_continue(server, tautulli_url, api_key, start, length, total_processed, mappings) do
-    url = "#{tautulli_url}/api/v2?apikey=#{api_key}&cmd=get_history&start=#{start}&length=#{length}"
+  defp fetch_page_and_continue(
+         server,
+         tautulli_url,
+         api_key,
+         start,
+         length,
+         total_processed,
+         mappings
+       ) do
+    url =
+      "#{tautulli_url}/api/v2?apikey=#{api_key}&cmd=get_history&start=#{start}&length=#{length}"
+
     Logger.debug("Fetching Tautulli data from: #{url}")
 
     with {:ok, %HTTPoison.Response{status_code: 200, body: body}} <- HTTPoison.get(url),
          {:ok, response} <- Jason.decode(body),
          %{"response" => %{"data" => %{"data" => records}}} <- response do
-
       # Log sample of records for debugging
       if start == 0 do
         sample = Enum.take(records, 2)
@@ -147,12 +169,22 @@ defmodule StreamystatServer.Workers.TautulliImporter do
       records_count = length(records)
       new_total = total_processed + records_count
 
-      Logger.info("Processed #{records_count} records from Tautulli (success: #{success}, errors: #{error}, skipped: #{skipped}, total processed: #{new_total})")
+      Logger.info(
+        "Processed #{records_count} records from Tautulli (success: #{success}, errors: #{error}, skipped: #{skipped}, total processed: #{new_total})"
+      )
 
       # If we got a full page, there might be more data
       if records_count == length do
         # Continue with the next page
-        fetch_page_and_continue(server, tautulli_url, api_key, start + length, length, new_total, mappings)
+        fetch_page_and_continue(
+          server,
+          tautulli_url,
+          api_key,
+          start + length,
+          length,
+          new_total,
+          mappings
+        )
       else
         Logger.info("Tautulli import completed. Total records imported: #{new_total}")
       end
@@ -170,19 +202,23 @@ defmodule StreamystatServer.Workers.TautulliImporter do
 
   defp process_records(server, records, mappings) do
     # Track success, error, and skipped counts
-    results = Repo.transaction(fn ->
-      Enum.reduce(records, {0, 0, 0}, fn record, {success, error, skipped} ->
-        case safe_create_playback_session(server, record, mappings) do
-          {:ok, _} -> {success + 1, error, skipped}
-          {:skip, reason} ->
-            Logger.info("Skipped record: #{reason}")
-            {success, error, skipped + 1}
-          {:error, reason} ->
-            Logger.warning("Failed to process record: #{inspect(reason)}")
-            {success, error + 1, skipped}
-        end
+    results =
+      Repo.transaction(fn ->
+        Enum.reduce(records, {0, 0, 0}, fn record, {success, error, skipped} ->
+          case safe_create_playback_session(server, record, mappings) do
+            {:ok, _} ->
+              {success + 1, error, skipped}
+
+            {:skip, reason} ->
+              Logger.info("Skipped record: #{reason}")
+              {success, error, skipped + 1}
+
+            {:error, reason} ->
+              Logger.warning("Failed to process record: #{inspect(reason)}")
+              {success, error + 1, skipped}
+          end
+        end)
       end)
-    end)
 
     case results do
       {:ok, counts} -> counts
@@ -213,13 +249,16 @@ defmodule StreamystatServer.Workers.TautulliImporter do
     case get_user_and_jellyfin_id(tautulli_user_id, mappings) do
       {:ok, user, jellyfin_user_id} ->
         # Continue with the import using this user
-        Logger.info("User mapping: Tautulli ID #{tautulli_user_id} -> User ID #{user.id} -> Jellyfin ID #{jellyfin_user_id}")
+        Logger.info(
+          "User mapping: Tautulli ID #{tautulli_user_id} -> User ID #{user.id} -> Jellyfin ID #{jellyfin_user_id}"
+        )
 
         # For items and series, we just use a placeholder ID for now
         # In a real implementation, this is where you would use your mapping logic
         # to find the correct Jellyfin IDs for these items
         tautulli_item_id = record["rating_key"]
-        jellyfin_item_id = "tautulli_item_#{tautulli_item_id}"  # Just a placeholder
+        # Just a placeholder
+        jellyfin_item_id = "tautulli_item_#{tautulli_item_id}"
 
         Logger.info("Item mapping: Using placeholder jellyfin_item_id: #{jellyfin_item_id}")
 
@@ -236,12 +275,15 @@ defmodule StreamystatServer.Workers.TautulliImporter do
 
         # Map Tautulli record to our PlaybackSession schema
         attrs = %{
-          user_id: user.id,                     # Set user_id from our database
-          user_jellyfin_id: jellyfin_user_id,   # Use the real jellyfin_id
+          # Set user_id from our database
+          user_id: user.id,
+          # Use the real jellyfin_id
+          user_jellyfin_id: jellyfin_user_id,
           device_id: record["machine_id"] || generate_fallback_device_id(record),
           device_name: record["platform"] || "Unknown Platform",
           client_name: record["player"] || "Unknown Player",
-          item_jellyfin_id: jellyfin_item_id,   # Use the placeholder for now
+          # Use the placeholder for now
+          item_jellyfin_id: jellyfin_item_id,
           item_name: record["full_title"] || "Unknown Title",
           series_jellyfin_id: jellyfin_series_id,
           series_name: record["grandparent_title"],
@@ -254,24 +296,36 @@ defmodule StreamystatServer.Workers.TautulliImporter do
           position_ticks: nil,
           runtime_ticks: nil,
           percent_complete: record["percent_complete"] || 0,
-          completed: (record["percent_complete"] || 0) >= 90  # Consider completed if >90%
+          # Consider completed if >90%
+          completed: (record["percent_complete"] || 0) >= 90
         }
 
         # Log the mapped attributes
         Logger.debug("Mapped to PlaybackSession: #{inspect(attrs, pretty: true)}")
 
         # Find or create the playback session
-        case find_existing_session(server.id, attrs.item_jellyfin_id, attrs.user_jellyfin_id, attrs.start_time) do
+        case find_existing_session(
+               server.id,
+               attrs.item_jellyfin_id,
+               attrs.user_jellyfin_id,
+               attrs.start_time
+             ) do
           nil ->
             Logger.debug("Creating new PlaybackSession")
-            result = %PlaybackSession{}
-            |> PlaybackSession.changeset(attrs)
-            |> Repo.insert()
+
+            result =
+              %PlaybackSession{}
+              |> PlaybackSession.changeset(attrs)
+              |> Repo.insert()
 
             case result do
               {:ok, session} ->
-                Logger.info("Created new playback session: ID #{session.id}, User #{attrs.user_jellyfin_id}, Item #{attrs.item_name}")
+                Logger.info(
+                  "Created new playback session: ID #{session.id}, User #{attrs.user_jellyfin_id}, Item #{attrs.item_name}"
+                )
+
                 {:ok, {:created, session}}
+
               {:error, changeset} ->
                 Logger.error("Failed to create playback session: #{inspect(changeset.errors)}")
                 {:error, changeset}
@@ -280,14 +334,17 @@ defmodule StreamystatServer.Workers.TautulliImporter do
           session ->
             # Update existing session if needed
             Logger.debug("Updating existing PlaybackSession ID: #{session.id}")
-            result = session
-            |> PlaybackSession.changeset(attrs)
-            |> Repo.update()
+
+            result =
+              session
+              |> PlaybackSession.changeset(attrs)
+              |> Repo.update()
 
             case result do
               {:ok, session} ->
                 Logger.info("Updated existing playback session: ID #{session.id}")
                 {:ok, {:updated, session}}
+
               {:error, changeset} ->
                 Logger.error("Failed to update playback session: #{inspect(changeset.errors)}")
                 {:error, changeset}
@@ -301,12 +358,13 @@ defmodule StreamystatServer.Workers.TautulliImporter do
   end
 
   # Get both the user and the jellyfin_id
-  defp get_user_and_jellyfin_id(tautulli_user_id, %{user_mappings: mappings}) when is_list(mappings) do
+  defp get_user_and_jellyfin_id(tautulli_user_id, %{user_mappings: mappings})
+       when is_list(mappings) do
     # Find matching mapping with user object
     case Enum.find(mappings, fn mapping ->
-      # Make sure to convert to string for comparison since JSON numbers become integers
-      to_string(mapping["tautulliUserId"]) == to_string(tautulli_user_id)
-    end) do
+           # Make sure to convert to string for comparison since JSON numbers become integers
+           to_string(mapping["tautulliUserId"]) == to_string(tautulli_user_id)
+         end) do
       # If we have a user object with jellyfin_id, use that
       %{"user" => %User{} = user} when not is_nil(user.jellyfin_id) ->
         {:ok, user, user.jellyfin_id}
@@ -316,6 +374,7 @@ defmodule StreamystatServer.Workers.TautulliImporter do
         case Repo.get(User, user_id) do
           %User{} = user when not is_nil(user.jellyfin_id) ->
             {:ok, user, user.jellyfin_id}
+
           _ ->
             {:skip, "User with ID #{user_id} not found or has no jellyfin_id"}
         end

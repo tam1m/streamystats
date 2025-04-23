@@ -107,72 +107,74 @@ defmodule StreamystatServer.Workers.SyncTask do
       Logger.info("#{sync_type} started for server #{server.name}")
 
       try do
-        result = case sync_type do
-          :full_sync ->
-            perform_full_sync(server)
+        result =
+          case sync_type do
+            :full_sync ->
+              perform_full_sync(server)
 
-          :sync_users ->
-            {result, _metrics} = Sync.sync_users(server)
-            result
+            :sync_users ->
+              {result, _metrics} = Sync.sync_users(server)
+              result
 
-          :sync_libraries ->
-            {result, _metrics} = Sync.sync_libraries(server)
-            result
+            :sync_libraries ->
+              {result, _metrics} = Sync.sync_libraries(server)
+              result
 
-          :sync_items ->
-            {result, metrics} = Sync.sync_items(server)
+            :sync_items ->
+              {result, metrics} = Sync.sync_items(server)
 
-            # Log metrics for items sync
-            Logger.info("""
-            Items sync metrics for server #{server.name}:
-            Libraries processed: #{metrics.libraries_processed}
-            Items processed: #{metrics.items_processed}
-            API requests: #{metrics.api_requests}
-            Database operations: #{metrics.database_operations}
-            """)
+              # Log metrics for items sync
+              Logger.info("""
+              Items sync metrics for server #{server.name}:
+              Libraries processed: #{metrics.libraries_processed}
+              Items processed: #{metrics.items_processed}
+              API requests: #{metrics.api_requests}
+              Database operations: #{metrics.database_operations}
+              """)
 
-            result
+              result
 
-          :sync_activities ->
-            {result, metrics} = Sync.sync_activities(server)
+            :sync_activities ->
+              {result, metrics} = Sync.sync_activities(server)
 
-            # Log metrics for activities sync
-            Logger.info("""
-            Activities sync metrics for server #{server.name}:
-            Activities processed: #{metrics.activities_processed}
-            Activities inserted: #{metrics.activities_inserted}
-            API requests: #{metrics.api_requests}
-            Database operations: #{metrics.database_operations}
-            """)
+              # Log metrics for activities sync
+              Logger.info("""
+              Activities sync metrics for server #{server.name}:
+              Activities processed: #{metrics.activities_processed}
+              Activities inserted: #{metrics.activities_inserted}
+              API requests: #{metrics.api_requests}
+              Database operations: #{metrics.database_operations}
+              """)
 
-            result
+              result
 
-          :sync_recent_activities ->
-            {result, metrics} = Sync.sync_recent_activities(server)
+            :sync_recent_activities ->
+              {result, metrics} = Sync.sync_recent_activities(server)
 
-            # Log metrics for recent activities sync
-            Logger.info("""
-            Recent activities sync metrics for server #{server.name}:
-            Activities processed: #{metrics.activities_processed}
-            Activities inserted: #{metrics.activities_inserted}
-            API requests: #{metrics.api_requests}
-            Database operations: #{metrics.database_operations}
-            """)
+              # Log metrics for recent activities sync
+              Logger.info("""
+              Recent activities sync metrics for server #{server.name}:
+              Activities processed: #{metrics.activities_processed}
+              Activities inserted: #{metrics.activities_inserted}
+              API requests: #{metrics.api_requests}
+              Database operations: #{metrics.database_operations}
+              """)
 
-            result
+              result
 
-          _ ->
-            Logger.error("Unknown sync type: #{sync_type}")
-            update_sync_log(sync_log, :failed)
-            {:error, :unknown_sync_type}
-        end
+            _ ->
+              Logger.error("Unknown sync type: #{sync_type}")
+              update_sync_log(sync_log, :failed)
+              {:error, :unknown_sync_type}
+          end
 
         # Store result details in the sync log
-        status = case result do
-          {:ok, _} -> :completed
-          {:partial, _, _} -> :partial
-          {:error, _} -> :failed
-        end
+        status =
+          case result do
+            {:ok, _} -> :completed
+            {:partial, _, _} -> :partial
+            {:error, _} -> :failed
+          end
 
         Logger.info("#{sync_type} completed for server #{server.name} with status: #{status}")
         update_sync_log(sync_log, status)
@@ -234,6 +236,7 @@ defmodule StreamystatServer.Workers.SyncTask do
 
     # Items
     {items_result, items_metrics} = Sync.sync_items(server)
+
     Logger.info("""
     Items sync completed with result: #{inspect(items_result)}
     Items processed: #{items_metrics.items_processed}
@@ -241,6 +244,7 @@ defmodule StreamystatServer.Workers.SyncTask do
 
     # Activities
     {activities_result, activities_metrics} = Sync.sync_activities(server)
+
     Logger.info("""
     Activities sync completed with result: #{inspect(activities_result)}
     Activities processed: #{activities_metrics.activities_processed}
@@ -250,12 +254,12 @@ defmodule StreamystatServer.Workers.SyncTask do
     cond do
       # If any sync operation failed completely
       users_result == :error or libraries_result == :error or
-      items_result == :error or activities_result == :error ->
+        items_result == :error or activities_result == :error ->
         {:error, :sync_failed}
 
       # If some operations completed partially
       match?({:partial, _, _}, users_result) or match?({:partial, _, _}, libraries_result) or
-      match?({:partial, _, _}, items_result) or match?({:partial, _, _}, activities_result) ->
+        match?({:partial, _, _}, items_result) or match?({:partial, _, _}, activities_result) ->
         {:partial, :some_operations_partial}
 
       # Everything succeeded

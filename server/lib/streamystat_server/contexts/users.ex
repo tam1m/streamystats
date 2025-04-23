@@ -17,7 +17,9 @@ defmodule StreamystatServer.Contexts.Users do
   before being synced through the regular sync process.
   """
   def create_initial_user(server_id, jellyfin_user) do
-    Logger.info("Jellyfin user data: #{inspect(jellyfin_user, limit: :infinity, printable_limit: 500)}")
+    Logger.info(
+      "Jellyfin user data: #{inspect(jellyfin_user, limit: :infinity, printable_limit: 500)}"
+    )
 
     policy = Map.get(jellyfin_user, "Policy", %{})
 
@@ -72,20 +74,28 @@ defmodule StreamystatServer.Contexts.Users do
     |> Repo.insert()
     |> case do
       {:ok, user} ->
-        Logger.info("Successfully created initial user: #{user.name} (#{user.jellyfin_id}) for server_id: #{inspect(server_id)}")
+        Logger.info(
+          "Successfully created initial user: #{user.name} (#{user.jellyfin_id}) for server_id: #{inspect(server_id)}"
+        )
+
         {:ok, user}
 
       {:error, changeset} ->
-        Logger.error("Failed to create initial user for server_id #{inspect(server_id)}: #{inspect(changeset.errors)}")
+        Logger.error(
+          "Failed to create initial user for server_id #{inspect(server_id)}: #{inspect(changeset.errors)}"
+        )
+
         {:error, changeset}
     end
   end
 
   defp parse_jellyfin_datetime(nil), do: nil
+
   defp parse_jellyfin_datetime(date_string) when is_binary(date_string) do
     case DateTime.from_iso8601(date_string) do
       {:ok, datetime, _} -> datetime
-      _ -> nil  # Handle potential parsing errors
+      # Handle potential parsing errors
+      _ -> nil
     end
   end
 
@@ -104,6 +114,7 @@ defmodule StreamystatServer.Contexts.Users do
           {id, ""} ->
             # It's a valid integer, try to find by id
             user = Repo.get_by(User, id: id, server_id: server_id)
+
             if user do
               Logger.debug("Found user by database id: #{user.id}")
               user
@@ -260,8 +271,10 @@ defmodule StreamystatServer.Contexts.Users do
     # Base query for a specific user
     base_query =
       from(ps in PlaybackSession,
-        join: i in Item, on: ps.item_jellyfin_id == i.jellyfin_id,
-        join: u in User, on: ps.user_id == u.id,
+        join: i in Item,
+        on: ps.item_jellyfin_id == i.jellyfin_id,
+        join: u in User,
+        on: ps.user_id == u.id,
         where: ps.server_id == ^server_id and ps.user_id == ^user_id,
         order_by: [desc: ps.start_time],
         select: %{
@@ -298,9 +311,10 @@ defmodule StreamystatServer.Contexts.Users do
 
     # Count total items for pagination metadata
     total_items_query =
-      from ps in PlaybackSession,
-      where: ps.server_id == ^server_id and ps.user_id == ^user_id,
-      select: count(ps.id)
+      from(ps in PlaybackSession,
+        where: ps.server_id == ^server_id and ps.user_id == ^user_id,
+        select: count(ps.id)
+      )
 
     total_items = Repo.one(total_items_query)
 

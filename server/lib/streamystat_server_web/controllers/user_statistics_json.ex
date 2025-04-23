@@ -9,38 +9,39 @@ defmodule StreamystatServerWeb.UserStatisticsJSON do
       per_page: watch_activity.per_page,
       total_items: watch_activity.total_items,
       total_pages: watch_activity.total_pages,
-      data: for activity <- watch_activity.data do
-        %{
-          id: activity.id,
-          date_created: activity.date_created,
-          item_id: activity.item_id,
-          item_type: activity.item_type,
-          item_name: activity.item_name,
-          client_name: activity.client_name,
-          device_name: activity.device_name,
-          play_method: activity.play_method,
-          play_duration: activity.play_duration,
-          percent_complete: activity.percent_complete || 0,
-          completed: activity.completed || false,
-          series_name: activity.series_name,
-          season_name: activity.season_name,
-          index_number: activity.index_number,
-          primary_image_tag: activity.primary_image_tag,
-          backdrop_image_tags: activity.backdrop_image_tags,
-          image_blur_hashes: activity.image_blur_hashes,
-          parent_backdrop_item_id: activity.parent_backdrop_item_id,
-          parent_backdrop_image_tags: activity.parent_backdrop_image_tags,
-          parent_thumb_item_id: activity.parent_thumb_item_id,
-          parent_thumb_image_tag: activity.parent_thumb_image_tag,
-          primary_image_aspect_ratio: activity.primary_image_aspect_ratio,
-          series_primary_image_tag: activity.series_primary_image_tag,
-          primary_image_thumb_tag: activity.primary_image_thumb_tag,
-          primary_image_logo_tag: activity.primary_image_logo_tag,
-          user_id: activity.user_id,
-          user_name: activity.user_name,
-          jellyfin_user_id: activity.jellyfin_user_id
-        }
-      end
+      data:
+        for activity <- watch_activity.data do
+          %{
+            id: activity.id,
+            date_created: activity.date_created,
+            item_id: activity.item_id,
+            item_type: activity.item_type,
+            item_name: activity.item_name,
+            client_name: activity.client_name,
+            device_name: activity.device_name,
+            play_method: activity.play_method,
+            play_duration: activity.play_duration,
+            percent_complete: activity.percent_complete || 0,
+            completed: activity.completed || false,
+            series_name: activity.series_name,
+            season_name: activity.season_name,
+            index_number: activity.index_number,
+            primary_image_tag: activity.primary_image_tag,
+            backdrop_image_tags: activity.backdrop_image_tags,
+            image_blur_hashes: activity.image_blur_hashes,
+            parent_backdrop_item_id: activity.parent_backdrop_item_id,
+            parent_backdrop_image_tags: activity.parent_backdrop_image_tags,
+            parent_thumb_item_id: activity.parent_thumb_item_id,
+            parent_thumb_image_tag: activity.parent_thumb_image_tag,
+            primary_image_aspect_ratio: activity.primary_image_aspect_ratio,
+            series_primary_image_tag: activity.series_primary_image_tag,
+            primary_image_thumb_tag: activity.primary_image_thumb_tag,
+            primary_image_logo_tag: activity.primary_image_logo_tag,
+            user_id: activity.user_id,
+            user_name: activity.user_name,
+            jellyfin_user_id: activity.jellyfin_user_id
+          }
+        end
     }
   end
 

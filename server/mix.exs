@@ -48,7 +48,7 @@ defmodule StreamystatServer.MixProject do
       {:bandit, "~> 1.5"},
       {:httpoison, "~> 2.0"},
       {:scrivener_ecto, "~> 3.0.1"},
-      {:temp,      "~> 0.4"},
+      {:temp, "~> 0.4"},
       {:exqlite, "~> 0.29"}
     ]
   end

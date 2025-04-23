@@ -51,7 +51,8 @@ defmodule StreamystatServer.Jellyfin.Models.User do
     |> cast(attrs, [
       :jellyfin_id,
       :name,
-      :server_id,  # Add server_id to the allowed fields list
+      # Add server_id to the allowed fields list
+      :server_id,
       :has_password,
       :has_configured_password,
       :has_configured_easy_password,

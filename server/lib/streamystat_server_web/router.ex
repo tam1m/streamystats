@@ -30,7 +30,6 @@ defmodule StreamystatServerWeb.Router do
     get("/servers/:id", ServerController, :show)
     post("/servers", ServerController, :create)
 
-
     # Admin routes
     scope "/admin", as: :admin do
       pipe_through(:admin_auth)
@@ -45,7 +44,12 @@ defmodule StreamystatServerWeb.Router do
       get("/servers/:server_id/activities", ActivityController, :index)
       post("/servers/:server_id/tautulli/import", TautulliImportController, :import)
       post("/servers/:server_id/jellystats/import", JellystatsImportController, :import)
-      post("/servers/:server_id/playback-reporting/import", PlaybackReportingImportController, :import)
+
+      post(
+        "/servers/:server_id/playback-reporting/import",
+        PlaybackReportingImportController,
+        :import
+      )
     end
 
     # Protected routes
@@ -65,7 +69,8 @@ defmodule StreamystatServerWeb.Router do
       get("/statistics/library", UserStatisticsController, :library_stats)
       get("/statistics/unwatched", StatisticsController, :unwatched)
 
-      resources("/libraries", LibraryController, only: [:index, :show])      # get("/me", UserController, :me)
+      # get("/me", UserController, :me)
+      resources("/libraries", LibraryController, only: [:index, :show])
       resources("/users", UserController, only: [:index, :show])
     end
   end

@@ -2,7 +2,9 @@ defmodule StreamystatServerWeb.ErrorJSONTest do
   use StreamystatServerWeb.ConnCase, async: true
 
   test "renders 404" do
-    assert StreamystatServerWeb.ErrorJSON.render("404.json", %{}) == %{errors: %{detail: "Not Found"}}
+    assert StreamystatServerWeb.ErrorJSON.render("404.json", %{}) == %{
+             errors: %{detail: "Not Found"}
+           }
   end
 
   test "renders 500" do

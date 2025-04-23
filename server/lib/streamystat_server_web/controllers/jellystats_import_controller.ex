@@ -13,7 +13,10 @@ defmodule StreamystatServerWeb.JellystatsImportController do
 
         conn
         |> put_status(:accepted)
-        |> render(:import, message: "Jellystats import started successfully", status: "processing")
+        |> render(:import,
+          message: "Jellystats import started successfully",
+          status: "processing"
+        )
 
       {:error, reason} ->
         conn
@@ -38,9 +41,11 @@ defmodule StreamystatServerWeb.JellystatsImportController do
         case read_body(conn) do
           {:ok, body, _} when body != "" ->
             case Jason.decode(body) do
-              {:ok, _} -> {:ok, body} # Verify it's valid JSON
+              # Verify it's valid JSON
+              {:ok, _} -> {:ok, body}
               {:error, _} -> {:error, "Invalid JSON format in request body"}
             end
+
           _ ->
             {:error, "No import data provided"}
         end
@@ -56,7 +61,9 @@ defmodule StreamystatServerWeb.JellystatsImportController do
             {:ok, _} -> {:ok, content}
             {:error, _} -> {:error, "Invalid JSON content in uploaded file"}
           end
-        {:error, reason} -> {:error, "Failed to read uploaded file: #{inspect(reason)}"}
+
+        {:error, reason} ->
+          {:error, "Failed to read uploaded file: #{inspect(reason)}"}
       end
     else
       {:error, "File must be JSON format"}
