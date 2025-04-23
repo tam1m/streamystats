@@ -304,7 +304,9 @@ defmodule StreamystatServerWeb.UserStatisticsController do
   def transcoding_statistics(conn, %{"server_id" => server_id}) do
     current_user = conn.assigns.current_user
     user_scope = if is_admin?(current_user), do: nil, else: current_user["Id"]
-    stats = StreamystatServer.Statistics.Statistics.get_transcoding_statistics(server_id, user_scope)
+
+    stats =
+      StreamystatServer.Statistics.Statistics.get_transcoding_statistics(server_id, user_scope)
 
     render(conn, :transcoding_statistics, stats: stats)
   end
