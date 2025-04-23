@@ -63,9 +63,25 @@ RUN mix release
 # the compiled release and other runtime necessities
 FROM ${RUNNER_IMAGE}
 
+# Fix for ARM64 architecture - ensure we update and repair before installing packages
 RUN apt-get update -y && \
-  apt-get install -y libstdc++6 openssl libncurses5 locales ca-certificates postgresql-client \
-  && apt-get clean && rm -f /var/lib/apt/lists/*_*
+  apt-get install -y --no-install-recommends apt-utils && \
+  apt-get upgrade -y && \
+  apt-get install -f -y && \
+  apt-get autoremove -y
+
+# Install dependencies in stages to identify problematic packages 
+# Also adding explicit noninteractive mode to avoid prompts
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update -y && \
+  apt-get install -y --no-install-recommends ca-certificates && \
+  apt-get install -y --no-install-recommends openssl && \
+  apt-get install -y --no-install-recommends libstdc++6 && \
+  apt-get install -y --no-install-recommends libncurses5 && \
+  apt-get install -y --no-install-recommends locales && \
+  apt-get install -y --no-install-recommends postgresql-client && \
+  apt-get clean && \
+  rm -rf /var/lib/apt/lists/*
 
 # Set the locale
 RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && locale-gen
