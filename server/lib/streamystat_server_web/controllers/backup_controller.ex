@@ -167,9 +167,18 @@ defmodule StreamystatServerWeb.BackupController do
 
       {:ok, inserted_count}
     rescue
-      e in [DBConnection.Error, Postgrex.Error, Ecto.Error] ->
+      # Fix the error type references
+      e in Postgrex.Error ->
         Logger.error("Database error during import: #{inspect(e)}")
         {:error, "Database error during import: #{Exception.message(e)}"}
+
+      e in DBConnection.ConnectionError ->
+        Logger.error("Database connection error during import: #{inspect(e)}")
+        {:error, "Database connection error: #{Exception.message(e)}"}
+
+      e in Ecto.ChangeError ->
+        Logger.error("Ecto change error during import: #{inspect(e)}")
+        {:error, "Database change error: #{Exception.message(e)}"}
 
       e ->
         Logger.error("Import error: #{inspect(e)}")
@@ -226,12 +235,12 @@ defmodule StreamystatServerWeb.BackupController do
     else
       # Handle errors from either from_iso8601 or from_naive
       {:error, _reason} ->
-        Logger.warn("Failed to parse timestamp from backup: #{iso8601_string}")
+        Logger.warning("Failed to parse timestamp from backup: #{iso8601_string}")
         nil
 
       # Handle cases where the input wasn't a binary string (though guard should prevent)
       _non_binary_or_error ->
-        Logger.warn("Unexpected input or error parsing timestamp: #{inspect(iso8601_string)}")
+        Logger.warning("Unexpected input or error parsing timestamp: #{inspect(iso8601_string)}")
         nil
     end
   rescue
