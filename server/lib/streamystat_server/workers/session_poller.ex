@@ -30,21 +30,20 @@ defmodule StreamystatServer.Workers.SessionPoller do
       |> Enum.map(fn session ->
         %{
           session_key: session.session_key,
-          user_id: session.user_id,
+          user_jellyfin_id: session.user_jellyfin_id,
           user_name: session.user_name,
-          client: session.client,
+          client_name: session.client_name,
           device_id: session.device_id,
           device_name: session.device_name,
-          now_playing_item_id: session.now_playing_item_id,
-          now_playing_item_name: session.now_playing_item_name,
-          series_id: session.series_id,
+          item_jellyfin_id: session.item_jellyfin_id,
+          item_name: session.item_name,
+          series_jellyfin_id: session.series_jellyfin_id,
           series_name: session.series_name,
-          season_id: session.season_id,
-          episode_id: session.episode_id,
+          season_jellyfin_id: session.season_jellyfin_id,
           position_ticks: session.position_ticks,
           runtime_ticks: session.runtime_ticks,
-          playback_duration: session.playback_duration,
-          activity_date_inserted: session.activity_date_inserted,
+          play_duration: session.play_duration,
+          start_time: session.start_time,
           last_activity_date: session.last_activity_date,
           is_paused: session.is_paused,
           play_method: session.play_method
@@ -57,7 +56,7 @@ defmodule StreamystatServer.Workers.SessionPoller do
   def handle_info(:poll_sessions, state) do
     servers = list_servers()
     updated_state = poll_all_servers(servers, state)
-    schedule_polling(30_000)
+    schedule_polling(10_000)
     {:noreply, updated_state}
   end
 
@@ -102,8 +101,6 @@ defmodule StreamystatServer.Workers.SessionPoller do
     end
   end
 
-  # Processes all current sessions for a server, handling new, updated, and ended sessions.
-  # Tracks session state changes and manages the lifecycle of playback sessions.
   defp process_sessions(server, current_sessions, state) do
     server_key = "server_#{server.id}"
     tracked_sessions = Map.get(state.tracked_sessions, server_key, %{})
@@ -113,28 +110,17 @@ defmodule StreamystatServer.Workers.SessionPoller do
     Logger.debug("Server #{server.id}: #{length(filtered_sessions)} active sessions")
 
     {new_sessions, updated_sessions, ended_sessions} =
-      detect_session_changes(
-        filtered_sessions,
-        tracked_sessions
-      )
+      detect_session_changes(filtered_sessions, tracked_sessions)
 
     new_tracked_sessions = handle_new_sessions(server, new_sessions)
 
     merged_sessions = Map.merge(tracked_sessions, new_tracked_sessions)
 
     updated_tracked_sessions =
-      handle_updated_sessions(
-        server,
-        updated_sessions,
-        merged_sessions
-      )
+      handle_updated_sessions(server, updated_sessions, merged_sessions)
 
     final_tracked_sessions =
-      handle_ended_sessions(
-        server,
-        ended_sessions,
-        updated_tracked_sessions
-      )
+      handle_ended_sessions(server, ended_sessions, updated_tracked_sessions)
 
     %{
       state
@@ -142,8 +128,6 @@ defmodule StreamystatServer.Workers.SessionPoller do
     }
   end
 
-  # Filters out invalid sessions like trailers and pre-roll videos.
-  # Only returns sessions with valid NowPlayingItem data.
   defp filter_valid_sessions(sessions) do
     Enum.filter(sessions, fn session ->
       case session do
@@ -158,8 +142,6 @@ defmodule StreamystatServer.Workers.SessionPoller do
     end)
   end
 
-  # Identifies which sessions are new, updated, or ended by comparing current sessions
-  # against previously tracked sessions.
   defp detect_session_changes(current_sessions, tracked_sessions) do
     current_map = sessions_to_map(current_sessions)
 
@@ -184,8 +166,6 @@ defmodule StreamystatServer.Workers.SessionPoller do
     {new_sessions, updated_sessions, ended_sessions}
   end
 
-  # Generates a unique key for each session based on user ID, device ID, and content IDs.
-  # Handles both series and standalone content differently.
   defp generate_session_key(session) do
     user_id = Map.get(session, "UserId", "")
     device_id = Map.get(session, "DeviceId", "")
@@ -201,39 +181,35 @@ defmodule StreamystatServer.Workers.SessionPoller do
     end
   end
 
-  # Calculates total playback duration accounting for paused states and activity timestamps.
-  # Returns duration in seconds.
   defp calculate_duration(tracked, current_paused, last_activity, last_paused, _current_position) do
     was_paused = tracked.is_paused
 
     cond do
       was_paused == false && current_paused == true && last_paused != nil ->
-        tracked.playback_duration +
+        tracked.play_duration +
           DateTime.diff(last_paused, tracked.last_update_time, :second)
 
       was_paused == false && current_paused == false ->
-        tracked.playback_duration +
+        tracked.play_duration +
           DateTime.diff(last_activity, tracked.last_update_time, :second)
 
       was_paused == true && current_paused == false ->
-        tracked.playback_duration
+        tracked.play_duration
 
       true ->
-        tracked.playback_duration
+        tracked.play_duration
     end
   end
 
-  # Handles completed sessions by calculating final statistics and saving playback records.
-  # Determines if content was completed based on progress percentage.
   defp handle_ended_sessions(server, ended_sessions, tracked_sessions) do
     now = DateTime.utc_now()
 
     Enum.reduce(ended_sessions, tracked_sessions, fn {key, tracked}, acc ->
       final_duration =
         if !tracked.is_paused do
-          tracked.playback_duration + DateTime.diff(now, tracked.last_update_time, :second)
+          tracked.play_duration + DateTime.diff(now, tracked.last_update_time, :second)
         else
-          tracked.playback_duration
+          tracked.play_duration
         end
 
       if final_duration > 1 do
@@ -248,32 +224,66 @@ defmodule StreamystatServer.Workers.SessionPoller do
 
         Logger.info(
           "Ended session for server #{server.id}: User: #{tracked.user_name}, " <>
-            "Content: #{tracked.now_playing_item_name}, " <>
+            "Content: #{tracked.item_name}, " <>
             "Final duration: #{final_duration}s, " <>
             "Progress: #{Float.round(percent_complete, 1)}%, " <>
             "Completed: #{completed}"
         )
 
+        # Extract transcode reasons as a list if available
+        transcode_reasons =
+          if is_list(tracked.transcode_reasons), do: tracked.transcode_reasons, else: nil
+
         playback_record = %{
-          user_id: tracked.user_id,
-          user_name: tracked.user_name,
-          client: tracked.client,
+          user_jellyfin_id: tracked.user_jellyfin_id,
           device_id: tracked.device_id,
           device_name: tracked.device_name,
-          item_id: tracked.now_playing_item_id,
-          item_name: tracked.now_playing_item_name,
-          series_id: tracked.series_id,
+          client_name: tracked.client_name,
+          item_jellyfin_id: tracked.item_jellyfin_id,
+          item_name: tracked.item_name,
+          series_jellyfin_id: tracked.series_jellyfin_id,
           series_name: tracked.series_name,
-          season_id: tracked.season_id,
-          episode_id: tracked.episode_id,
+          season_jellyfin_id: tracked.season_jellyfin_id,
           play_duration: final_duration,
-          play_date: tracked.activity_date_inserted,
           play_method: tracked.play_method,
+          start_time: tracked.start_time,
+          end_time: DateTime.utc_now(),
           position_ticks: tracked.position_ticks,
           runtime_ticks: tracked.runtime_ticks,
           percent_complete: percent_complete,
           completed: completed,
-          server_id: server.id
+          server_id: server.id,
+          user_name: tracked.user_name,
+
+          # Include all fields from the PlaybackSession model
+          is_paused: tracked.is_paused,
+          is_muted: tracked.is_muted,
+          volume_level: tracked.volume_level,
+          audio_stream_index: tracked.audio_stream_index,
+          subtitle_stream_index: tracked.subtitle_stream_index,
+          media_source_id: tracked.media_source_id,
+          repeat_mode: tracked.repeat_mode,
+          playback_order: tracked.playback_order,
+          remote_end_point: tracked.remote_end_point,
+          session_id: tracked.session_id,
+          last_activity_date: tracked.last_activity_date,
+          last_playback_check_in: tracked.last_playback_check_in,
+          application_version: tracked.application_version,
+          is_active: tracked.is_active,
+
+          # Transcoding fields
+          transcoding_audio_codec: tracked.transcoding_audio_codec,
+          transcoding_video_codec: tracked.transcoding_video_codec,
+          transcoding_container: tracked.transcoding_container,
+          transcoding_is_video_direct: tracked.transcoding_is_video_direct,
+          transcoding_is_audio_direct: tracked.transcoding_is_audio_direct,
+          transcoding_bitrate: tracked.transcoding_bitrate,
+          transcoding_completion_percentage: tracked.transcoding_completion_percentage,
+          transcoding_width: tracked.transcoding_width,
+          transcoding_height: tracked.transcoding_height,
+          transcoding_audio_channels: tracked.transcoding_audio_channels,
+          transcoding_hardware_acceleration_type: tracked.transcoding_hardware_acceleration_type,
+          transcoding_reasons: transcode_reasons
         }
 
         save_playback_record(server, playback_record)
@@ -298,6 +308,7 @@ defmodule StreamystatServer.Workers.SessionPoller do
         user_id = Map.get(session, "UserId")
         item = Map.get(session, "NowPlayingItem", %{})
         play_state = Map.get(session, "PlayState", %{})
+        transcoding_info = Map.get(session, "TranscodingInfo")
 
         session_key = generate_session_key(session)
 
@@ -306,28 +317,70 @@ defmodule StreamystatServer.Workers.SessionPoller do
         is_paused = Map.get(play_state, "IsPaused") || false
         last_activity = parse_jellyfin_date(Map.get(session, "LastActivityDate"))
 
+        # Extract transcode reasons if available
+        transcode_reasons =
+          if is_map(transcoding_info) && Map.has_key?(transcoding_info, "TranscodeReasons") do
+            Map.get(transcoding_info, "TranscodeReasons")
+          else
+            nil
+          end
+
         tracking_record = %{
           session_key: session_key,
-          user_id: user_id,
+          user_jellyfin_id: user_id,
           user_name: user_name,
-          client: Map.get(session, "Client"),
+          client_name: Map.get(session, "Client"),
           device_id: Map.get(session, "DeviceId"),
           device_name: Map.get(session, "DeviceName"),
-          now_playing_item_id: Map.get(item, "Id"),
-          now_playing_item_name: item_name,
-          series_id: Map.get(item, "SeriesId"),
+          item_jellyfin_id: Map.get(item, "Id"),
+          item_name: item_name,
+          series_jellyfin_id: Map.get(item, "SeriesId"),
           series_name: Map.get(item, "SeriesName"),
-          season_id: Map.get(item, "SeasonId"),
-          episode_id: Map.get(item, "Id"),
+          season_jellyfin_id: Map.get(item, "SeasonId"),
           position_ticks: Map.get(play_state, "PositionTicks", 0),
           runtime_ticks: Map.get(item, "RunTimeTicks", 0),
-          playback_duration: 0,
-          activity_date_inserted: now,
+          play_duration: 0,
+          start_time: now,
           last_activity_date: last_activity,
-          last_paused_date: parse_jellyfin_date(Map.get(session, "LastPausedDate")),
+          last_playback_check_in: parse_jellyfin_date(Map.get(session, "LastPlaybackCheckIn")),
           last_update_time: now,
           is_paused: is_paused,
-          play_method: Map.get(play_state, "PlayMethod")
+          play_method: Map.get(play_state, "PlayMethod"),
+
+          # PlayState fields
+          is_muted: Map.get(play_state, "IsMuted"),
+          volume_level: Map.get(play_state, "VolumeLevel"),
+          audio_stream_index: Map.get(play_state, "AudioStreamIndex"),
+          subtitle_stream_index: Map.get(play_state, "SubtitleStreamIndex"),
+          media_source_id: Map.get(play_state, "MediaSourceId"),
+          repeat_mode: Map.get(play_state, "RepeatMode"),
+          playback_order: Map.get(play_state, "PlaybackOrder"),
+
+          # Session fields
+          remote_end_point: Map.get(session, "RemoteEndPoint"),
+          # This maps to "Id" in Session object
+          session_id: Map.get(session, "Id"),
+          application_version: Map.get(session, "ApplicationVersion"),
+          is_active: Map.get(session, "IsActive"),
+
+          # TranscodingInfo fields
+          transcoding_audio_codec: transcoding_info && Map.get(transcoding_info, "AudioCodec"),
+          transcoding_video_codec: transcoding_info && Map.get(transcoding_info, "VideoCodec"),
+          transcoding_container: transcoding_info && Map.get(transcoding_info, "Container"),
+          transcoding_is_video_direct:
+            transcoding_info && Map.get(transcoding_info, "IsVideoDirect"),
+          transcoding_is_audio_direct:
+            transcoding_info && Map.get(transcoding_info, "IsAudioDirect"),
+          transcoding_bitrate: transcoding_info && Map.get(transcoding_info, "Bitrate"),
+          transcoding_completion_percentage:
+            transcoding_info && Map.get(transcoding_info, "CompletionPercentage"),
+          transcoding_width: transcoding_info && Map.get(transcoding_info, "Width"),
+          transcoding_height: transcoding_info && Map.get(transcoding_info, "Height"),
+          transcoding_audio_channels:
+            transcoding_info && Map.get(transcoding_info, "AudioChannels"),
+          transcoding_hardware_acceleration_type:
+            transcoding_info && Map.get(transcoding_info, "HardwareAccelerationType"),
+          transcode_reasons: transcode_reasons
         }
 
         Logger.info(
@@ -366,28 +419,76 @@ defmodule StreamystatServer.Workers.SessionPoller do
         calculate_duration(tracked, current_paused, last_activity, last_paused, current_position)
 
       pause_state_changed = current_paused != tracked.is_paused
-
-      duration_increased = updated_duration > tracked.playback_duration + 10
+      duration_increased = updated_duration > tracked.play_duration + 10
 
       if pause_state_changed || duration_increased do
         Logger.debug(
           "Updated session for server #{server.id}: User: #{tracked.user_name}, " <>
-            "Content: #{tracked.now_playing_item_name}, " <>
+            "Content: #{tracked.item_name}, " <>
             "Paused: #{current_paused}, " <>
             "Duration: #{updated_duration}s, " <>
             "Position: #{format_ticks_as_time(current_position)}"
         )
       end
 
-      updated_record = %{
-        tracked
-        | position_ticks: current_position,
-          is_paused: current_paused,
-          last_activity_date: last_activity,
-          last_paused_date: last_paused,
-          last_update_time: now,
-          playback_duration: updated_duration
+      # Get transcoding info if available
+      transcoding_info = Map.get(session, "TranscodingInfo")
+
+      # Extract updated fields from the TranscodingInfo
+      transcoding_updates =
+        if is_map(transcoding_info) do
+          %{
+            transcoding_audio_codec: Map.get(transcoding_info, "AudioCodec"),
+            transcoding_video_codec: Map.get(transcoding_info, "VideoCodec"),
+            transcoding_container: Map.get(transcoding_info, "Container"),
+            transcoding_is_video_direct: Map.get(transcoding_info, "IsVideoDirect"),
+            transcoding_is_audio_direct: Map.get(transcoding_info, "IsAudioDirect"),
+            transcoding_bitrate: Map.get(transcoding_info, "Bitrate"),
+            transcoding_completion_percentage: Map.get(transcoding_info, "CompletionPercentage"),
+            transcoding_width: Map.get(transcoding_info, "Width"),
+            transcoding_height: Map.get(transcoding_info, "Height"),
+            transcoding_audio_channels: Map.get(transcoding_info, "AudioChannels"),
+            transcoding_hardware_acceleration_type:
+              Map.get(transcoding_info, "HardwareAccelerationType"),
+            transcode_reasons: Map.get(transcoding_info, "TranscodeReasons")
+          }
+        else
+          %{}
+        end
+
+      # Update PlayState fields
+      play_state_updates = %{
+        is_muted: Map.get(play_state, "IsMuted", tracked.is_muted),
+        volume_level: Map.get(play_state, "VolumeLevel", tracked.volume_level),
+        audio_stream_index: Map.get(play_state, "AudioStreamIndex", tracked.audio_stream_index),
+        subtitle_stream_index:
+          Map.get(play_state, "SubtitleStreamIndex", tracked.subtitle_stream_index),
+        media_source_id: Map.get(play_state, "MediaSourceId", tracked.media_source_id),
+        repeat_mode: Map.get(play_state, "RepeatMode", tracked.repeat_mode),
+        playback_order: Map.get(play_state, "PlaybackOrder", tracked.playback_order)
       }
+
+      # Basic session updates
+      basic_updates = %{
+        position_ticks: current_position,
+        is_paused: current_paused,
+        last_activity_date: last_activity,
+        last_update_time: now,
+        play_duration: updated_duration,
+        application_version: Map.get(session, "ApplicationVersion", tracked.application_version),
+        is_active: Map.get(session, "IsActive", tracked.is_active),
+        remote_end_point: Map.get(session, "RemoteEndPoint", tracked.remote_end_point),
+        last_playback_check_in:
+          parse_jellyfin_date(Map.get(session, "LastPlaybackCheckIn")) ||
+            tracked.last_playback_check_in
+      }
+
+      # Merge all updates
+      updated_record =
+        Map.merge(
+          tracked,
+          Map.merge(basic_updates, Map.merge(play_state_updates, transcoding_updates))
+        )
 
       Map.put(acc, session_key, updated_record)
     end)
@@ -396,33 +497,14 @@ defmodule StreamystatServer.Workers.SessionPoller do
   defp save_playback_record(server, record) do
     user =
       PlaybackSessions.get_user_by_jellyfin_id(
-        record.user_id,
+        record.user_jellyfin_id,
         server.id
       )
 
-    attrs = %{
-      user_jellyfin_id: record.user_id,
-      device_id: record.device_id,
-      device_name: record.device_name,
-      client_name: record.client,
-      item_jellyfin_id: record.item_id,
-      item_name: record.item_name,
-      series_jellyfin_id: record.series_id,
-      series_name: record.series_name,
-      season_jellyfin_id: record.season_id,
-      play_duration: record.play_duration,
-      play_method: record.play_method,
-      start_time: record.play_date,
-      end_time: DateTime.utc_now(),
-      position_ticks: record.position_ticks,
-      runtime_ticks: record.runtime_ticks,
-      percent_complete: record.percent_complete,
-      completed: record.completed,
-      user_id: user && user.id,
-      server_id: server.id
-    }
+    # Add user_id if the user was found
+    record_with_user = Map.put(record, :user_id, user && user.id)
 
-    case PlaybackSessions.create_playback_session(attrs) do
+    case PlaybackSessions.create_playback_session(record_with_user) do
       {:ok, _session} ->
         Logger.info("Successfully saved playback session for server #{server.id}")
 

@@ -64,6 +64,7 @@ defmodule StreamystatServerWeb.Router do
       get("/statistics", UserStatisticsController, :index)
       get("/statistics/watchtime_per_day", UserStatisticsController, :watchtime_per_day)
       get("/statistics/history", UserStatisticsController, :history)
+      get("/statistics/transcoding", UserStatisticsController, :transcoding_statistics)
       get("/statistics/items", UserStatisticsController, :items)
       get("/statistics/items/:item_id", UserStatisticsController, :item_details)
       get("/statistics/library", UserStatisticsController, :library_stats)

@@ -100,6 +100,12 @@ defmodule StreamystatServerWeb.UserStatisticsJSON do
     %{data: stats}
   end
 
+  def transcoding_statistics(%{stats: stats}) do
+    %{
+      data: stats
+    }
+  end
+
   defp item_data(item) do
     %{
       item_id: item.item_id,
