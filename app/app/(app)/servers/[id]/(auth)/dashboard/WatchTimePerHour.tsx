@@ -2,6 +2,8 @@
 
 import * as React from "react";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import { format, parseISO } from "date-fns";
+import { toZonedTime } from "date-fns-tz";
 
 import {
   Card,
@@ -18,6 +20,7 @@ import {
 } from "@/components/ui/chart";
 import { formatDuration } from "@/lib/utils";
 import { Statistics } from "@/lib/db";
+import { utcHourToLocalHour } from "@/lib/timezone";
 
 const chartConfig = {
   minutes: {
@@ -32,17 +35,23 @@ interface Props {
   data: Statistics["watchtime_per_hour"];
 }
 
+const TIMEZONE = process.env.TZ || "Europe/London";
+
 export const WatchTimePerHour: React.FC<Props> = ({
   title,
   subtitle,
   data,
 }) => {
   const formattedData = React.useMemo(() => {
-    return data.map((item) => ({
-      hour: formatHour(item.hour),
-      minutes: Math.floor(item.duration / 60),
-      rawHour: item.hour,
-    }));
+    return data.map((item) => {
+      const localHour = utcHourToLocalHour(item.hour);
+
+      return {
+        hour: formatHour(localHour),
+        minutes: Math.floor(item.duration / 60),
+        rawHour: localHour,
+      };
+    });
   }, [data]);
 
   return (
