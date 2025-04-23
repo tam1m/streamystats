@@ -9,6 +9,7 @@ import { Suspense } from "react";
 import { ActiveSessions } from "./ActiveSessions";
 import Graph from "./Graph";
 import StatsWithSuspense from "./StatsWithSuspense";
+import { getTranscodingStatistics } from "@/lib/db/transcoding-statistics";
 
 export default async function DashboardPage({
   params,
@@ -53,10 +54,6 @@ export default async function DashboardPage({
             startDate={_startDate}
             endDate={_endDate}
           />
-        </Suspense>
-
-        <Suspense fallback={<Skeleton className="h-48 w-full" />}>
-          <Graph server={server} startDate={_startDate} endDate={_endDate} />
         </Suspense>
       </div>
     </Container>
