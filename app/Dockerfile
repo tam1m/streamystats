@@ -34,6 +34,7 @@ WORKDIR /app
 # Set environment variables
 ENV NODE_ENV=production
 ENV NEXT_SHARP_PATH=/app/node_modules/sharp
+ENV HOSTNAME=0.0.0.0
 
 # Install production dependencies
 COPY package.json package-lock.json* ./
