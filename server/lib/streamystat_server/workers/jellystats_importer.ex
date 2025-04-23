@@ -673,6 +673,7 @@ defmodule StreamystatServer.Workers.JellystatsImporter do
       user = Map.get(users_map, user_jellyfin_id)
 
       unless user do
+        Logger.warning("User with jellyfin_id #{user_jellyfin_id} not found in database for activity #{activity["Id"]}")
         {:skip, "User not found in database"}
       else
         activity_date = parse_jellyfin_date(activity["ActivityDateInserted"])
@@ -711,6 +712,12 @@ defmodule StreamystatServer.Workers.JellystatsImporter do
         series_jellyfin_id = activity["NowPlayingItemId"]
         season_jellyfin_id = activity["SeasonId"]
 
+        # Extract transcoding information if available
+        transcoding_info = activity["TranscodingInfo"] || %{}
+
+        # Extract PlayState information if available
+        play_state = activity["PlayState"] || %{}
+
         attrs = %{
           user_id: user && user.id,
           user_jellyfin_id: user_jellyfin_id,
@@ -726,11 +733,43 @@ defmodule StreamystatServer.Workers.JellystatsImporter do
           play_method: activity["PlayMethod"],
           start_time: activity_date,
           end_time: end_time,
-          position_ticks: activity["PlayState"]["PositionTicks"],
+          position_ticks: get_in(play_state, ["PositionTicks"]),
           runtime_ticks: runtime_ticks,
           percent_complete: percent_complete,
           completed: completed,
-          server_id: server.id
+          server_id: server.id,
+
+          # New session fields
+          is_paused: activity["IsPaused"],
+          user_name: activity["UserName"],
+          application_version: activity["ApplicationVersion"],
+          session_id: activity["Id"],
+          last_activity_date: parse_jellyfin_date(activity["LastActivityDate"]),
+          last_playback_check_in: parse_jellyfin_date(activity["LastPlaybackCheckIn"]),
+
+          # PlayState fields
+          is_muted: get_in(play_state, ["IsMuted"]),
+          volume_level: get_in(play_state, ["VolumeLevel"]),
+          audio_stream_index: get_in(play_state, ["AudioStreamIndex"]),
+          subtitle_stream_index: get_in(play_state, ["SubtitleStreamIndex"]),
+          media_source_id: get_in(play_state, ["MediaSourceId"]),
+          repeat_mode: get_in(play_state, ["RepeatMode"]),
+          playback_order: get_in(play_state, ["PlaybackOrder"]),
+
+          # Transcoding fields
+          transcoding_audio_codec: get_in(transcoding_info, ["AudioCodec"]),
+          transcoding_video_codec: get_in(transcoding_info, ["VideoCodec"]),
+          transcoding_container: get_in(transcoding_info, ["Container"]),
+          transcoding_is_video_direct: get_in(transcoding_info, ["IsVideoDirect"]),
+          transcoding_is_audio_direct: get_in(transcoding_info, ["IsAudioDirect"]),
+          transcoding_bitrate: get_in(transcoding_info, ["Bitrate"]),
+          transcoding_completion_percentage: get_in(transcoding_info, ["CompletionPercentage"]),
+          transcoding_width: get_in(transcoding_info, ["Width"]),
+          transcoding_height: get_in(transcoding_info, ["Height"]),
+          transcoding_audio_channels: get_in(transcoding_info, ["AudioChannels"]),
+          transcoding_hardware_acceleration_type:
+            get_in(transcoding_info, ["HardwareAccelerationType"]),
+          transcoding_reasons: get_in(transcoding_info, ["TranscodeReasons"])
         }
 
         # Check if this session already exists in our lookup map
@@ -768,6 +807,7 @@ defmodule StreamystatServer.Workers.JellystatsImporter do
                 {:error, changeset}
             end
           else
+            Logger.debug("Skipping update for session #{existing_session.id} as existing session has better data")
             {:skip, "Existing session has better data"}
           end
         end
@@ -780,13 +820,10 @@ defmodule StreamystatServer.Workers.JellystatsImporter do
   # Helper functions
 
   defp should_update_session?(existing, new) do
-    # Update if:
-    # 1. New session has longer duration
-    # 2. New session has more progress
-    # 3. New session has more complete data
     new.play_duration > existing.play_duration ||
       (new.position_ticks || 0) > (existing.position_ticks || 0) ||
-      (is_nil(existing.end_time) && !is_nil(new.end_time))
+      (is_nil(existing.end_time) && !is_nil(new.end_time)) ||
+      (is_nil(existing.transcoding_video_codec) && !is_nil(new.transcoding_video_codec))
   end
 
   defp parse_jellyfin_date(nil), do: nil
