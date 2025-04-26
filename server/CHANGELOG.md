@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.0](https://github.com/fredrikburmester/streamystats/compare/v1.5.0...v1.6.0) (2025-04-26)
+
+
+### Features
+
+* sync recently added items every other minute ([ec6b90e](https://github.com/fredrikburmester/streamystats/commit/ec6b90edcbdc0d32210dd0adbcd8dfdada4329a8))
+
 ## [1.5.0](https://github.com/fredrikburmester/streamystats/compare/v1.4.0...v1.5.0) (2025-04-23)
 
 
