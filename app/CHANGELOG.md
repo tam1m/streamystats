@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.6.0](https://github.com/fredrikburmester/streamystats/compare/streamystat-v1.5.0...streamystat-v1.6.0) (2025-04-26)
+
+
+### Features
+
+* sync recently added items every other minute ([ec6b90e](https://github.com/fredrikburmester/streamystats/commit/ec6b90edcbdc0d32210dd0adbcd8dfdada4329a8))
+
+
+### Bug Fixes
+
+* container listening on 0.0.0.0 ([d5f013a](https://github.com/fredrikburmester/streamystats/commit/d5f013aa69c2d1b4de3244c4270dd753407fa27c))
+* container listening on all interfaces ([b34cb1b](https://github.com/fredrikburmester/streamystats/commit/b34cb1b9dd1bdc5a8586e595accf05826d48ab67))
+* only show UpdateNotifier to admin ([9fdf79b](https://github.com/fredrikburmester/streamystats/commit/9fdf79b1d0af40700fd54ad1d51dbbe5ce9380f2)), closes [#44](https://github.com/fredrikburmester/streamystats/issues/44)
+
 ## [1.5.0](https://github.com/fredrikburmester/streamystats/compare/streamystat-v1.4.0...streamystat-v1.5.0) (2025-04-23)
 
 
