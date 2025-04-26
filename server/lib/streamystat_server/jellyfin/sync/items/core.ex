@@ -102,7 +102,10 @@ defmodule StreamystatServer.Jellyfin.Sync.Items.Core do
         {:ok, total_count}
 
       _ ->
-        Logger.warning("Synced #{total_count} items with #{length(total_errors)} errors across all libraries")
+        Logger.warning(
+          "Synced #{total_count} items with #{length(total_errors)} errors across all libraries"
+        )
+
         Logger.warning("Errors: #{inspect(total_errors)}")
         {:partial, total_count, total_errors}
     end
@@ -127,11 +130,11 @@ defmodule StreamystatServer.Jellyfin.Sync.Items.Core do
           {:error, 0, [inspect(e)]}
       end
     else
-      {:error, :library_not_found}  ->
+      {:error, :library_not_found} ->
         handle_library_not_found(jellyfin_library_id, server.id, metrics_agent)
         {:error, 0, ["Library not found"]}
 
-      {:error, reason}  ->
+      {:error, reason} ->
         log_sync_error(reason, jellyfin_library_id, metrics_agent)
         {:error, 0, [inspect(reason)]}
     end
@@ -181,6 +184,7 @@ defmodule StreamystatServer.Jellyfin.Sync.Items.Core do
       batch
       |> Enum.reduce(%{}, fn item, acc ->
         key = {item.jellyfin_id, item.library_id}
+
         Map.update(acc, key, item, fn existing ->
           if item.updated_at > existing.updated_at, do: item, else: existing
         end)
@@ -199,7 +203,10 @@ defmodule StreamystatServer.Jellyfin.Sync.Items.Core do
       {count, List.wrap(conflict_errors)}
     rescue
       e ->
-        Logger.error("Batch insert failed: #{Exception.message(e)} — falling back to per‑item inserts.")
+        Logger.error(
+          "Batch insert failed: #{Exception.message(e)} — falling back to per‑item inserts."
+        )
+
         insert_items_individually(deduped_items, metrics_agent)
     end
   end
@@ -231,7 +238,10 @@ defmodule StreamystatServer.Jellyfin.Sync.Items.Core do
         {:ok, items_count, []}
 
       errors ->
-        Logger.warning("Synced #{items_count} items for library #{library.name} with #{length(errors)} errors")
+        Logger.warning(
+          "Synced #{items_count} items for library #{library.name} with #{length(errors)} errors"
+        )
+
         {:partial, items_count, errors}
     end
   end
@@ -249,6 +259,9 @@ defmodule StreamystatServer.Jellyfin.Sync.Items.Core do
 
   defp log_sync_error(reason, jellyfin_library_id, metrics_agent) do
     Metrics.update(metrics_agent, %{errors: [inspect(reason)]})
-    Logger.error("Failed to sync items for Jellyfin library #{jellyfin_library_id}: #{inspect(reason)}")
+
+    Logger.error(
+      "Failed to sync items for Jellyfin library #{jellyfin_library_id}: #{inspect(reason)}"
+    )
   end
 end

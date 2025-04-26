@@ -1,6 +1,5 @@
 defmodule StreamystatServer.Jellyfin.Client do
   use HTTPoison.Base
-  require Logger
 
   def process_url(url) do
     url
@@ -122,8 +121,6 @@ defmodule StreamystatServer.Jellyfin.Client do
   end
 
   def get_library_id(server, item_id) do
-    Logger.debug("Looking up library ID for item: #{item_id}")
-
     # First get all libraries to compare against
     case get_libraries(server) do
       {:ok, libraries} ->
@@ -189,9 +186,44 @@ defmodule StreamystatServer.Jellyfin.Client do
     end
   end
 
-  def get_recently_added_items(server, limit \\ 20) do
-    Logger.info("Fetching recently added items from server #{server.url} with limit #{limit}")
+  def get_recently_added_items_by_library(server, library_id, limit \\ 20) do
+    params = %{
+      "SortBy" => "DateCreated",
+      "SortOrder" => "Descending",
+      "Recursive" => "true",
+      "ParentId" => library_id,
+      "Fields" =>
+        "Path,Overview,Genres,DateCreated,MediaSources,ExternalUrls,MediaStreams,ImageTags,BackdropImageTags,ParentId",
+      "ImageTypeLimit" => "1",
+      "EnableImageTypes" => "Primary,Backdrop,Thumb,Logo",
+      "Limit" => "#{limit}"
+    }
 
+    url = "#{server.url}/Items"
+    headers = process_request_headers([], server.api_key)
+
+    case get(url, headers, params: params) do
+      {:ok, %{status_code: 200, body: body}} ->
+        case Jason.decode(body) do
+          {:ok, %{"Items" => items}} ->
+            {:ok, items}
+
+          {:ok, other} ->
+            {:error, "Unexpected response format: #{inspect(other)}"}
+
+          {:error, decode_error} ->
+            {:error, "JSON decode error: #{inspect(decode_error)}"}
+        end
+
+      {:ok, %{status_code: status_code}} ->
+        {:error, "Unexpected status code: #{status_code}"}
+
+      {:error, %HTTPoison.Error{reason: reason}} ->
+        {:error, "HTTP request failed: #{reason}"}
+    end
+  end
+
+  def get_recently_added_items(server, limit \\ 20) do
     params = %{
       "SortBy" => "DateCreated",
       "SortOrder" => "Descending",
@@ -206,30 +238,23 @@ defmodule StreamystatServer.Jellyfin.Client do
     url = "#{server.url}/Items"
     headers = process_request_headers([], server.api_key)
 
-    Logger.debug("Making request to #{url} with params: #{inspect(params)}")
-
     case get(url, headers, params: params) do
       {:ok, %{status_code: 200, body: body}} ->
         case Jason.decode(body) do
           {:ok, %{"Items" => items}} ->
-            Logger.info("Successfully retrieved #{length(items)} recently added items")
             {:ok, items}
 
           {:ok, other} ->
-            Logger.error("Unexpected response format: #{inspect(other)}")
             {:error, "Unexpected response format: #{inspect(other)}"}
 
           {:error, decode_error} ->
-            Logger.error("JSON decode error: #{inspect(decode_error)}")
             {:error, "JSON decode error: #{inspect(decode_error)}"}
         end
 
       {:ok, %{status_code: status_code}} ->
-        Logger.error("Unexpected status code: #{status_code}")
         {:error, "Unexpected status code: #{status_code}"}
 
       {:error, %HTTPoison.Error{reason: reason}} ->
-        Logger.error("HTTP request failed: #{inspect(reason)}")
         {:error, "HTTP request failed: #{reason}"}
     end
   end
@@ -268,8 +293,7 @@ defmodule StreamystatServer.Jellyfin.Client do
             {:ok, {decoded_body["Items"] || [], decoded_body["TotalRecordCount"] || 0}}
 
           {:error, decode_error} ->
-            Logger.error("Failed to decode items JSON: #{inspect(decode_error)}")
-            {:error, "JSON decode error"}
+            {:error, "JSON decode error: #{inspect(decode_error)}"}
         end
 
       {:ok, %{status_code: status_code}} ->

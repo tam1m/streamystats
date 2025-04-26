@@ -173,68 +173,21 @@ defmodule StreamystatServer.Workers.SyncTask do
             :sync_recently_added_items ->
               case Sync.sync_recently_added_items(server, 20) do
                 # New format with unchanged items count
-                {{:ok, inserted, updated, unchanged}, metrics} ->
-                  Logger.info("""
-                  Recently added items sync metrics for server #{server.name}:
-                    Items inserted:     #{inserted}
-                    Items updated:      #{updated}
-                    Items unchanged:    #{unchanged}
-                    Total processed:    #{metrics.items_processed}
-                    API requests:       #{metrics.api_requests}
-                    DB operations:      #{metrics.database_operations}
-                  """)
-
+                {{:ok, inserted, _updated, _unchanged}, _metrics} ->
                   {:ok, inserted}
-
                 # Original format for backward compatibility
-                {{:ok, inserted, updated}, metrics} ->
-                  Logger.info("""
-                  Recently added items sync metrics for server #{server.name}:
-                    Items inserted:     #{inserted}
-                    Items updated:      #{updated}
-                    Total processed:    #{metrics.items_processed}
-                    API requests:       #{metrics.api_requests}
-                    DB operations:      #{metrics.database_operations}
-                  """)
-
+                {{:ok, inserted, _updated}, _metrics} ->
                   {:ok, inserted}
-
                 # New partial format with unchanged items count
-                {{:partial, inserted, updated, unchanged, errors}, metrics} ->
-                  Logger.info("""
-                  Recently added items sync metrics for server #{server.name}:
-                    Items inserted:     #{inserted}
-                    Items updated:      #{updated}
-                    Items unchanged:    #{unchanged}
-                    Total processed:    #{metrics.items_processed}
-                    API requests:       #{metrics.api_requests}
-                    DB operations:      #{metrics.database_operations}
-                  """)
-
-                  Logger.warning("...partial sync, errors: #{inspect(errors)}")
-
+                {{:partial, inserted, _updated, _unchanged, _errors}, _metrics} ->
                   {:partial, inserted}
-
                 # Original partial format for backward compatibility
-                {{:partial, inserted, updated, errors}, metrics} ->
-                  Logger.info("""
-                  Recently added items sync metrics for server #{server.name}:
-                    Items inserted:     #{inserted}
-                    Items updated:      #{updated}
-                    Total processed:    #{metrics.items_processed}
-                    API requests:       #{metrics.api_requests}
-                    DB operations:      #{metrics.database_operations}
-                  """)
-
-                  Logger.warning("...partial sync, errors: #{inspect(errors)}")
-
+                {{:partial, inserted, _updated, _errors}, _metrics} ->
                   {:partial, inserted}
-
                 {{:error, reason}, _metrics} ->
                   {:error, reason}
 
-                other ->
-                  Logger.error("unexpected result: #{inspect(other)}")
+                _other ->
                   {:error, :unexpected_result}
               end
 

@@ -52,7 +52,6 @@ defmodule StreamystatServer.Jellyfin.Sync.Metrics do
   Logs summary metrics for a sync operation.
   """
   def log_summary(server_name, operation_name, metrics, duration_ms) do
-    # Create a string of key metrics based on what's available
     metrics_str =
       metrics
       |> Map.drop([:start_time, :errors])
