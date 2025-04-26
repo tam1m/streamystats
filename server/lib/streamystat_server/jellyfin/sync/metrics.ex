@@ -58,7 +58,7 @@ defmodule StreamystatServer.Jellyfin.Sync.Metrics do
       |> Enum.map(fn {k, v} -> "#{k}: #{v}" end)
       |> Enum.join("\n")
 
-    Logger.info("""
+    Logger.debug("""
     #{operation_name} completed for server #{server_name}
     Duration: #{duration_ms / 1000} seconds
     #{metrics_str}
