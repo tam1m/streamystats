@@ -17,7 +17,7 @@ defmodule StreamystatServer.Jellyfin.Sync.Items.Recent do
   Synchronizes recently added items from a Jellyfin server.
   Only updates items if tracked fields have changed.
   """
-  def sync_recently_added(server, limit \\ 20) do
+  def sync_recently_added(server, limit \\ 50) do
     start_time = System.monotonic_time(:millisecond)
 
     metrics = %{

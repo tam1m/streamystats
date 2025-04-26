@@ -171,7 +171,7 @@ defmodule StreamystatServer.Workers.SyncTask do
               result
 
             :sync_recently_added_items ->
-              case Sync.sync_recently_added_items(server, 20) do
+              case Sync.sync_recently_added_items(server, 50) do
                 # New format with unchanged items count
                 {{:ok, inserted, _updated, _unchanged}, _metrics} ->
                   {:ok, inserted}

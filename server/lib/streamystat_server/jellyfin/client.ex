@@ -100,8 +100,7 @@ defmodule StreamystatServer.Jellyfin.Client do
 
   def get_item(server, item_id) do
     params = %{
-      "Fields" =>
-        "Path,Overview,Genres,DateCreated,MediaSources,ExternalUrls,MediaStreams,ImageTags,BackdropImageTags,ParentId,SeriesId"
+      "Fields" => Enum.join(@default_item_fields, ","),
     }
 
     try do
@@ -192,8 +191,7 @@ defmodule StreamystatServer.Jellyfin.Client do
       "SortOrder" => "Descending",
       "Recursive" => "true",
       "ParentId" => library_id,
-      "Fields" =>
-        "Path,Overview,Genres,DateCreated,MediaSources,ExternalUrls,MediaStreams,ImageTags,BackdropImageTags,ParentId",
+      "Fields" => Enum.join(@default_item_fields, ","),
       "ImageTypeLimit" => "1",
       "EnableImageTypes" => "Primary,Backdrop,Thumb,Logo",
       "Limit" => "#{limit}"
@@ -228,8 +226,7 @@ defmodule StreamystatServer.Jellyfin.Client do
       "SortBy" => "DateCreated",
       "SortOrder" => "Descending",
       "Recursive" => "true",
-      "Fields" =>
-        "Path,Overview,Genres,DateCreated,MediaSources,ExternalUrls,MediaStreams,ImageTags,BackdropImageTags,ParentId",
+      "Fields" => Enum.join(@default_item_fields, ","),
       "ImageTypeLimit" => "1",
       "EnableImageTypes" => "Primary,Backdrop,Thumb,Logo",
       "Limit" => "#{limit}"

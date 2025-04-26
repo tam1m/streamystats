@@ -9,5 +9,5 @@ defmodule StreamystatServer.Jellyfin.Sync.Items do
 
   # Public API - delegate to specialized modules
   defdelegate sync_items(server, user_options \\ %{}), to: Core
-  defdelegate sync_recently_added(server, limit \\ 20), to: Recent
+  defdelegate sync_recently_added(server, limit \\ 50), to: Recent
 end

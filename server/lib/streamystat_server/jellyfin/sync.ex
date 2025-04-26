@@ -25,7 +25,7 @@ defmodule StreamystatServer.Jellyfin.Sync do
   defdelegate sync_users(server), to: Users
   defdelegate sync_libraries(server), to: Libraries
   defdelegate sync_items(server, options \\ %{}), to: Items
-  defdelegate sync_recently_added_items(server, limit \\ 20), to: Items, as: :sync_recently_added
+  defdelegate sync_recently_added_items(server, limit \\ 50), to: Items, as: :sync_recently_added
   defdelegate sync_activities(server, options \\ %{}), to: Activities
   defdelegate sync_recent_activities(server), to: Activities, as: :sync_recent
 
