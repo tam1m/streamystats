@@ -15,6 +15,16 @@ defmodule StreamystatServerWeb.SyncController do
     |> json(%{message: "Full sync task initiated for server #{server_id}"})
   end
 
+  def sync_recently_added_items(conn, %{"server_id" => server_id}) do
+    Task.start(fn ->
+      SyncTask.sync_recently_added_items(server_id)
+    end)
+
+    conn
+    |> put_status(:accepted)
+    |> json(%{message: "Recently added items sync task initiated for server #{server_id}"})
+  end
+
   def sync_users(conn, %{"server_id" => server_id}) do
     Task.start(fn ->
       SyncTask.sync_users(server_id)
