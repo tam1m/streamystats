@@ -233,8 +233,8 @@ defmodule StreamystatServer.Workers.SyncTask do
   end
 
   defp schedule_recently_added_sync do
-    # 1 minute
-    Process.send_after(self(), :sync_recently_added, 60 * 1000 * 3)
+    # Every other minute
+    Process.send_after(self(), :sync_recently_added, 60 * 1000 * 2)
   end
 
   @spec get_server(server_id()) :: {:ok, Servers.Server.t()} | {:error, :not_found}
