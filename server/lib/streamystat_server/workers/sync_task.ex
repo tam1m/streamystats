@@ -19,6 +19,7 @@ defmodule StreamystatServer.Workers.SyncTask do
   def init(_opts) do
     {:ok, task_supervisor} = Task.Supervisor.start_link()
     schedule_full_sync()
+    schedule_recently_added_sync()
     {:ok, %{task_supervisor: task_supervisor}}
   end
 
@@ -60,6 +61,13 @@ defmodule StreamystatServer.Workers.SyncTask do
   def sync_activities(server_id),
     do: GenServer.cast(__MODULE__, {:sync_activities, server_id})
 
+  @doc """
+  Sync recently added items for a specific server
+  """
+  @spec sync_recently_added_items(server_id()) :: :ok
+  def sync_recently_added_items(server_id),
+    do: GenServer.cast(__MODULE__, {:sync_recently_added_items, server_id})
+
   @impl true
   def handle_cast({sync_type, server_id}, %{task_supervisor: supervisor} = state)
       when sync_type in [
@@ -68,7 +76,8 @@ defmodule StreamystatServer.Workers.SyncTask do
              :sync_libraries,
              :sync_items,
              :sync_recent_activities,
-             :sync_activities
+             :sync_activities,
+             :sync_recently_added_items
            ] do
     Task.Supervisor.async_nolink(supervisor, fn ->
       perform_sync(sync_type, server_id)
@@ -80,6 +89,19 @@ defmodule StreamystatServer.Workers.SyncTask do
   @impl true
   def handle_info({ref, _result}, state) do
     Process.demonitor(ref, [:flush])
+    {:noreply, state}
+  end
+
+  @impl true
+  def handle_info(:sync_recently_added, %{task_supervisor: supervisor} = state) do
+    Task.Supervisor.async_nolink(supervisor, fn ->
+      Servers.list_servers()
+      |> Enum.each(fn server ->
+        perform_sync(:sync_recently_added_items, server.id)
+      end)
+    end)
+
+    schedule_recently_added_sync()
     {:noreply, state}
   end
 
@@ -148,6 +170,74 @@ defmodule StreamystatServer.Workers.SyncTask do
 
               result
 
+            :sync_recently_added_items ->
+              case Sync.sync_recently_added_items(server, 20) do
+                # New format with unchanged items count
+                {{:ok, inserted, updated, unchanged}, metrics} ->
+                  Logger.info("""
+                  Recently added items sync metrics for server #{server.name}:
+                    Items inserted:     #{inserted}
+                    Items updated:      #{updated}
+                    Items unchanged:    #{unchanged}
+                    Total processed:    #{metrics.items_processed}
+                    API requests:       #{metrics.api_requests}
+                    DB operations:      #{metrics.database_operations}
+                  """)
+
+                  {:ok, inserted}
+
+                # Original format for backward compatibility
+                {{:ok, inserted, updated}, metrics} ->
+                  Logger.info("""
+                  Recently added items sync metrics for server #{server.name}:
+                    Items inserted:     #{inserted}
+                    Items updated:      #{updated}
+                    Total processed:    #{metrics.items_processed}
+                    API requests:       #{metrics.api_requests}
+                    DB operations:      #{metrics.database_operations}
+                  """)
+
+                  {:ok, inserted}
+
+                # New partial format with unchanged items count
+                {{:partial, inserted, updated, unchanged, errors}, metrics} ->
+                  Logger.info("""
+                  Recently added items sync metrics for server #{server.name}:
+                    Items inserted:     #{inserted}
+                    Items updated:      #{updated}
+                    Items unchanged:    #{unchanged}
+                    Total processed:    #{metrics.items_processed}
+                    API requests:       #{metrics.api_requests}
+                    DB operations:      #{metrics.database_operations}
+                  """)
+
+                  Logger.warning("...partial sync, errors: #{inspect(errors)}")
+
+                  {:partial, inserted}
+
+                # Original partial format for backward compatibility
+                {{:partial, inserted, updated, errors}, metrics} ->
+                  Logger.info("""
+                  Recently added items sync metrics for server #{server.name}:
+                    Items inserted:     #{inserted}
+                    Items updated:      #{updated}
+                    Total processed:    #{metrics.items_processed}
+                    API requests:       #{metrics.api_requests}
+                    DB operations:      #{metrics.database_operations}
+                  """)
+
+                  Logger.warning("...partial sync, errors: #{inspect(errors)}")
+
+                  {:partial, inserted}
+
+                {{:error, reason}, _metrics} ->
+                  {:error, reason}
+
+                other ->
+                  Logger.error("unexpected result: #{inspect(other)}")
+                  {:error, :unexpected_result}
+              end
+
             :sync_recent_activities ->
               {result, metrics} = Sync.sync_recent_activities(server)
 
@@ -172,8 +262,9 @@ defmodule StreamystatServer.Workers.SyncTask do
         status =
           case result do
             {:ok, _} -> :completed
-            {:partial, _, _} -> :partial
+            {:partial, _} -> :partial
             {:error, _} -> :failed
+            _ -> :failed
           end
 
         Logger.info("#{sync_type} completed for server #{server.name} with status: #{status}")
@@ -186,6 +277,11 @@ defmodule StreamystatServer.Workers.SyncTask do
           {:error, :sync_failed}
       end
     end
+  end
+
+  defp schedule_recently_added_sync do
+    # 1 minute
+    Process.send_after(self(), :sync_recently_added, 60 * 1000)
   end
 
   @spec get_server(server_id()) :: {:ok, Servers.Server.t()} | {:error, :not_found}

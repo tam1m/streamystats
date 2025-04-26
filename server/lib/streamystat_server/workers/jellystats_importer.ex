@@ -673,7 +673,10 @@ defmodule StreamystatServer.Workers.JellystatsImporter do
       user = Map.get(users_map, user_jellyfin_id)
 
       unless user do
-        Logger.warning("User with jellyfin_id #{user_jellyfin_id} not found in database for activity #{activity["Id"]}")
+        Logger.warning(
+          "User with jellyfin_id #{user_jellyfin_id} not found in database for activity #{activity["Id"]}"
+        )
+
         {:skip, "User not found in database"}
       else
         activity_date = parse_jellyfin_date(activity["ActivityDateInserted"])
@@ -807,7 +810,10 @@ defmodule StreamystatServer.Workers.JellystatsImporter do
                 {:error, changeset}
             end
           else
-            Logger.debug("Skipping update for session #{existing_session.id} as existing session has better data")
+            Logger.debug(
+              "Skipping update for session #{existing_session.id} as existing session has better data"
+            )
+
             {:skip, "Existing session has better data"}
           end
         end

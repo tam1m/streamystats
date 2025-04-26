@@ -352,6 +352,311 @@ defmodule StreamystatServer.Jellyfin.Sync do
     {result, updated_metrics}
   end
 
+  @doc """
+  Syncs recently added items from Jellyfin.
+  Fetches the latest 20 items and adds them to the database if they don't exist.
+  Only updates existing items if specific tracked fields have changed.
+  """
+  def sync_recently_added_items(server, limit \\ 20) do
+    start_time = System.monotonic_time(:millisecond)
+
+    metrics = %{
+      items_processed: 0,
+      items_inserted: 0,
+      items_updated: 0,
+      items_unchanged: 0,
+      api_requests: 1,
+      database_operations: 0,
+      errors: []
+    }
+
+    Logger.info("Starting recently added items sync for server #{server.name}")
+
+    {result, updated_metrics} =
+      try do
+        case Client.get_recently_added_items(server, limit) do
+          {:ok, items} ->
+            metrics = Map.put(metrics, :items_processed, length(items))
+            Logger.debug("Retrieved #{length(items)} recently added items from Jellyfin")
+
+            # Fetch libraries and build a lookup map
+            libraries = get_libraries_by_server(server.id)
+
+            library_map =
+              Enum.reduce(libraries, %{}, fn lib, acc ->
+                Map.put(acc, lib.jellyfin_id, lib.id)
+              end)
+
+            # Process and map items with detailed error logging
+            {valid_items, invalid_items} =
+              Enum.reduce(items, {[], []}, fn item, {valid, invalid} ->
+                try do
+                  library_id = get_library_id_for_item(item, library_map, server)
+
+                  case library_id do
+                    nil ->
+                      Logger.warning(
+                        "Could not determine library for item #{item["Id"]} of type #{item["Type"]}"
+                      )
+
+                      {valid, [%{id: item["Id"], error: "Library not found"} | invalid]}
+
+                    found_library_id ->
+                      # Map the item with the correct library ID
+                      mapped_item = map_jellyfin_item(item, found_library_id, server.id)
+                      {[mapped_item | valid], invalid}
+                  end
+                rescue
+                  e ->
+                    # Catch any mapping errors
+                    Logger.error(
+                      "Error mapping item #{inspect(item["Id"])}: #{Exception.message(e)}"
+                    )
+
+                    {valid, [%{id: item["Id"], error: Exception.message(e)} | invalid]}
+                end
+              end)
+
+            Logger.debug(
+              "Successfully mapped #{length(valid_items)} items, skipped #{length(invalid_items)} items"
+            )
+
+            case valid_items do
+              [] ->
+                Logger.info("No valid items to insert")
+                {{:ok, 0, 0, 0}, metrics}
+
+              _ ->
+                metrics = Map.put(metrics, :database_operations, 1)
+
+                # Fetch existing items with all fields to compare
+                jellyfin_ids = Enum.map(valid_items, & &1.jellyfin_id)
+
+                existing_items =
+                  Repo.all(
+                    from(i in Item,
+                      where: i.jellyfin_id in ^jellyfin_ids and i.server_id == ^server.id
+                    )
+                  )
+
+                existing_map =
+                  Enum.into(existing_items, %{}, fn item -> {item.jellyfin_id, item} end)
+
+                # Fields that we track for changes
+                tracked_fields = [
+                  :name,
+                  :original_title,
+                  :etag,
+                  :container,
+                  :sort_name,
+                  :premiere_date,
+                  :external_urls,
+                  :path,
+                  :official_rating,
+                  :overview,
+                  :genres,
+                  :community_rating,
+                  :runtime_ticks,
+                  :production_year,
+                  :is_folder,
+                  :parent_id,
+                  :media_type,
+                  :width,
+                  :height,
+                  :series_name,
+                  :series_id,
+                  :season_id,
+                  :season_name,
+                  :index_number,
+                  :parent_index_number,
+                  :primary_image_tag,
+                  :backdrop_image_tags,
+                  :image_blur_hashes,
+                  :video_type,
+                  :has_subtitles,
+                  :channel_id,
+                  :parent_backdrop_item_id,
+                  :parent_backdrop_image_tags,
+                  :parent_thumb_item_id,
+                  :parent_thumb_image_tag,
+                  :location_type,
+                  :primary_image_aspect_ratio,
+                  :series_primary_image_tag,
+                  :primary_image_thumb_tag,
+                  :primary_image_logo_tag
+                ]
+
+                # Separate items into inserts and updates
+                {items_to_insert, items_to_update, unchanged_items} =
+                  Enum.reduce(valid_items, {[], [], []}, fn item, {inserts, updates, unchanged} ->
+                    case Map.get(existing_map, item.jellyfin_id) do
+                      nil ->
+                        # New item, add to inserts
+                        {[item | inserts], updates, unchanged}
+
+                      existing ->
+                        # Check if any tracked field has changed
+                        if fields_changed?(existing, item, tracked_fields) do
+                          {inserts, [item | updates], unchanged}
+                        else
+                          {inserts, updates, [item | unchanged]}
+                        end
+                    end
+                  end)
+
+                # Insert new items
+                insert_result =
+                  unless Enum.empty?(items_to_insert) do
+                    {count, _} = Repo.insert_all(Item, items_to_insert)
+                    count
+                  else
+                    0
+                  end
+
+                # Update changed items
+                update_result =
+                  Enum.reduce(items_to_update, 0, fn item, count ->
+                    # Convert struct/map to keyword list for update_all
+                    update_fields =
+                      tracked_fields
+                      |> Enum.map(fn field -> {field, Map.get(item, field)} end)
+                      |> Enum.into([])
+
+                    {updated, _} =
+                      Repo.update_all(
+                        from(i in Item,
+                          where:
+                            i.jellyfin_id == ^item.jellyfin_id and
+                              i.server_id == ^server.id
+                        ),
+                        set: update_fields
+                      )
+
+                    count + updated
+                  end)
+
+                unchanged_count = length(unchanged_items)
+
+                metrics =
+                  metrics
+                  |> Map.put(:items_inserted, insert_result)
+                  |> Map.put(:items_updated, update_result)
+                  |> Map.put(:items_unchanged, unchanged_count)
+
+                if length(invalid_items) > 0 do
+                  metrics =
+                    Map.update(
+                      metrics,
+                      :errors,
+                      invalid_items,
+                      fn errors -> errors ++ invalid_items end
+                    )
+
+                  {{:partial, insert_result, update_result, unchanged_count, invalid_items},
+                   metrics}
+                else
+                  {{:ok, insert_result, update_result, unchanged_count}, metrics}
+                end
+            end
+
+          {:error, reason} ->
+            Logger.error("API error when fetching recently added items: #{inspect(reason)}")
+            metrics = Map.update(metrics, :errors, [reason], fn errors -> [reason | errors] end)
+            {{:error, reason}, metrics}
+        end
+      rescue
+        e ->
+          stacktrace = Exception.format_stacktrace()
+
+          error_message =
+            "Unexpected error in sync_recently_added_items: #{Exception.message(e)}\n#{stacktrace}"
+
+          Logger.error(error_message)
+
+          {
+            {:error, Exception.message(e)},
+            Map.update(metrics, :errors, [error_message], fn errors ->
+              [error_message | errors]
+            end)
+          }
+      end
+
+    end_time = System.monotonic_time(:millisecond)
+    duration_ms = end_time - start_time
+
+    Logger.info("""
+    Recently added items sync completed for server #{server.name}
+    Duration: #{duration_ms / 1000} seconds
+    Items processed: #{updated_metrics.items_processed}
+    Items inserted (new): #{updated_metrics.items_inserted}
+    Items updated (changed): #{updated_metrics.items_updated}
+    Items unchanged: #{updated_metrics.items_unchanged}
+    API requests: #{updated_metrics.api_requests}
+    Database operations: #{updated_metrics.database_operations}
+    Errors: #{length(updated_metrics.errors)}
+    """)
+
+    {result, updated_metrics}
+  end
+
+  # Helper function to determine if fields have changed
+  defp fields_changed?(existing_item, new_item, fields) do
+    Enum.any?(fields, fn field ->
+      Map.get(existing_item, field) != Map.get(new_item, field)
+    end)
+  end
+
+  defp get_library_id_for_item(item, library_map, server) do
+    Logger.debug("Determining library for item #{item["Id"]} (#{item["Name"]}) type=#{item["Type"]}")
+
+    # First check if we already have the library directly from parent ID
+    parent_id = item["ParentId"]
+
+    if parent_id && Map.has_key?(library_map, parent_id) do
+      # If the parent is a library, use it directly
+      library_id = Map.get(library_map, parent_id)
+      Logger.debug("Found library directly from parent_id=#{parent_id} -> library_id=#{library_id}")
+      library_id
+    else
+      # Log why we couldn't use the parent_id approach
+      cond do
+        parent_id == nil ->
+          Logger.debug("Item #{item["Id"]} has no parent_id, will try API method")
+        !Map.has_key?(library_map, parent_id) ->
+          Logger.debug("Parent #{parent_id} not found in library map, will try API method")
+        true ->
+          Logger.debug("Fallback to API method for unknown reason")
+      end
+
+      # Otherwise use our recursive API-based approach
+      Logger.debug("Making API call to determine library for item #{item["Id"]}")
+
+      case Client.get_library_id(server, item["Id"]) do
+        {:ok, library_jellyfin_id} ->
+          # Convert the Jellyfin library ID to our internal DB ID
+          library_id = Map.get(library_map, library_jellyfin_id)
+
+          if library_id do
+            Logger.debug("API returned library_jellyfin_id=#{library_jellyfin_id} -> library_id=#{library_id}")
+            library_id
+          else
+            Logger.warning("API returned library_jellyfin_id=#{library_jellyfin_id}, but no matching DB library found")
+            nil
+          end
+
+        {:error, reason} ->
+          Logger.warning("Could not determine library for item #{item["Id"]} (#{item["Name"]}): #{inspect(reason)}")
+          Logger.debug("Item details: type=#{item["Type"]}, parent_id=#{parent_id}")
+          nil
+      end
+    end
+  end
+
+  # Helper function to get all libraries for a server
+  defp get_libraries_by_server(server_id) do
+    Repo.all(from(l in Library, where: l.server_id == ^server_id))
+  end
+
   defp sanitize_string(nil), do: nil
 
   defp sanitize_string(str) when is_binary(str) do
