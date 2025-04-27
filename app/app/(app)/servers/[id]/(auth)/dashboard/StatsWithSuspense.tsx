@@ -7,6 +7,8 @@ import { WatchTimePerHour } from "./WatchTimePerHour";
 import { TranscodingStatistics } from "./TranscodingStatistics";
 import { getTranscodingStatistics } from "@/lib/db/transcoding-statistics";
 import Graph from "./Graph";
+import { UserLeaderboard } from "./UserLeaderboard";
+import { isUserAdmin } from "@/lib/me";
 
 export async function StatsWithSuspense({
   server,
@@ -19,6 +21,7 @@ export async function StatsWithSuspense({
 }) {
   const data = await getStatistics(server.id, startDate, endDate);
   const ts = await getTranscodingStatistics(server.id);
+  const isAdmin = await isUserAdmin();
 
   if (!data) {
     return <p>No data available</p>;
@@ -36,7 +39,7 @@ export async function StatsWithSuspense({
         subtitle="Showing average watch time for each day of the week"
       /> */}
       <Graph server={server} startDate={startDate} endDate={endDate} />
-
+      {isAdmin ? <UserLeaderboard server={server} /> : null}
       <WatchTimePerWeekDay
         data={data.watchtime_per_week_day}
         title="Watch Time Per Day of Week"

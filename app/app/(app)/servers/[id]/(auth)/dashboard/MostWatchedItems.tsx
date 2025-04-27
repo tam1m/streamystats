@@ -16,6 +16,7 @@ import { formatDuration } from "@/lib/utils";
 import { MoreHorizontal, Settings } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Poster } from "./Poster";
+import { usePersistantState } from "@/hooks/usePersistantState";
 
 interface Props {
   data: Statistics["most_watched_items"];
@@ -33,32 +34,11 @@ const DEFAULT_VISIBILITY = {
 };
 
 export const MostWatchedItems: React.FC<Props> = ({ data, server }) => {
-  const [visibleColumns, setVisibleColumns] = useState(DEFAULT_VISIBILITY);
   const [initialized, setInitialized] = useState(false);
 
-  // Load saved preferences from localStorage on mount
-  useEffect(() => {
-    try {
-      const savedPreferences = localStorage.getItem(STORAGE_KEY);
-      if (savedPreferences) {
-        setVisibleColumns(JSON.parse(savedPreferences));
-      }
-    } catch (error) {
-      console.error("Failed to load column visibility preferences:", error);
-    }
-    setInitialized(true);
-  }, []);
-
-  // Save preferences to localStorage whenever they change
-  useEffect(() => {
-    if (initialized) {
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(visibleColumns));
-      } catch (error) {
-        console.error("Failed to save column visibility preferences:", error);
-      }
-    }
-  }, [visibleColumns, initialized]);
+  const [visibleColumns, setVisibleColumns] = usePersistantState<
+    typeof DEFAULT_VISIBILITY
+  >("mostWatchedColumnsVisibility", DEFAULT_VISIBILITY);
 
   const toggleColumn = (column: "movies" | "series" | "episodes") => {
     setVisibleColumns((prev) => ({
@@ -74,13 +54,13 @@ export const MostWatchedItems: React.FC<Props> = ({ data, server }) => {
     visibleColumnCount === 1
       ? "md:grid-cols-1"
       : visibleColumnCount === 2
-        ? "md:grid-cols-2"
-        : "md:grid-cols-3";
+      ? "md:grid-cols-2"
+      : "md:grid-cols-3";
 
   const renderItems = (
     items: MostWatchedItem[],
     type: "Movie" | "Episode" | "Series",
-    title: string,
+    title: string
   ) => (
     <div>
       <h2 className="text-xl font-bold mb-4">Most Watched {title}</h2>
