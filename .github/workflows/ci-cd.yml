@@ -28,7 +28,9 @@ jobs:
           images: fredrikburmester/streamystats-nextjs
           tags: |
             type=edge,branch=main
-            type=semver,pattern={{version}},event=tag   # vX.Y.Z
+            type=semver,pattern={{version}},event=tag
+            type=semver,pattern={{major}}.{{minor}},event=tag
+            type=semver,pattern={{major}},event=tag
             type=sha,event=push,branch=main
 
       - id: meta_phx
@@ -38,6 +40,8 @@ jobs:
           tags: |
             type=edge,branch=main
             type=semver,pattern={{version}},event=tag
+            type=semver,pattern={{major}}.{{minor}},event=tag
+            type=semver,pattern={{major}},event=tag
             type=sha,event=push,branch=main
 
       - name: Build & push Next.js
