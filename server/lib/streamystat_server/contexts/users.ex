@@ -64,7 +64,8 @@ defmodule StreamystatServer.Contexts.Users do
       remote_client_bitrate_limit: policy["RemoteClientBitrateLimit"],
       authentication_provider_id: policy["AuthenticationProviderId"],
       password_reset_provider_id: policy["PasswordResetProviderId"],
-      sync_play_access: policy["SyncPlayAccess"]
+      sync_play_access: policy["SyncPlayAccess"],
+      # primary_image_tag: jellyfin_user["PrimaryImageTag"]
     }
 
     Logger.debug("User params with server_id #{inspect(server_id)}: #{inspect(user_params)}")
@@ -305,7 +306,7 @@ defmodule StreamystatServer.Contexts.Users do
           primary_image_logo_tag: i.primary_image_logo_tag,
           user_id: u.id,
           user_name: u.name,
-          jellyfin_user_id: u.jellyfin_id
+          jellyfin_user_id: u.jellyfin_id,
         }
       )
 

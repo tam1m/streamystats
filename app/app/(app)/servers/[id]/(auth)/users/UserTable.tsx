@@ -37,6 +37,7 @@ import { Server, User } from "@/lib/db";
 import { formatDuration } from "@/lib/utils";
 import { useRouter } from "nextjs-toploader/app";
 import { useMemo } from "react";
+import JellyfinAvatar from "@/components/JellyfinAvatar";
 
 export interface UserTableProps {
   data: User[];
@@ -62,7 +63,12 @@ export const UserTable: React.FC<UserTableProps> = ({
           </Button>
         );
       },
-      cell: ({ row }) => <div className="">{row.getValue("name")}</div>,
+      cell: ({ row }) => (
+        <div className="">
+          <JellyfinAvatar serverUrl={server.url} user={row.original} />
+          <p>{row.getValue("name")}</p>
+        </div>
+      ),
     },
     {
       accessorKey: "watch_stats.total_watch_time",
@@ -139,7 +145,7 @@ export const UserTable: React.FC<UserTableProps> = ({
   ]);
 
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
-    [],
+    []
   );
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>({});
@@ -214,7 +220,7 @@ export const UserTable: React.FC<UserTableProps> = ({
                         ? null
                         : flexRender(
                             header.column.columnDef.header,
-                            header.getContext(),
+                            header.getContext()
                           )}
                     </TableHead>
                   );
@@ -233,7 +239,7 @@ export const UserTable: React.FC<UserTableProps> = ({
                     <TableCell key={cell.id}>
                       {flexRender(
                         cell.column.columnDef.cell,
-                        cell.getContext(),
+                        cell.getContext()
                       )}
                     </TableCell>
                   ))}
