@@ -10,7 +10,18 @@ import { Film, Tv } from "lucide-react";
 // Define the possible image types that can be requested
 export type ImageType = "Primary" | "Backdrop" | "Thumb" | "Logo";
 
-// Utility function to calculate aspect ratio and dimensions
+/**
+ * Utility function to calculate aspect ratio and dimensions for different media types
+ *
+ * Aspect ratios are determined by both the media type and image type:
+ * - Movies with Primary/Logo images: 2:3 (portrait)
+ * - Episodes, Backdrops, and Thumbs: 16:9 (landscape)
+ * - Other cases: 1:1 (square)
+ *
+ * @param type The type of image being requested
+ * @param isEpisode Whether the item is an episode
+ * @returns Object containing blurhash dimensions and CSS aspect ratio
+ */
 const getImageDimensions = (type: ImageType, isEpisode: boolean) => {
   const x = 32;
   let y;
