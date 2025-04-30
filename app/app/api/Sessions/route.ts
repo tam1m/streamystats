@@ -32,6 +32,8 @@ function mapJellyfinSessionToActiveSession(
     series_name: session.NowPlayingItem.SeriesName || null,
     season_name: session.NowPlayingItem.SeasonName || null,
     jellyfin_id: session.NowPlayingItem.Id,
+    parent_index_number: session.NowPlayingItem.ParentIndexNumber || null,
+    index_number: session.NowPlayingItem.IndexNumber || null,
     primary_image_tag: session.NowPlayingItem.ImageTags?.Primary || null,
     backdrop_image_tags: session.NowPlayingItem.BackdropImageTags?.length
       ? session.NowPlayingItem.BackdropImageTags
