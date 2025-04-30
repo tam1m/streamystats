@@ -5,6 +5,7 @@ import { Item, Server } from "@/lib/db";
 import Image from "next/image";
 import { memo, useEffect, useMemo, useState } from "react";
 import { Blurhash } from "react-blurhash";
+import { Film, Tv } from "lucide-react";
 
 // Define the possible image types that can be requested
 export type ImageType = "Primary" | "Backdrop" | "Thumb" | "Logo";
@@ -16,6 +17,7 @@ const PosterComponent = ({
   height = 500,
   className = "",
   preferredImageType = "Primary", // New prop to specify preferred image type
+  size = "default", // can be "default" (w-16) or "large" (w-32)
 }: {
   item: Item;
   server: Server;
@@ -23,12 +25,60 @@ const PosterComponent = ({
   height?: number;
   className?: string;
   preferredImageType?: ImageType;
+  size?: "default" | "large";
 }) => {
   const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
   const [blurHash, setBlurHash] = useState<string | null>(null);
 
   // Determine if it's an episode to handle parent images
   const isEpisode = useMemo(() => item.type === "Episode", [item.type]);
+
+  // Memoized container class
+  const containerClassName = useMemo(
+    () => `relative ${size === "large" ? "w-32" : "w-16"} ${className} overflow-hidden rounded-md bg-muted`,
+    [className, size],
+  );
+
+  const { blurhashX, blurhashY } = useMemo(() => {
+    const x = 32;
+    let y;
+
+    // Choose aspect ratio based on preferred image type or item type
+    if (
+      (!isEpisode && preferredImageType === "Primary") ||
+      (preferredImageType === "Logo" && item.type === "Movie")
+    ) {
+      y = Math.round(x * (3 / 2)); // 2:3 aspect ratio for portrait content
+    } else if (
+      preferredImageType === "Backdrop" ||
+      preferredImageType === "Thumb" ||
+      item.type === "Episode"
+    ) {
+      y = Math.round(x * (9 / 16)); // 16:9 aspect ratio for landscape content
+    } else {
+      y = x; // Fallback to square
+    }
+
+    return { blurhashX: x, blurhashY: y };
+  }, [item.type, preferredImageType]);
+
+  // Calculate aspect ratio styles based on preferred image type
+  const aspectRatioStyle = useMemo(() => {
+    if (
+      (!isEpisode && preferredImageType === "Primary") ||
+      (preferredImageType === "Logo" && item.type === "Movie")
+    ) {
+      return { aspectRatio: "2/3" }; // movie poster ratio
+    } else if (
+      preferredImageType === "Backdrop" ||
+      preferredImageType === "Thumb" ||
+      item.type === "Episode"
+    ) {
+      return { aspectRatio: "16/9" }; // landscape ratio
+    }
+    return { aspectRatio: "1/1" }; // square
+  }, [item.type, preferredImageType]);
 
   // Memoize the image URL calculation
   const imageUrl = useMemo(() => {
@@ -214,59 +264,19 @@ const PosterComponent = ({
     preferredImageType,
   ]);
 
-  // Early return if no image
-  if (!imageUrl) return null;
-
-  // Memoized container class
-  const containerClassName = useMemo(
-    () => `relative w-full ${className} overflow-hidden rounded-md`,
-    [className],
-  );
-
-  const { blurhashX, blurhashY } = useMemo(() => {
-    const x = 32;
-    let y;
-
-    // Choose aspect ratio based on preferred image type or item type
-    if (
-      (!isEpisode && preferredImageType === "Primary") ||
-      (preferredImageType === "Logo" && item.type === "Movie")
-    ) {
-      y = Math.round(x * (3 / 2)); // 2:3 aspect ratio for portrait content
-    } else if (
-      preferredImageType === "Backdrop" ||
-      preferredImageType === "Thumb" ||
-      item.type === "Episode"
-    ) {
-      y = Math.round(x * (9 / 16)); // 16:9 aspect ratio for landscape content
-    } else {
-      y = x; // Fallback to square
-    }
-
-    return { blurhashX: x, blurhashY: y };
-  }, [item.type, preferredImageType]);
-
-  // Calculate aspect ratio styles based on preferred image type
-  const aspectRatioStyle = useMemo(() => {
-    if (
-      (!isEpisode && preferredImageType === "Primary") ||
-      (preferredImageType === "Logo" && item.type === "Movie")
-    ) {
-      return { paddingBottom: "150%" }; // 2:3 aspect ratio
-    } else if (
-      preferredImageType === "Backdrop" ||
-      preferredImageType === "Thumb" ||
-      item.type === "Episode"
-    ) {
-      return { paddingBottom: "56.25%" }; // 16:9 aspect ratio
-    }
-    return { paddingBottom: "100%" }; // Default square
-  }, [item.type, preferredImageType]);
+  // Early return if no image or error
+  if (!imageUrl || hasError) {
+    return (
+      <div className={containerClassName} style={aspectRatioStyle}>
+        <FallbackPoster type={item.type} />
+      </div>
+    );
+  }
 
   return (
     <div className={containerClassName} style={aspectRatioStyle}>
       {/* Blur hash placeholder */}
-      {blurHash && (
+      {blurHash && !hasError && (
         <div className="absolute inset-0 w-full h-full">
           <Blurhash
             hash={blurHash}
@@ -302,6 +312,10 @@ const PosterComponent = ({
         sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
         priority={false}
         onLoad={() => setIsLoading(false)}
+        onError={() => {
+          setIsLoading(false);
+          setHasError(true);
+        }}
       />
     </div>
   );
@@ -318,6 +332,22 @@ export const Poster = memo(PosterComponent, (prevProps, nextProps) => {
     prevProps.width === nextProps.width &&
     prevProps.height === nextProps.height &&
     prevProps.className === nextProps.className &&
-    prevProps.preferredImageType === nextProps.preferredImageType
+    prevProps.preferredImageType === nextProps.preferredImageType &&
+    prevProps.size === nextProps.size
   );
 });
+
+function FallbackPoster({ type }: { type: string }) {
+  return (
+    <div className="w-full h-full bg-muted flex flex-col items-center justify-center rounded-md" style={{ aspectRatio: "2/3" }}>
+      <div className="flex flex-col items-center gap-1">
+        {type === "Movie" ? (
+          <Film className="h-4 w-4 text-muted-foreground/70" />
+        ) : (
+          <Tv className="h-4 w-4 text-muted-foreground/70" />
+        )}
+        <span className="text-[10px] text-muted-foreground/70">Archived</span>
+      </div>
+    </div>
+  );
+}
