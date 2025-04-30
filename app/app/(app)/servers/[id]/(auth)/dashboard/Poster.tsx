@@ -17,7 +17,7 @@ const PosterComponent = ({
   height = 500,
   className = "",
   preferredImageType = "Primary", // New prop to specify preferred image type
-  size = "default", // can be "default" (w-16) or "large" (w-32)
+  size = "default", // can be "default" (w-16) or "large" (w-24)
 }: {
   item: Item;
   server: Server;
@@ -36,7 +36,7 @@ const PosterComponent = ({
 
   // Memoized container class
   const containerClassName = useMemo(
-    () => `relative ${size === "large" ? "w-32" : "w-16"} ${className} overflow-hidden rounded-md bg-muted`,
+    () => `relative ${size === "large" ? "w-24" : "w-16"} ${className} overflow-hidden rounded-md bg-muted`,
     [className, size],
   );
 

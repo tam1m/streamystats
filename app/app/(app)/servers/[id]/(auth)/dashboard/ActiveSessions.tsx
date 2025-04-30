@@ -83,7 +83,7 @@ export function ActiveSessions({ server }: { server: Server }) {
               key={session.session_key}
               className="flex flex-col md:flex-row md:items-center border rounded-lg p-4  items-start"
             >
-              <div className="w-32 mb-2 md:mb-0 md:mr-4">
+              <div className="w-24 mb-2 md:mb-0 md:mr-4">
                 <Poster item={session.item} server={server} size="large" />
               </div>
               <div className="flex flex-col space-y-3 flex-1">
