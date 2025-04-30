@@ -85,6 +85,19 @@ function mapJellyfinSessionToActiveSession(
     last_activity_date: session.LastActivityDate,
     is_paused: session.PlayState.IsPaused,
     play_method: session.PlayState.PlayMethod || null,
+    transcoding_info: session.TranscodingInfo ? {
+      video_codec: session.TranscodingInfo.VideoCodec,
+      audio_codec: session.TranscodingInfo.AudioCodec,
+      container: session.TranscodingInfo.Container,
+      is_video_direct: session.TranscodingInfo.IsVideoDirect,
+      is_audio_direct: session.TranscodingInfo.IsAudioDirect,
+      bitrate: session.TranscodingInfo.Bitrate,
+      width: session.TranscodingInfo.Width,
+      height: session.TranscodingInfo.Height,
+      audio_channels: session.TranscodingInfo.AudioChannels,
+      hardware_acceleration_type: session.TranscodingInfo.HardwareAccelerationType,
+      transcode_reasons: session.TranscodingInfo.TranscodeReasons,
+    } : undefined,
   };
 }
 

@@ -18,7 +18,7 @@ import {
 import { ActiveSession, Server } from "@/lib/db";
 import { useQuery } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
-import { Clock, Film, MonitorPlay, Pause, Play, Tv, User } from "lucide-react";
+import { Clock, Film, MonitorPlay, Pause, Play, Tv, User, Cog, Zap } from "lucide-react";
 import LoadingSessions from "./LoadingSessions";
 import { Poster } from "./Poster";
 
@@ -140,6 +140,8 @@ export function ActiveSessions({ server }: { server: Server }) {
                     <span className="text-xs text-muted-foreground">
                       {session.client} on {session.device_name}
                     </span>
+                    <span className="text-xs text-muted-foreground">•</span>
+                    <PlaybackMethodBadge session={session} />
                   </div>
 
                   <div className="flex items-center gap-2">
@@ -194,5 +196,35 @@ function MediaTypeBadge({ type }: { type: string | undefined | null }) {
         {type}
       </div>
     </Badge>
+  );
+}
+
+function PlaybackMethodBadge({ session }: { session: ActiveSession }) {
+  const isTranscoding = session.transcoding_info && !session.transcoding_info.is_video_direct;
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className="flex items-center gap-1">
+            {isTranscoding ? (
+              <Cog className="h-4 w-4 text-amber-500" />
+            ) : (
+              <Zap className="h-4 w-4 text-green-500" />
+            )}
+            <span className="text-xs text-muted-foreground">
+              {isTranscoding
+                ? `Transcoding (${session.transcoding_info?.video_codec || 'unknown'})`
+                : 'Direct Play'}
+            </span>
+          </div>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>{isTranscoding
+            ? `Transcoding video to ${session.transcoding_info?.video_codec}`
+            : 'Direct playing without transcoding'}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
