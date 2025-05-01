@@ -196,6 +196,19 @@ export type ActiveSession = {
   last_activity_date: string | null;
   is_paused: boolean;
   play_method: string | null;
+  transcoding_info?: {
+    video_codec: string;
+    audio_codec: string;
+    container: string;
+    is_video_direct: boolean;
+    is_audio_direct: boolean;
+    bitrate: number;
+    width: number;
+    height: number;
+    audio_channels: number;
+    hardware_acceleration_type: string;
+    transcode_reasons: string[];
+  };
 };
 
 export const getActiveSessions = async (
