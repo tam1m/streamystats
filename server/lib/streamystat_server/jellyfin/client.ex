@@ -47,7 +47,8 @@ defmodule StreamystatServer.Jellyfin.Client do
     "ChannelId",
     "ParentBackdropItemId",
     "ParentThumbItemId",
-    "LocationType"
+    "LocationType",
+    "People"
   ]
 
   def get_users(server) do
@@ -100,7 +101,7 @@ defmodule StreamystatServer.Jellyfin.Client do
 
   def get_item(server, item_id) do
     params = %{
-      "Fields" => Enum.join(@default_item_fields, ","),
+      "Fields" => Enum.join(@default_item_fields, ",")
     }
 
     try do
