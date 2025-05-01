@@ -93,4 +93,39 @@ defmodule StreamystatServer.Jellyfin.Sync.Utils do
       Map.get(existing_item, field) != Map.get(new_item, field)
     end)
   end
+
+  @doc """
+  Determines if image-related fields have changed between two maps or structs.
+  This is a more specific check for image changes that also considers the etag.
+  """
+  def image_fields_changed?(existing_item, new_item) do
+    image_fields = [
+      :primary_image_tag,
+      :backdrop_image_tags,
+      :primary_image_thumb_tag,
+      :primary_image_logo_tag,
+      :image_blur_hashes,
+      :parent_backdrop_image_tags,
+      :parent_thumb_image_tag,
+      :series_primary_image_tag
+    ]
+
+    # First check if etag has changed (indicates any change in Jellyfin)
+    etag_changed = Map.get(existing_item, :etag) != Map.get(new_item, :etag)
+
+    # Then check specific image fields
+    image_fields_changed = Enum.any?(image_fields, fn field ->
+      existing_value = Map.get(existing_item, field)
+      new_value = Map.get(new_item, field)
+
+      # Handle array fields differently
+      if is_list(existing_value) and is_list(new_value) do
+        existing_value != new_value
+      else
+        existing_value != new_value
+      end
+    end)
+
+    etag_changed or image_fields_changed
+  end
 end
