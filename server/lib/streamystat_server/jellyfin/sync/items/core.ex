@@ -29,24 +29,15 @@ defmodule StreamystatServer.Jellyfin.Sync.Items.Core do
 
     Logger.info("Starting item sync for all libraries")
 
-    # Collect all valid jellyfin_ids during sync
-    {result, all_valid_jellyfin_ids} =
-      case Client.get_libraries(server) do
-        {:ok, libraries} ->
-          {process_libraries_with_ids(server, libraries, metrics_agent, options),
-           Enum.flat_map(libraries, fn lib ->
-             # Fetch all items for this library and collect their IDs
-             {:ok, {items, _}} = Client.get_items_page(server, lib["Id"], 0, 100000)
-             Enum.map(items, & &1["Id"])
-           end)}
+    result =
+      with {:ok, libraries} <- Client.get_libraries(server) do
+        process_libraries(server, libraries, metrics_agent, options)
+      else
         {:error, reason} ->
           Metrics.update(metrics_agent, %{errors: [reason]})
           Logger.error("Failed to fetch libraries: #{inspect(reason)}")
-          {{:error, reason}, []}
+          {:error, reason}
       end
-
-    # Cleanup step: remove orphans
-    cleanup_orphaned_items(server.id, all_valid_jellyfin_ids)
 
     end_time = System.monotonic_time(:millisecond)
     duration_ms = end_time - start_time
@@ -272,21 +263,5 @@ defmodule StreamystatServer.Jellyfin.Sync.Items.Core do
     Logger.error(
       "Failed to sync items for Jellyfin library #{jellyfin_library_id}: #{inspect(reason)}"
     )
-  end
-
-  defp cleanup_orphaned_items(server_id, valid_jellyfin_ids) do
-    import Ecto.Query
-    alias StreamystatServer.Jellyfin.Models.Item
-    
-    # Remove items for this server that are not in the valid_jellyfin_ids set
-    from(i in Item,
-      where: i.server_id == ^server_id and not (i.jellyfin_id in ^valid_jellyfin_ids)
-    )
-    |> Repo.delete_all()
-  end
-
-  # Helper to process libraries and return the original result (for DRY)
-  defp process_libraries_with_ids(server, libraries, metrics_agent, options) do
-    process_libraries(server, libraries, metrics_agent, options)
   end
 end
