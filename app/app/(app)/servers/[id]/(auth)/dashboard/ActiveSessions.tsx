@@ -21,6 +21,7 @@ import { formatDistanceToNow } from "date-fns";
 import { Clock, Film, MonitorPlay, Pause, Play, Tv, User } from "lucide-react";
 import LoadingSessions from "./LoadingSessions";
 import { Poster } from "./Poster";
+import JellyfinAvatar from "@/components/JellyfinAvatar";
 
 export function ActiveSessions({ server }: { server: Server }) {
   const { data, isPending } = useQuery({
@@ -81,12 +82,12 @@ export function ActiveSessions({ server }: { server: Server }) {
           {sortedSessions.map((session) => (
             <div
               key={session.session_key}
-              className="flex flex-col md:flex-row md:items-center border rounded-lg p-4  items-start"
+              className="flex flex-col md:flex-row md:items-center border rounded-lg p-4 items-start"
             >
               <div className="w-32 mb-2 md:mb-0 md:mr-4">
                 <Poster item={session.item} server={server} />
               </div>
-              <div className="flex flex-col space-y-3 flex-1">
+              <div className="flex-1 space-y-2">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 md:gap-0">
                   <div className="flex items-center gap-2">
                     {session.is_paused ? (
@@ -115,24 +116,31 @@ export function ActiveSessions({ server }: { server: Server }) {
                   </div>
                 </div>
 
-                {session.item?.type === "Episode" &&
-                  session.item.series_name && (
-                    <div className="text-sm text-muted-foreground">
-                      {session.item.series_name}
-                      {session.item.parent_index_number &&
-                        session.item.index_number && (
-                          <span>
-                            {" "}
-                            - S{session.item.parent_index_number}:E
-                            {session.item.index_number}
-                          </span>
-                        )}
-                    </div>
-                  )}
+                {session.item.series_name && (
+                  <div className="text-sm text-muted-foreground">
+                    {session.item.series_name}
+                    {session.item.parent_index_number &&
+                      session.item.index_number && (
+                        <span>
+                          {" "}
+                          - S{session.item.parent_index_number}:E
+                          {session.item.index_number}
+                        </span>
+                      )}
+                  </div>
+                )}
 
                 <div className="flex flex-col gap-1">
                   <div className="flex items-center gap-2 mb-1">
-                    <User className="h-3 w-3 text-muted-foreground" />
+                    {session.user ? (
+                      <JellyfinAvatar
+                        user={session.user}
+                        serverUrl={server.url}
+                        className="h-6 w-6 rounded-lg"
+                      />
+                    ) : (
+                      <User className="h-3 w-3 text-muted-foreground" />
+                    )}
                     <span className="text-sm">
                       {session.user?.name || "Unknown User"}
                     </span>
@@ -170,29 +178,16 @@ export function ActiveSessions({ server }: { server: Server }) {
   );
 }
 
-function MediaTypeBadge({ type }: { type: string | undefined | null }) {
+function MediaTypeBadge({ type }: { type?: string }) {
   if (!type) return null;
 
-  let variant: "default" | "secondary" | "outline" = "outline";
-  let icon = null;
-
-  switch (type) {
-    case "Movie":
-      variant = "secondary";
-      icon = <Film className="h-3 w-3 mr-1" />;
-      break;
-    case "Episode":
-      variant = "outline";
-      icon = <Tv className="h-3 w-3 mr-1" />;
-      break;
-  }
+  const icon = type === "Movie" ? Film : Tv;
+  const Icon = icon;
 
   return (
-    <Badge variant={variant} className="ml-2 text-xs">
-      <div className="flex items-center">
-        {icon}
-        {type}
-      </div>
+    <Badge variant="outline" className="flex items-center gap-1">
+      <Icon className="h-3 w-3" />
+      {type}
     </Badge>
   );
 }

@@ -1,31 +1,47 @@
 import { User } from "@/lib/db";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { cn } from "@/lib/utils";
+import { useMemo } from "react";
+
+interface Props {
+  user: User | { id: string | number; name: string | null; jellyfin_id: string | null };
+  serverUrl?: string;
+  imageTag?: string;
+  quality?: number;
+  className?: string;
+}
 
 export default function JellyfinAvatar({
   user,
   serverUrl,
-  imageTag = "", // Add optional imageTag prop with default empty string
-  quality = 90, // Add optional quality prop with default 90
-}: {
-  user: User;
-  serverUrl: string | undefined | null;
-  imageTag?: string;
-  quality?: number;
-}) {
-  const imageUrl = `/Users/${user.jellyfin_id}/Images/Primary?tag=${imageTag}&quality=${quality}`;
+  imageTag,
+  quality = 90,
+  className,
+}: Props) {
+  const imageUrl = useMemo(() => {
+    if (!serverUrl || !user?.jellyfin_id) return null;
 
-  if (serverUrl && user) {
-    return (
-      <div className="flex items-center space-x-4">
-        <img
-          width={40}
-          height={40}
-          src={`${serverUrl}${imageUrl}`}
-          alt="Jellyfin Avatar"
-          className="w-10 h-10 rounded-full"
-        />
-      </div>
-    );
-  }
+    return `${serverUrl}/Users/${user.jellyfin_id}/Images/Primary?quality=${quality}${
+      imageTag ? `&tag=${imageTag}` : ""
+    }`;
+  }, [serverUrl, user?.jellyfin_id, imageTag, quality]);
 
-  return null;
+  const initials = useMemo(() => {
+    if (!user?.name) return "?";
+    return user.name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
+  }, [user?.name]);
+
+  if (!serverUrl || !user) return null;
+
+  return (
+    <Avatar className={cn("h-8 w-8", className)}>
+      <AvatarImage src={imageUrl || undefined} alt={user.name || "User"} />
+      <AvatarFallback>{initials}</AvatarFallback>
+    </Avatar>
+  );
 }

@@ -64,9 +64,9 @@ export const UserTable: React.FC<UserTableProps> = ({
         );
       },
       cell: ({ row }) => (
-        <div className="">
+        <div className="flex items-center gap-3">
           <JellyfinAvatar serverUrl={server.url} user={row.original} />
-          <p>{row.getValue("name")}</p>
+          <p className="font-medium">{row.getValue("name")}</p>
         </div>
       ),
     },
