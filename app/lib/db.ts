@@ -209,6 +209,7 @@ export type ActiveSession = {
     hardware_acceleration_type: string;
     transcode_reasons: string[];
   };
+  ip_address?: string;
 };
 
 export const getActiveSessions = async (

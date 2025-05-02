@@ -98,6 +98,7 @@ function mapJellyfinSessionToActiveSession(
       hardware_acceleration_type: session.TranscodingInfo.HardwareAccelerationType,
       transcode_reasons: session.TranscodingInfo.TranscodeReasons,
     } : undefined,
+    ip_address: session.RemoteEndPoint || undefined,
   };
 }
 
