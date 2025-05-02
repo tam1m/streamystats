@@ -24,6 +24,19 @@ import { Poster } from "./Poster";
 import JellyfinAvatar from "@/components/JellyfinAvatar";
 import Link from "next/link";
 
+// Utility: show seconds ago if < 60s, else use formatDistanceToNow
+function formatDistanceWithSeconds(date: Date) {
+  const now = new Date();
+  const diff = Math.floor((now.getTime() - date.getTime()) / 1000); // in seconds
+  if (diff < 1) {
+    return "just now";
+  }
+  if (diff < 60) {
+    return `${diff} second${diff === 1 ? "" : "s"} ago`;
+  }
+  return formatDistanceToNow(date, { addSuffix: true });
+}
+
 export function ActiveSessions({ server }: { server: Server }) {
   const { data, isPending } = useQuery({
     queryKey: ["activeSessions", server.id],
@@ -223,7 +236,7 @@ export function ActiveSessions({ server }: { server: Server }) {
                 </div>
                 {session.last_activity_date && (
                   <div className="text-xs text-muted-foreground w-full">
-                    Last activity: {formatDistanceToNow(new Date(session.last_activity_date), { addSuffix: true })}
+                    Last activity: {formatDistanceWithSeconds(new Date(session.last_activity_date))}
                   </div>
                 )}
               </div>
