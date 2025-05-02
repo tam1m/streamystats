@@ -5,9 +5,41 @@ import { Item, Server } from "@/lib/db";
 import Image from "next/image";
 import { memo, useEffect, useMemo, useState } from "react";
 import { Blurhash } from "react-blurhash";
+import { Film, Tv } from "lucide-react";
 
 // Define the possible image types that can be requested
 export type ImageType = "Primary" | "Backdrop" | "Thumb" | "Logo";
+
+/**
+ * Utility function to calculate aspect ratio and dimensions for different media types
+ *
+ * Aspect ratios are determined by both the media type and image type:
+ * - Movies with Primary/Logo images: 2:3 (portrait)
+ * - Episodes, Backdrops, and Thumbs: 16:9 (landscape)
+ * - Other cases: 1:1 (square)
+ *
+ * @param type The type of image being requested
+ * @param isEpisode Whether the item is an episode
+ * @returns Object containing blurhash dimensions and CSS aspect ratio
+ */
+const getImageDimensions = (type: ImageType, isEpisode: boolean) => {
+  const x = 32;
+  let y;
+  let aspectRatio;
+
+  if ((!isEpisode && type === "Primary") || (type === "Logo" && !isEpisode)) {
+    y = Math.round(x * (3 / 2));
+    aspectRatio = "2/3";
+  } else if (type === "Backdrop" || type === "Thumb" || isEpisode) {
+    y = Math.round(x * (9 / 16));
+    aspectRatio = "16/9";
+  } else {
+    y = x;
+    aspectRatio = "1/1";
+  }
+
+  return { blurhashX: x, blurhashY: y, aspectRatio };
+};
 
 const PosterComponent = ({
   item,
@@ -15,7 +47,8 @@ const PosterComponent = ({
   width = 500,
   height = 500,
   className = "",
-  preferredImageType = "Primary", // New prop to specify preferred image type
+  preferredImageType = "Primary",
+  size = "default",
 }: {
   item: Item;
   server: Server;
@@ -23,12 +56,15 @@ const PosterComponent = ({
   height?: number;
   className?: string;
   preferredImageType?: ImageType;
+  size?: "default" | "large";
 }) => {
   const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
   const [blurHash, setBlurHash] = useState<string | null>(null);
 
-  // Determine if it's an episode to handle parent images
-  const isEpisode = useMemo(() => item.type === "Episode", [item.type]);
+  const isEpisode = item.type === "Episode";
+  const { blurhashX, blurhashY, aspectRatio } = getImageDimensions(preferredImageType, isEpisode);
+  const containerClassName = `relative ${size === "large" ? "w-24" : "w-16"} ${className} overflow-hidden rounded-md bg-muted`;
 
   // Memoize the image URL calculation
   const imageUrl = useMemo(() => {
@@ -214,94 +250,51 @@ const PosterComponent = ({
     preferredImageType,
   ]);
 
-  // Early return if no image
-  if (!imageUrl) return null;
-
-  // Memoized container class
-  const containerClassName = useMemo(
-    () => `relative w-full ${className} overflow-hidden rounded-md`,
-    [className],
-  );
-
-  const { blurhashX, blurhashY } = useMemo(() => {
-    const x = 32;
-    let y;
-
-    // Choose aspect ratio based on preferred image type or item type
-    if (
-      (!isEpisode && preferredImageType === "Primary") ||
-      (preferredImageType === "Logo" && item.type === "Movie")
-    ) {
-      y = Math.round(x * (3 / 2)); // 2:3 aspect ratio for portrait content
-    } else if (
-      preferredImageType === "Backdrop" ||
-      preferredImageType === "Thumb" ||
-      item.type === "Episode"
-    ) {
-      y = Math.round(x * (9 / 16)); // 16:9 aspect ratio for landscape content
-    } else {
-      y = x; // Fallback to square
-    }
-
-    return { blurhashX: x, blurhashY: y };
-  }, [item.type, preferredImageType]);
-
-  // Calculate aspect ratio styles based on preferred image type
-  const aspectRatioStyle = useMemo(() => {
-    if (
-      (!isEpisode && preferredImageType === "Primary") ||
-      (preferredImageType === "Logo" && item.type === "Movie")
-    ) {
-      return { paddingBottom: "150%" }; // 2:3 aspect ratio
-    } else if (
-      preferredImageType === "Backdrop" ||
-      preferredImageType === "Thumb" ||
-      item.type === "Episode"
-    ) {
-      return { paddingBottom: "56.25%" }; // 16:9 aspect ratio
-    }
-    return { paddingBottom: "100%" }; // Default square
-  }, [item.type, preferredImageType]);
+  // Early return if no image or error
+  if (!imageUrl || hasError) {
+    return (
+      <div className={containerClassName} style={{ aspectRatio }}>
+        <div className="w-full h-full bg-muted flex flex-col items-center justify-center rounded-md">
+          <div className="flex flex-col items-center gap-1">
+            {item.type === "Movie" ? (
+              <Film className="h-4 w-4 text-muted-foreground/70" />
+            ) : (
+              <Tv className="h-4 w-4 text-muted-foreground/70" />
+            )}
+            <span className="text-[10px] text-muted-foreground/70">
+              {hasError ? "Removed" : "No Image"}
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className={containerClassName} style={aspectRatioStyle}>
-      {/* Blur hash placeholder */}
-      {blurHash && (
-        <div className="absolute inset-0 w-full h-full">
-          <Blurhash
-            hash={blurHash}
-            resolutionX={blurhashX}
-            resolutionY={blurhashY}
-            height="100%"
-            width="100%"
-            punch={1}
-            style={{
-              position: "absolute",
-              top: 0,
-              right: 0,
-              bottom: 0,
-              left: 0,
-              display: "flex",
-            }}
-          />
-        </div>
+    <div className={containerClassName} style={{ aspectRatio }}>
+      {blurHash && isLoading && (
+        <Blurhash
+          hash={blurHash}
+          width={blurhashX}
+          height={blurhashY}
+          resolutionX={32}
+          resolutionY={32}
+          punch={1}
+        />
       )}
-
-      {/* Actual image */}
       <Image
         src={imageUrl}
-        alt={item.name || "Media"}
-        fill
-        className="object-cover rounded-md transition-opacity duration-300"
-        style={{
-          opacity: isLoading ? 0 : 1,
-          position: "absolute",
-          top: 0,
-          left: 0,
-        }}
-        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-        priority={false}
+        alt={`${item.name} poster`}
+        width={width}
+        height={height}
+        className={`object-cover transition-opacity duration-300 ${
+          isLoading ? "opacity-0" : "opacity-100"
+        }`}
         onLoad={() => setIsLoading(false)}
+        onError={(e) => {
+          console.error(`Error loading poster image: ${imageUrl}`, e);
+          setHasError(true);
+        }}
       />
     </div>
   );
@@ -318,6 +311,7 @@ export const Poster = memo(PosterComponent, (prevProps, nextProps) => {
     prevProps.width === nextProps.width &&
     prevProps.height === nextProps.height &&
     prevProps.className === nextProps.className &&
-    prevProps.preferredImageType === nextProps.preferredImageType
+    prevProps.preferredImageType === nextProps.preferredImageType &&
+    prevProps.size === nextProps.size
   );
 });
