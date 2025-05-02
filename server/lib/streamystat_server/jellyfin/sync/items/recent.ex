@@ -270,7 +270,7 @@ defmodule StreamystatServer.Jellyfin.Sync.Items.Recent do
         update_fields =
           tracked_fields
           |> Enum.map(fn field -> {field, Map.get(item, field)} end)
-          |> Enum.into([])
+          |> Enum.concat([{:updated_at, NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)}])
 
         {updated, _} =
           Repo.update_all(

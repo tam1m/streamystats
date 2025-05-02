@@ -83,7 +83,7 @@ defmodule StreamystatServer.Jellyfin.Sync.Items.Core do
     existing_item_ids = MapSet.new(existing_items, & &1.jellyfin_id)
 
     # Track the start time of this sync
-    sync_start = NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+    sync_start = NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second) |> NaiveDateTime.add(-5, :second)
 
     results =
       Task.async_stream(
@@ -108,6 +108,7 @@ defmodule StreamystatServer.Jellyfin.Sync.Items.Core do
     removed_list = MapSet.to_list(removed_items)
 
     if MapSet.size(removed_items) > 0 do
+      Logger.info("Marking #{MapSet.size(removed_items)} items as removed: #{inspect(removed_list)}")
       now = NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
       {count, _} =
         Repo.update_all(
@@ -116,7 +117,7 @@ defmodule StreamystatServer.Jellyfin.Sync.Items.Core do
           ),
           set: [removed_at: now]
         )
-      Logger.info("Marked #{count} items as removed")
+      Logger.info("Successfully marked #{count} items as removed")
     end
 
     total_count = Enum.sum(Enum.map(results, fn {_, count, _} -> count end))
@@ -149,6 +150,7 @@ defmodule StreamystatServer.Jellyfin.Sync.Items.Core do
 
   defp get_found_items(sync_start, server_id) do
     # Get all items from the database that were synced in this run
+    # Using the sync_start which already includes a 5-second buffer
     Repo.all(
       from(i in Item,
         where: i.server_id == ^server_id and
