@@ -9,6 +9,7 @@ defmodule StreamystatServer.Jellyfin.Client do
     [{"X-Emby-Token", api_key} | headers]
   end
 
+  @default_image_types "Primary,Backdrop,Banner,Thumb"
   @default_item_fields [
     "DateCreated",
     "Etag",
@@ -100,23 +101,29 @@ defmodule StreamystatServer.Jellyfin.Client do
   end
 
   def get_item(server, item_id) do
+    url = "#{server.url}/Items/#{item_id}"
+    headers = process_request_headers([], server.api_key)
+
     params = %{
-      "Fields" => Enum.join(@default_item_fields, ",")
+      Fields: Enum.join(@default_item_fields, ","),
+      EnableImageTypes: @default_image_types
     }
 
-    try do
-      case get("#{server.url}/Items/#{item_id}", server.api_key, params: params) do
-        {:ok, item} when is_map(item) ->
-          {:ok, item}
+    case get(url, headers, params: params) do
+      {:ok, %{status_code: 200, body: body}} ->
+        case Jason.decode(body) do
+          {:ok, item} -> {:ok, item}
+          {:error, decode_error} -> {:error, "JSON decode error: #{inspect(decode_error)}"}
+        end
 
-        {:ok, other} ->
-          {:error, "Unexpected response format: #{inspect(other)}"}
+      {:ok, %{status_code: 404}} ->
+        {:error, :item_not_found}
 
-        {:error, reason} ->
-          {:error, reason}
-      end
-    rescue
-      e -> {:error, "Error in get_item: #{Exception.message(e)}"}
+      {:ok, %{status_code: status_code}} ->
+        {:error, "Unexpected status code: #{status_code}"}
+
+      {:error, %HTTPoison.Error{reason: reason}} ->
+        {:error, "HTTP request failed: #{reason}"}
     end
   end
 
@@ -194,7 +201,7 @@ defmodule StreamystatServer.Jellyfin.Client do
       "ParentId" => library_id,
       "Fields" => Enum.join(@default_item_fields, ","),
       "ImageTypeLimit" => "1",
-      "EnableImageTypes" => "Primary,Backdrop,Thumb,Logo",
+      "EnableImageTypes" => @default_image_types,
       "Limit" => "#{limit}"
     }
 
@@ -229,7 +236,7 @@ defmodule StreamystatServer.Jellyfin.Client do
       "Recursive" => "true",
       "Fields" => Enum.join(@default_item_fields, ","),
       "ImageTypeLimit" => "1",
-      "EnableImageTypes" => "Primary,Backdrop,Thumb,Logo",
+      "EnableImageTypes" => @default_image_types,
       "Limit" => "#{limit}"
     }
 
@@ -267,7 +274,7 @@ defmodule StreamystatServer.Jellyfin.Client do
       Fields: Enum.join(@default_item_fields, ","),
       StartIndex: start_index,
       Limit: limit,
-      EnableImageTypes: "Primary,Backdrop,Banner,Thumb",
+      EnableImageTypes: @default_image_types,
       IsFolder: false,
       IsPlaceHolder: false
     }

@@ -202,8 +202,14 @@ defmodule StreamystatServer.Jellyfin.Sync.Items.Recent do
             {[item | inserts], updates, unchanged}
 
           existing ->
-            # Check if any tracked field has changed
-            if Utils.fields_changed?(existing, item, tracked_fields) do
+            # Check if any tracked field has changed or if images have changed
+            if Utils.fields_changed?(existing, item, tracked_fields) or
+                 Utils.image_fields_changed?(existing, item) do
+              # If only images changed, log it
+              if not Utils.fields_changed?(existing, item, tracked_fields) and
+                   Utils.image_fields_changed?(existing, item) do
+                Logger.info("Image update detected for item #{item.jellyfin_id}")
+              end
               {inserts, [item | updates], unchanged}
             else
               {inserts, updates, [item | unchanged]}
