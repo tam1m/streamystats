@@ -17,6 +17,7 @@ import { Clock, Trophy, User as UserIcon } from "lucide-react";
 import Link from "next/link";
 import { useMemo } from "react";
 import { UserLeaderboardFilter } from "./UserLeaderBoardFilter";
+import JellyfinAvatar from "@/components/JellyfinAvatar";
 
 interface Props {
   users: User[];
@@ -88,11 +89,7 @@ export const UserLeaderboardTable = ({ users, server }: Props) => {
                       href={`/servers/${server.id}/users/${user.id}`}
                       className="flex items-center gap-2 hover:underline"
                     >
-                      <Avatar className="h-8 w-8">
-                        <AvatarFallback>
-                          <UserIcon className="h-4 w-4" />
-                        </AvatarFallback>
-                      </Avatar>
+                      <JellyfinAvatar user={user} serverUrl={server.url} />
                       <span>{user.name}</span>
                     </Link>
                   </TableCell>
