@@ -105,8 +105,8 @@ export function ActiveSessions({ server }: { server: Server }) {
             }
           >
             {sortedSessions.map((session) => (
-              <div key={session.session_key} className="border rounded-lg p-4 w-full">
-                <div className="flex flex-row gap-2 w-full min-w-0 max-[350px]:flex-col">
+              <div key={session.session_key} className="border rounded-lg p-4 w-full flex flex-col h-full">
+                <div className="flex flex-row gap-2 w-full min-w-0 max-[350px]:flex-col flex-1">
                   {/* Poster */}
                   <div className="w-20 sm:w-24 flex-shrink-0 flex items-start mr-3 mb-0">
                     <Poster item={session.item} server={server} size="large" />
@@ -228,17 +228,19 @@ export function ActiveSessions({ server }: { server: Server }) {
                   </div>
                 </div>
                 {/* Progress and last activity (full width, inside card) */}
-                <div className="flex items-center gap-2 w-full mt-2">
-                  <Progress value={session.progress_percent} className="h-2 flex-1" />
-                  <span className="text-xs font-medium min-w-[2.5rem] text-right">
-                    {Math.round(session.progress_percent)}%
-                  </span>
-                </div>
-                {session.last_activity_date && (
-                  <div className="text-xs text-muted-foreground w-full">
-                    Last activity: {formatDistanceWithSeconds(new Date(session.last_activity_date))}
+                <div className="mt-auto pt-2">
+                  <div className="flex items-center gap-2 w-full">
+                    <Progress value={session.progress_percent} className="h-2 flex-1" />
+                    <span className="text-xs font-medium min-w-[2.5rem] text-right">
+                      {Math.round(session.progress_percent)}%
+                    </span>
                   </div>
-                )}
+                  {session.last_activity_date && (
+                    <div className="text-xs text-muted-foreground w-full mt-1">
+                      Last activity: {formatDistanceWithSeconds(new Date(session.last_activity_date))}
+                    </div>
+                  )}
+                </div>
               </div>
             ))}
           </div>
