@@ -136,19 +136,22 @@ defmodule StreamystatServer.Statistics.Statistics do
     %{
       movies_count:
         Repo.one(
-          from(i in Item, where: i.server_id == ^server_id and i.type == "Movie", select: count())
+          from(i in Item,
+            where: i.server_id == ^server_id and i.type == "Movie" and is_nil(i.removed_at),
+            select: count()
+          )
         ),
       episodes_count:
         Repo.one(
           from(i in Item,
-            where: i.server_id == ^server_id and i.type == "Episode",
+            where: i.server_id == ^server_id and i.type == "Episode" and is_nil(i.removed_at),
             select: count()
           )
         ),
       series_count:
         Repo.one(
           from(i in Item,
-            where: i.server_id == ^server_id and i.type == "Series",
+            where: i.server_id == ^server_id and i.type == "Series" and is_nil(i.removed_at),
             select: count()
           )
         ),
