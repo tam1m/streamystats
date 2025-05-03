@@ -24,6 +24,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { CustomBarLabel, CustomValueLabel } from "@/components/ui/CustomBarLabel";
 
 interface BitrateDistributionCardProps {
   data: NumericStat;
@@ -39,7 +40,7 @@ export const BitrateDistributionCard = ({
 
   // Use all distribution categories, even those with zero count
   // to show the complete range of possible bitrates
-  const bitrateData = data.distribution;
+  const bitrateData = data.distribution.filter((item) => item.count > 0);
 
   const bitrateConfig = {
     count: {
@@ -64,11 +65,12 @@ export const BitrateDistributionCard = ({
 
   // Find categories with data for the footer
   const categoriesWithData = bitrateData
-    .filter((item) => item.count > 0)
     .sort((a, b) => b.count - a.count);
 
   const mostCommonCategory =
     categoriesWithData.length > 0 ? categoriesWithData[0].range : "N/A";
+
+  const maxCount = Math.max(...bitrateData.map((d) => d.count));
 
   return (
     <Card>
@@ -115,17 +117,24 @@ export const BitrateDistributionCard = ({
             >
               <LabelList
                 dataKey="range"
-                position="insideLeft"
-                offset={8}
-                className="fill-[#d6e3ff]"
-                fontSize={12}
+                content={<CustomBarLabel fill="#d6e3ff" fontSize={12} />}
               />
               <LabelList
                 dataKey="count"
-                position="right"
-                offset={8}
-                className="fill-[#d6e3ff]"
-                fontSize={12}
+                content={({ x, y, width, height, value }) =>
+                  Number(value) === 0 ? null : (
+                    <CustomValueLabel
+                      x={Number(x)}
+                      y={Number(y)}
+                      width={Number(width)}
+                      height={Number(height)}
+                      value={value}
+                      fill="#d6e3ff"
+                      fontSize={12}
+                      isMax={value === maxCount}
+                    />
+                  )
+                }
               />
             </Bar>
           </BarChart>

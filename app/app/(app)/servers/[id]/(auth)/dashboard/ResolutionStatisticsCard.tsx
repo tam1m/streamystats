@@ -24,6 +24,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { CustomBarLabel, CustomValueLabel } from "@/components/ui/CustomBarLabel";
 
 interface Props {
   width: NumericStat;
@@ -51,6 +52,8 @@ export const ResolutionStatisticsCard = ({ width, height }: Props) => {
       color: "hsl(var(--background))",
     },
   } satisfies ChartConfig;
+
+  const maxCount = Math.max(...resolutionWidthData.map((d) => d.count));
 
   return (
     <Card>
@@ -96,17 +99,24 @@ export const ResolutionStatisticsCard = ({ width, height }: Props) => {
             >
               <LabelList
                 dataKey="range"
-                position="insideLeft"
-                offset={8}
-                className="fill-[#d6e3ff]"
-                fontSize={12}
+                content={<CustomBarLabel fill="#d6e3ff" fontSize={12} />}
               />
               <LabelList
                 dataKey="count"
-                position="right"
-                offset={8}
-                className="fill-[#d6e3ff]"
-                fontSize={12}
+                content={({ x, y, width, height, value }) =>
+                  Number(value) === 0 ? null : (
+                    <CustomValueLabel
+                      x={Number(x)}
+                      y={Number(y)}
+                      width={Number(width)}
+                      height={Number(height)}
+                      value={value}
+                      fill="#d6e3ff"
+                      fontSize={12}
+                      isMax={value === maxCount}
+                    />
+                  )
+                }
               />
             </Bar>
           </BarChart>
