@@ -6,7 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Spinner } from "./Spinner";
-import { Avatar, AvatarFallback } from "./ui/avatar";
+import JellyfinAvatar from "./JellyfinAvatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,12 +16,14 @@ import {
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 import { SidebarMenuButton } from "./ui/sidebar";
+import { User } from "@/lib/db";
 
 interface Props {
-  me?: { name?: string };
+  me?: User;
+  serverUrl?: string;
 }
 
-export const UserMenu: React.FC<Props> = ({ me }) => {
+export const UserMenu: React.FC<Props> = ({ me, serverUrl }) => {
   const router = useRouter();
   const params = useParams();
   const [loading, setLoading] = useState(false);
@@ -30,15 +32,6 @@ export const UserMenu: React.FC<Props> = ({ me }) => {
 
   if (!me || !me?.name) return null;
 
-  const shortName = useMemo(() => {
-    if (!me.name) return "";
-    if (me.name?.length >= 2) {
-      return me.name.slice(0, 2).toUpperCase();
-    }
-
-    return me.name.toUpperCase();
-  }, [me.name]);
-
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -46,9 +39,11 @@ export const UserMenu: React.FC<Props> = ({ me }) => {
           size="lg"
           className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
         >
-          <Avatar className="h-8 w-8 rounded-lg">
-            <AvatarFallback className="rounded-lg">{shortName}</AvatarFallback>
-          </Avatar>
+          <JellyfinAvatar
+            user={me}
+            serverUrl={serverUrl}
+            className="h-8 w-8 rounded-lg"
+          />
           <div className="grid flex-1 text-left text-sm leading-tight">
             <span className="truncate font-semibold">{me.name}</span>
           </div>
@@ -63,11 +58,11 @@ export const UserMenu: React.FC<Props> = ({ me }) => {
       >
         <DropdownMenuLabel className="p-0 font-normal">
           <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-            <Avatar className="h-8 w-8 rounded-lg">
-              <AvatarFallback className="rounded-lg">
-                {shortName}
-              </AvatarFallback>
-            </Avatar>
+            <JellyfinAvatar
+              user={me}
+              serverUrl={serverUrl}
+              className="h-8 w-8 rounded-lg"
+            />
             <div className="grid flex-1 text-left text-sm leading-tight">
               <span className="truncate font-semibold">{me.name}</span>
             </div>

@@ -41,6 +41,7 @@ import { useRouter } from "nextjs-toploader/app";
 import { useQueryParams } from "@/hooks/useQueryParams";
 import { useSearchParams } from "next/navigation";
 import { useDebounce } from "use-debounce";
+import { Poster } from "@/app/(app)/servers/[id]/(auth)/dashboard/Poster";
 
 export interface HistoryTableProps {
   data: {
@@ -130,7 +131,30 @@ export function HistoryTable({
       accessorKey: "item_name",
       header: "Item",
       cell: ({ row }) => (
-        <div className="capitalize">{row.getValue("item_name")}</div>
+        <div className="flex flex-row items-center gap-4">
+          <div className="shrink-0 rounded overflow-hidden">
+            <Poster
+              item={{
+                jellyfin_id: row.original.item_id,
+                name: row.original.item_name,
+                type: row.original.item_type as "Series" | "Episode" | "Movie",
+                primary_image_tag: row.original.primary_image_tag,
+                backdrop_image_tags: row.original.backdrop_image_tags,
+                image_blur_hashes: row.original.image_blur_hashes,
+                parent_backdrop_item_id: row.original.parent_backdrop_item_id,
+                parent_backdrop_image_tags: row.original.parent_backdrop_image_tags,
+                parent_thumb_item_id: row.original.parent_thumb_item_id,
+                parent_thumb_image_tag: row.original.parent_thumb_image_tag,
+                primary_image_aspect_ratio: row.original.primary_image_aspect_ratio,
+                series_primary_image_tag: row.original.series_primary_image_tag,
+                primary_image_thumb_tag: row.original.primary_image_thumb_tag,
+                primary_image_logo_tag: row.original.primary_image_logo_tag,
+              }}
+              server={server}
+            />
+          </div>
+          <div className="capitalize">{row.getValue("item_name")}</div>
+        </div>
       ),
     },
     {

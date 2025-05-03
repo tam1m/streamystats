@@ -14,10 +14,10 @@ export default async function User({
   searchParams,
 }: {
   params: Promise<{ id: string; name: string }>;
-  searchParams: Promise<{ page: string }>;
+  searchParams: Promise<{ page?: string }>;
 }) {
   const { id, name } = await params;
-  const { page } = await searchParams;
+  const { page = "1" } = await searchParams;
   const server = await getServer(id);
 
   if (!server) {
@@ -57,7 +57,11 @@ export default async function User({
           <GenreStatsGraph data={user.genre_stats} className="w-full" />
         </div>
       </div>
-      <HistoryTable server={server} data={user.watch_history} hideUserColumn />
+      <HistoryTable
+        server={server}
+        data={user.watch_history}
+        hideUserColumn={true}
+      />
       <WatchTimePerDay data={user.watch_time_per_day} />
     </Container>
   );

@@ -122,7 +122,7 @@ export function ItemWatchStatsTable({
       header: "Name",
       cell: ({ row }) => (
         <div className="flex flex-row items-center gap-4">
-          <div className="w-12 shrink-0 rounded overflow-hidden">
+          <div className="shrink-0 rounded overflow-hidden">
             <Poster item={row.original.item} server={server} />
           </div>
           <p className="capitalize">{row.getValue("name")}</p>
