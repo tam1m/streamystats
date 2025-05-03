@@ -46,6 +46,7 @@ defmodule StreamystatServerWeb.BackupController do
         "INSERT INTO playback_sessions VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
       )
 
+    # Increase timeout for large exports
     Repo.transaction(fn ->
       from(p in PlaybackSession, where: p.server_id == ^server_id)
       |> Repo.stream()
@@ -91,7 +92,7 @@ defmodule StreamystatServerWeb.BackupController do
         :ok = Exqlite.Sqlite3.reset(stmt)
       end)
       |> Stream.run()
-    end)
+    end, timeout: 300_000) # 5 minutes
 
     # Release the prepared statement
     :ok = Exqlite.Sqlite3.release(db, stmt)
@@ -100,10 +101,19 @@ defmodule StreamystatServerWeb.BackupController do
     server = Repo.get(Server, server_id)
     filename = "playback_sessions_#{server.name}_#{Date.utc_today()}.db"
 
+    conn =
+      conn
+      |> put_resp_content_type("application/octet-stream")
+      |> put_resp_header("content-disposition", "attachment; filename=#{filename}")
+      |> send_file(200, temp_path)
+
+    # Schedule file deletion after response is sent
+    Task.start(fn ->
+      Process.sleep(10_000)
+      File.rm(temp_path)
+    end)
+
     conn
-    |> put_resp_content_type("application/octet-stream")
-    |> put_resp_header("content-disposition", "attachment; filename=#{filename}")
-    |> send_file(200, temp_path)
   end
 
   def import(conn, %{"server_id" => server_id_str, "file" => %Plug.Upload{path: path}}) do
