@@ -28,16 +28,9 @@ export default async function DashboardPage({
 
   const isAdmin = await isUserAdmin();
 
-  let _startDate = startDate;
-  let _endDate = endDate;
-  if (!startDate || !endDate) {
-    _startDate = addDays(new Date(), -30).toISOString().split("T")[0];
-    _endDate = new Date().toISOString().split("T")[0];
-
-    redirect(
-      `/servers/${id}/dashboard?startDate=${_startDate}&endDate=${_endDate}`
-    );
-  }
+  // Calculate default dates without redirecting
+  const _startDate = startDate || addDays(new Date(), -30).toISOString().split("T")[0];
+  const _endDate = endDate || new Date().toISOString().split("T")[0];
 
   return (
     <Container>
