@@ -3,15 +3,13 @@ import Config
 # Load environment variables from .env file
 env_path = Path.join(__DIR__, "../.env")
 if File.exists?(env_path) do
-  File.stream!(env_path)
-  |> Stream.map(&String.trim/1)
-  |> Stream.filter(&(&1 != ""))
-  |> Stream.filter(&(!String.starts_with?(&1, "#")))
-  |> Stream.map(&String.split(&1, "=", parts: 2))
-  |> Stream.each(fn [key, value] ->
-    System.put_env(String.trim(key), String.trim(value))
-  end)
-  |> Stream.run()
+  for line <- File.stream!(env_path) do
+    line = String.trim(line)
+    if line != "" && !String.starts_with?(line, "#") do
+      [key, value] = String.split(line, "=", parts: 2)
+      System.put_env(String.trim(key), String.trim(value))
+    end
+  end
 end
 
 # Configure your database
