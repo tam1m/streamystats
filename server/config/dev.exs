@@ -1,14 +1,29 @@
 import Config
 
+# Load environment variables from .env file
+env_path = Path.join(__DIR__, "../.env")
+if File.exists?(env_path) do
+  File.stream!(env_path)
+  |> Stream.map(&String.trim/1)
+  |> Stream.filter(&(&1 != ""))
+  |> Stream.filter(&(!String.starts_with?(&1, "#")))
+  |> Stream.map(&String.split(&1, "=", parts: 2))
+  |> Stream.each(fn [key, value] ->
+    System.put_env(String.trim(key), String.trim(value))
+  end)
+  |> Stream.run()
+end
+
 # Configure your database
 config :streamystat_server, StreamystatServer.Repo,
-  username: "postgres",
-  password: "Hacker97!",
-  hostname: "localhost",
-  database: "streamystat_server_dev",
+  username: System.get_env("DATABASE_USERNAME", "postgres"),
+  password: System.get_env("DATABASE_PASSWORD", "postgres"),
+  hostname: System.get_env("DATABASE_HOSTNAME", "localhost"),
+  database: System.get_env("DATABASE_NAME", "streamystat_server_dev"),
+  port: String.to_integer(System.get_env("DATABASE_PORT", "5432")),
+  pool_size: String.to_integer(System.get_env("DATABASE_POOL_SIZE", "10")),
   stacktrace: true,
   show_sensitive_data_on_connection_error: true,
-  pool_size: 10,
   log: false
 
 # For development, we disable any cache and enable
