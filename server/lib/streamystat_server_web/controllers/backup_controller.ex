@@ -71,9 +71,10 @@ defmodule StreamystatServerWeb.BackupController do
       conn
     rescue
       e ->
-        cleanup_resources(db, stmt, temp_path)
         Logger.error("Export failed: #{inspect(e)}")
         conn |> put_status(:internal_server_error) |> json(%{error: "Failed to export playback sessions"})
+    after
+      cleanup_resources(db, stmt, temp_path)
     end
   end
 
