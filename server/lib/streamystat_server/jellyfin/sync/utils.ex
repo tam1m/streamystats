@@ -4,6 +4,7 @@ defmodule StreamystatServer.Jellyfin.Sync.Utils do
   """
 
   require Logger
+  import Ecto.Query
   alias StreamystatServer.Repo
   alias StreamystatServer.Jellyfin.Models.Library
 
@@ -79,10 +80,10 @@ defmodule StreamystatServer.Jellyfin.Sync.Utils do
 
   @doc """
   Gets all libraries for a server.
+  Returns a query that can be used in other queries.
   """
   def get_libraries_by_server(server_id) do
-    import Ecto.Query
-    Repo.all(from(l in Library, where: l.server_id == ^server_id and is_nil(l.removed_at)))
+    from(l in Library, where: l.server_id == ^server_id and is_nil(l.removed_at))
   end
 
   @doc """
