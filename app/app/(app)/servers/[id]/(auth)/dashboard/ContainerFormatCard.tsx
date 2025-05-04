@@ -27,16 +27,19 @@ import {
   CategoryStat,
   TranscodingStatisticsResponse,
 } from "@/lib/db/transcoding-statistics";
+import { CustomBarLabel, CustomValueLabel } from "@/components/ui/CustomBarLabel";
 
 interface ContainerFormatCardProps {
   data: CategoryStat[];
 }
 
 export const ContainerFormatCard = ({ data }: ContainerFormatCardProps) => {
-  const containerData = data.map((item) => ({
-    name: item.value,
-    count: item.count,
-  }));
+  const containerData = data
+    .map((item) => ({
+      name: item.value,
+      count: item.count,
+    }))
+    .filter((item) => item.count > 0);
 
   const containerConfig = {
     count: {
@@ -56,6 +59,8 @@ export const ContainerFormatCard = ({ data }: ContainerFormatCardProps) => {
       maxHeightPerBar
     );
   };
+
+  const maxCount = Math.max(...containerData.map((d) => d.count));
 
   return (
     <Card>
@@ -99,17 +104,24 @@ export const ContainerFormatCard = ({ data }: ContainerFormatCardProps) => {
             >
               <LabelList
                 dataKey="name"
-                position="insideLeft"
-                offset={8}
-                className="fill-[#d6e3ff]"
-                fontSize={12}
+                content={<CustomBarLabel fill="#d6e3ff" fontSize={12} />}
               />
               <LabelList
                 dataKey="count"
-                position="right"
-                offset={8}
-                className="fill-[#d6e3ff]"
-                fontSize={12}
+                content={({ x, y, width, height, value }) =>
+                  Number(value) === 0 ? null : (
+                    <CustomValueLabel
+                      x={Number(x)}
+                      y={Number(y)}
+                      width={Number(width)}
+                      height={Number(height)}
+                      value={value}
+                      fill="#d6e3ff"
+                      fontSize={12}
+                      isMax={value === maxCount}
+                    />
+                  )
+                }
               />
             </Bar>
           </BarChart>

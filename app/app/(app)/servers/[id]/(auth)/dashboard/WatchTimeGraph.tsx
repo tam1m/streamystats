@@ -321,7 +321,7 @@ export function WatchTimeGraph({ data, onLoadingChange }: Props) {
   const startDateParam = searchParams.get("startDate");
   const endDateParam = searchParams.get("endDate");
 
-  // Parse dates or set defaults
+  // Always initialize with default dates first
   const defaultEndDate = new Date();
   const getDefaultStartDate = () => {
     const date = new Date();
@@ -329,12 +329,28 @@ export function WatchTimeGraph({ data, onLoadingChange }: Props) {
     return date;
   };
 
-  const [startDate, setStartDate] = React.useState<Date | undefined>(
-    startDateParam ? new Date(startDateParam) : getDefaultStartDate(),
-  );
-  const [endDate, setEndDate] = React.useState<Date | undefined>(
-    endDateParam ? new Date(endDateParam) : defaultEndDate,
-  );
+  // Initialize state with defaults first, then update if params exist
+  const [startDate, setStartDate] = React.useState<Date>(getDefaultStartDate());
+  const [endDate, setEndDate] = React.useState<Date>(defaultEndDate);
+
+  // Update dates from URL params in an effect
+  React.useEffect(() => {
+    const updateDateFromParam = (param: string | null, setter: (date: Date) => void) => {
+      if (param) {
+        try {
+          const parsedDate = new Date(param);
+          if (!isNaN(parsedDate.getTime())) {
+            setter(parsedDate);
+          }
+        } catch (error) {
+          console.error('Error parsing date:', error);
+        }
+      }
+    };
+
+    updateDateFromParam(startDateParam, setStartDate);
+    updateDateFromParam(endDateParam, setEndDate);
+  }, [startDateParam, endDateParam]);
 
   // Format date for query params
   const formatDateForParams = (date: Date) => {
@@ -343,26 +359,25 @@ export function WatchTimeGraph({ data, onLoadingChange }: Props) {
 
   // Update the URL when dates change
   const handleDateChange = (type: "start" | "end", date?: Date) => {
+    if (!date) return; // Don't proceed if no date is provided
+
     setIsLoading(true);
+    const newDate = new Date(date);
 
     if (type === "start") {
-      setStartDate(date);
-      if (date) {
-        startTransition(() => {
-          updateQueryParams({
-            startDate: formatDateForParams(date),
-          });
+      setStartDate(newDate);
+      startTransition(() => {
+        updateQueryParams({
+          startDate: formatDateForParams(newDate),
         });
-      }
+      });
     } else {
-      setEndDate(date);
-      if (date) {
-        startTransition(() => {
-          updateQueryParams({
-            endDate: formatDateForParams(date),
-          });
+      setEndDate(newDate);
+      startTransition(() => {
+        updateQueryParams({
+          endDate: formatDateForParams(newDate),
         });
-      }
+      });
     }
   };
 

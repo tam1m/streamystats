@@ -24,6 +24,7 @@ import {
 } from "recharts";
 import { FileDigit } from "lucide-react";
 import { CategoryStat } from "@/lib/db/transcoding-statistics";
+import { CustomBarLabel, CustomValueLabel } from "@/components/ui/CustomBarLabel";
 
 export const CodecUsageCard = ({
   videoCodecs,
@@ -41,7 +42,7 @@ export const CodecUsageCard = ({
       name: `Audio: ${item.value}`,
       count: item.count,
     })),
-  ];
+  ].filter((item) => item.count > 0);
 
   const codecConfig = {
     count: {
@@ -62,6 +63,8 @@ export const CodecUsageCard = ({
       maxHeightPerBar
     );
   };
+
+  const maxCount = Math.max(...codecData.map((d) => d.count));
 
   return (
     <Card>
@@ -105,17 +108,24 @@ export const CodecUsageCard = ({
             >
               <LabelList
                 dataKey="name"
-                position="insideLeft"
-                offset={8}
-                className="fill-[#d6e3ff]"
-                fontSize={12}
+                content={<CustomBarLabel fill="#d6e3ff" fontSize={12} />}
               />
               <LabelList
                 dataKey="count"
-                position="right"
-                offset={8}
-                className="fill-[#d6e3ff]"
-                fontSize={12}
+                content={({ x, y, width, height, value }) =>
+                  Number(value) === 0 ? null : (
+                    <CustomValueLabel
+                      x={Number(x)}
+                      y={Number(y)}
+                      width={Number(width)}
+                      height={Number(height)}
+                      value={value}
+                      fill="#d6e3ff"
+                      fontSize={12}
+                      isMax={value === maxCount}
+                    />
+                  )
+                }
               />
             </Bar>
           </BarChart>

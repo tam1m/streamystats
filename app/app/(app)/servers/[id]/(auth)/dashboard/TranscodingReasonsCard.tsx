@@ -24,6 +24,7 @@ import {
 } from "recharts";
 import { InfoIcon } from "lucide-react";
 import { CategoryStat } from "@/lib/db/transcoding-statistics";
+import { CustomBarLabel, CustomValueLabel } from "@/components/ui/CustomBarLabel";
 
 interface TranscodingReasonsCardProps {
   data: CategoryStat[];
@@ -32,10 +33,12 @@ interface TranscodingReasonsCardProps {
 export const TranscodingReasonsCard = ({
   data,
 }: TranscodingReasonsCardProps) => {
-  const reasonsData = data.map((item) => ({
-    reason: item.value,
-    count: item.count,
-  }));
+  const reasonsData = data
+    .map((item) => ({
+      reason: item.value,
+      count: item.count,
+    }))
+    .filter((item) => item.count > 0);
 
   const reasonsConfig = {
     count: {
@@ -56,6 +59,8 @@ export const TranscodingReasonsCard = ({
       maxHeightPerBar
     );
   };
+
+  const maxCount = Math.max(...reasonsData.map((d) => d.count));
 
   return (
     <Card>
@@ -99,17 +104,24 @@ export const TranscodingReasonsCard = ({
             >
               <LabelList
                 dataKey="reason"
-                position="insideLeft"
-                offset={8}
-                className="fill-[#d6e3ff]"
-                fontSize={12}
+                content={<CustomBarLabel fill="#d6e3ff" fontSize={12} />}
               />
               <LabelList
                 dataKey="count"
-                position="right"
-                offset={8}
-                className="fill-[#d6e3ff]"
-                fontSize={12}
+                content={({ x, y, width, height, value }) =>
+                  Number(value) === 0 ? null : (
+                    <CustomValueLabel
+                      x={Number(x)}
+                      y={Number(y)}
+                      width={Number(width)}
+                      height={Number(height)}
+                      value={value}
+                      fill="#d6e3ff"
+                      fontSize={12}
+                      isMax={value === maxCount}
+                    />
+                  )
+                }
               />
             </Bar>
           </BarChart>

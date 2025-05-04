@@ -24,6 +24,7 @@ import {
 } from "recharts";
 import { InfoIcon } from "lucide-react";
 import { DirectnessStat } from "@/lib/db/transcoding-statistics";
+import { CustomBarLabel, CustomValueLabel } from "@/components/ui/CustomBarLabel";
 
 interface DirectnessCardProps {
   data: DirectnessStat[];
@@ -40,10 +41,14 @@ export const DirectnessCard = ({ data }: DirectnessCardProps) => {
     },
   } satisfies ChartConfig;
 
-  const directnessData = data.map((item) => ({
-    name: item.label,
-    count: item.count,
-  }));
+  const directnessData = data
+    .map((item) => ({
+      name: item.label,
+      count: item.count,
+    }))
+    .filter((item) => item.count > 0);
+
+  const maxCount = Math.max(...directnessData.map((d) => d.count));
 
   // Calculate bar height based on number of items
   const getBarHeight = (dataLength: number) => {
@@ -99,17 +104,24 @@ export const DirectnessCard = ({ data }: DirectnessCardProps) => {
             >
               <LabelList
                 dataKey="name"
-                position="insideLeft"
-                offset={8}
-                className="fill-[#d6e3ff]"
-                fontSize={12}
+                content={<CustomBarLabel fill="#d6e3ff" fontSize={12} />}
               />
               <LabelList
                 dataKey="count"
-                position="right"
-                offset={8}
-                className="fill-[#d6e3ff]"
-                fontSize={12}
+                content={({ x, y, width, height, value }) =>
+                  Number(value) === 0 ? null : (
+                    <CustomValueLabel
+                      x={Number(x)}
+                      y={Number(y)}
+                      width={Number(width)}
+                      height={Number(height)}
+                      value={value}
+                      fill="#d6e3ff"
+                      fontSize={12}
+                      isMax={value === maxCount}
+                    />
+                  )
+                }
               />
             </Bar>
           </BarChart>
