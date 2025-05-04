@@ -6,108 +6,64 @@ defmodule StreamystatServerWeb.BackupController do
   alias StreamystatServer.Repo
   require Logger
 
-  # Default to 512KB cache size for low-resource systems
-  @default_cache_size -512
-  # Minimum memory threshold in MB to use memory storage
-  @memory_storage_threshold 256
-
-  defp configure_sqlite(db) do
-    # Get system memory info
-    {mem_info, 0} = System.cmd("free", ["-m"])
-    total_memory =
-      case Regex.run(~r/Mem:\s+(\d+)/, mem_info) do
-        [_, mem] -> String.to_integer(mem)
-        _ -> 0
-      end
-
-    # Configure cache size based on available memory
-    cache_size =
-      cond do
-        total_memory > 1024 -> -2000  # 2MB for systems with >1GB RAM
-        total_memory > 512 -> -1024   # 1MB for systems with >512MB RAM
-        true -> @default_cache_size   # 512KB for low-memory systems
-      end
-
-    # Configure SQLite for better performance while being resource-friendly
-    :ok = Exqlite.Sqlite3.execute(db, "PRAGMA journal_mode = WAL")  # Use WAL for better concurrency
-    :ok = Exqlite.Sqlite3.execute(db, "PRAGMA synchronous = NORMAL") # Safer than OFF
-    :ok = Exqlite.Sqlite3.execute(db, "PRAGMA cache_size = #{cache_size}")
-
-    # Only use memory storage if we have enough RAM
-    if total_memory > @memory_storage_threshold do
-      :ok = Exqlite.Sqlite3.execute(db, "PRAGMA temp_store = MEMORY")
-    else
-      :ok = Exqlite.Sqlite3.execute(db, "PRAGMA temp_store = FILE")
-    end
-
-    # Set page size to 4KB (default) for better compatibility
-    :ok = Exqlite.Sqlite3.execute(db, "PRAGMA page_size = 4096")
-  end
-
   def export(conn, %{"server_id" => server_id_str}) do
     server_id = String.to_integer(server_id_str)
-
-    # Create a temporary file for the SQLite database
-    temp_path = Path.join(System.tmp_dir!(), "playback_sessions_#{:rand.uniform(1000000)}.db")
+    {:ok, temp_path} = Temp.path(%{suffix: ".db"})
     {:ok, db} = Exqlite.Sqlite3.open(temp_path)
 
-    # Configure SQLite with adaptive settings
-    configure_sqlite(db)
-
-    # Create the table in the SQLite database
+    # Use execute/2 for creating the table
     :ok =
       Exqlite.Sqlite3.execute(db, """
       CREATE TABLE playback_sessions (
         id INTEGER PRIMARY KEY,
-        user_jellyfin_id TEXT,
+        user_jellyfin_id TEXT NOT NULL,
         device_id TEXT,
         device_name TEXT,
         client_name TEXT,
-        item_jellyfin_id TEXT,
+        item_jellyfin_id TEXT NOT NULL,
         item_name TEXT,
         series_jellyfin_id TEXT,
         series_name TEXT,
         season_jellyfin_id TEXT,
-        play_duration INTEGER,
+        play_duration INTEGER NOT NULL,
         play_method TEXT,
-        start_time TEXT,
+        start_time TEXT NOT NULL,
         end_time TEXT,
         position_ticks INTEGER,
         runtime_ticks INTEGER,
-        percent_complete FLOAT,
+        percent_complete REAL,
         completed BOOLEAN,
-        server_id INTEGER,
+        server_id INTEGER NOT NULL,
         inserted_at TEXT,
         updated_at TEXT
-      )
+      );
       """)
 
     # Prepare the insert statement
     {:ok, stmt} =
-      Exqlite.Sqlite3.prepare(db, """
-      INSERT INTO playback_sessions (
-        id, user_jellyfin_id, device_id, device_name, client_name,
-        item_jellyfin_id, item_name, series_jellyfin_id, series_name,
-        season_jellyfin_id, play_duration, play_method, start_time,
-        end_time, position_ticks, runtime_ticks, percent_complete,
-        completed, server_id, inserted_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      """)
+      Exqlite.Sqlite3.prepare(
+        db,
+        "INSERT INTO playback_sessions VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+      )
 
-    # Start a transaction for better performance
-    :ok = Exqlite.Sqlite3.execute(db, "BEGIN TRANSACTION")
+    # Increase timeout for large exports
+    Repo.transaction(fn ->
+      from(p in PlaybackSession, where: p.server_id == ^server_id)
+      |> Repo.stream()
+      |> Stream.each(fn s ->
+        # Note: Ecto fetches timestamps as NaiveDateTime by default
+        # Ensure they are converted to string format compatible with SQLite TEXT
+        start_time_str = s.start_time |> DateTime.to_naive() |> NaiveDateTime.to_iso8601()
 
-    try do
-      # Process in batches using Repo.stream
-      Repo.transaction(fn ->
-        from(s in PlaybackSession, where: s.server_id == ^server_id)
-        |> Repo.stream()
-        |> Stream.each(fn s ->
-          start_time_str = if s.start_time, do: DateTime.to_iso8601(s.start_time), else: nil
-          end_time_str = if s.end_time, do: DateTime.to_iso8601(s.end_time), else: nil
-          inserted_at_str = NaiveDateTime.to_iso8601(s.inserted_at)
-          updated_at_str = NaiveDateTime.to_iso8601(s.updated_at)
+        end_time_str =
+          if s.end_time,
+            do: s.end_time |> DateTime.to_naive() |> NaiveDateTime.to_iso8601(),
+            else: nil
 
+        inserted_at_str = s.inserted_at |> NaiveDateTime.to_iso8601()
+        updated_at_str = s.updated_at |> NaiveDateTime.to_iso8601()
+
+        :ok =
           Exqlite.Sqlite3.bind(stmt, [
             s.id,
             s.user_jellyfin_id,
@@ -132,54 +88,32 @@ defmodule StreamystatServerWeb.BackupController do
             updated_at_str
           ])
 
-          :done = Exqlite.Sqlite3.step(db, stmt)
-          :ok = Exqlite.Sqlite3.reset(stmt)
-        end)
-        |> Stream.run()
-      end, timeout: 300_000) # 5 minutes
-
-      # Commit the transaction
-      :ok = Exqlite.Sqlite3.execute(db, "COMMIT")
-
-      server = Repo.get(Server, server_id)
-      filename = "playback_sessions_#{server.name}_#{Date.utc_today()}.db"
-
-      # Compress the file before sending
-      compressed_path = "#{temp_path}.gz"
-      {_output, 0} = System.cmd("gzip", ["-9", "-c", temp_path], into: File.stream!(compressed_path))
-
-      conn =
-        conn
-        |> put_resp_content_type("application/gzip")
-        |> put_resp_header("content-disposition", "attachment; filename=#{filename}.gz")
-        |> send_file(200, compressed_path)
-
-      # Schedule file deletion after response is sent
-      Task.start(fn ->
-        Process.sleep(10_000)
-        File.rm(compressed_path)
-        File.rm(temp_path)
+        :done = Exqlite.Sqlite3.step(db, stmt)
+        :ok = Exqlite.Sqlite3.reset(stmt)
       end)
+      |> Stream.run()
+    end, timeout: 300_000) # 5 minutes
 
+    # Release the prepared statement
+    :ok = Exqlite.Sqlite3.release(db, stmt)
+    :ok = Exqlite.Sqlite3.close(db)
+
+    server = Repo.get(Server, server_id)
+    filename = "playback_sessions_#{server.name}_#{Date.utc_today()}.db"
+
+    conn =
       conn
-    rescue
-      e ->
-        # Rollback transaction on error
-        :ok = Exqlite.Sqlite3.execute(db, "ROLLBACK")
+      |> put_resp_content_type("application/octet-stream")
+      |> put_resp_header("content-disposition", "attachment; filename=#{filename}")
+      |> send_file(200, temp_path)
 
-        # Clean up resources
-        :ok = Exqlite.Sqlite3.release(db, stmt)
-        :ok = Exqlite.Sqlite3.close(db)
-        File.rm(temp_path)
+    # Schedule file deletion after response is sent
+    Task.start(fn ->
+      Process.sleep(10_000)
+      File.rm(temp_path)
+    end)
 
-        # Log the error
-        Logger.error("Export failed: #{inspect(e)}")
-
-        # Return error response
-        conn
-        |> put_status(:internal_server_error)
-        |> json(%{error: "Failed to export playback sessions"})
-    end
+    conn
   end
 
   def import(conn, %{"server_id" => server_id_str, "file" => %Plug.Upload{path: path}}) do
