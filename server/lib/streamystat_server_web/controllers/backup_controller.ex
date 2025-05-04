@@ -41,7 +41,7 @@ defmodule StreamystatServerWeb.BackupController do
   def export(conn, %{"server_id" => server_id_str}) do
     server_id = String.to_integer(server_id_str)
     # Create a temporary file for the SQLite database
-    temp_path = Path.join(System.tmp_dir!(), "playback_sessions_#{:rand.uniform(1000000)}.db")
+    temp_path = Temp.path!("playback_sessions", ".db")
     db = nil
     stmt = nil
 
