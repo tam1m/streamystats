@@ -82,7 +82,7 @@ defmodule StreamystatServer.Jellyfin.Sync.Utils do
   """
   def get_libraries_by_server(server_id) do
     import Ecto.Query
-    Repo.all(from(l in Library, where: l.server_id == ^server_id))
+    Repo.all(from(l in Library, where: l.server_id == ^server_id and is_nil(l.removed_at)))
   end
 
   @doc """

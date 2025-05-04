@@ -4,12 +4,12 @@ defmodule StreamystatServer.Jellyfin.Libraries do
   import Ecto.Query
 
   def get_libraries(server_id) do
-    from(l in Library, where: l.server_id == ^server_id)
+    from(l in Library, where: l.server_id == ^server_id and is_nil(l.removed_at))
     |> Repo.all()
   end
 
   def get_library(server_id, library_id) do
-    from(l in Library, where: l.server_id == ^server_id and l.id == ^library_id)
+    from(l in Library, where: l.server_id == ^server_id and l.id == ^library_id and is_nil(l.removed_at))
     |> Repo.one()
   end
 end

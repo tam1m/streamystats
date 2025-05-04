@@ -34,8 +34,8 @@ defmodule StreamystatServer.Jellyfin.Sync.Items.Recent do
 
     {result, updated_metrics} =
       try do
-        # Fetch libraries
-        libraries = Utils.get_libraries_by_server(server.id)
+        # Fetch libraries that haven't been removed
+        libraries = from(l in Utils.get_libraries_by_server(server.id), where: is_nil(l.removed_at)) |> Repo.all()
         metrics = Map.update(metrics, :api_requests, 1, &(&1 + 1))
 
         # Collect recent items from all libraries with their already-known library IDs
