@@ -724,6 +724,7 @@ export type ActivityLogEntry = {
   jellyfin_id: number;
   short_overview: string;
   user_id: number;
+  jellyfin_user_id: string | null;
 };
 
 export type ActivitiesResponse = {

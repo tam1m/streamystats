@@ -14,6 +14,7 @@ import {
 } from "@tanstack/react-table";
 import { ArrowUpDown, ChevronDown, MoreHorizontal } from "lucide-react";
 import * as React from "react";
+import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -42,6 +43,7 @@ import { useQueryParams } from "@/hooks/useQueryParams";
 import { useSearchParams } from "next/navigation";
 import { useDebounce } from "use-debounce";
 import { Poster } from "@/app/(app)/servers/[id]/(auth)/dashboard/Poster";
+import JellyfinAvatar from "@/components/JellyfinAvatar";
 
 export interface HistoryTableProps {
   data: {
@@ -186,7 +188,21 @@ export function HistoryTable({
       header: () => <div className="text-right">User</div>,
       cell: ({ row }) => {
         const user = row.getValue("user_name") as string;
-        return <div className="text-right font-medium">{user}</div>;
+        return (
+          <div className="flex items-center justify-end gap-2">
+            <Link
+              href={`/servers/${server.id}/users/${row.original.jellyfin_user_id}`}
+              className="flex items-center gap-2 group"
+            >
+              <JellyfinAvatar
+                user={{ id: row.original.jellyfin_user_id, name: user, jellyfin_id: row.original.jellyfin_user_id }}
+                serverUrl={server.url}
+                className="h-6 w-6 group-hover:opacity-80 transition"
+              />
+              <span className="font-medium group-hover:underline">{user}</span>
+            </Link>
+          </div>
+        );
       },
     },
     {

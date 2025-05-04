@@ -247,9 +247,9 @@ defmodule StreamystatServer.Contexts.Users do
     |> Enum.group_by(fn %{genre: genre} -> genre end)
     |> Enum.map(fn {genre, entries} ->
       total = Enum.reduce(entries, 0, fn %{total_duration: duration}, acc -> acc + duration end)
-      %{genre: genre, total_duration: total}
+      %{genre: genre, watch_time: total}
     end)
-    |> Enum.sort_by(fn %{total_duration: duration} -> duration end, :desc)
+    |> Enum.sort_by(fn %{watch_time: duration} -> duration end, :desc)
     |> Enum.take(5)
   end
 
