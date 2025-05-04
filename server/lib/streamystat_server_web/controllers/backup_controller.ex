@@ -285,108 +285,21 @@ defmodule StreamystatServerWeb.BackupController do
       acc + inserted_count
     end)
 
-                            {:ok, total_inserted}
-                            {:ok, total_inserted}
-
-                          {:error, reason} ->
-                            _ = Exqlite.Sqlite3.release(db, stmt)
-                            _ = Exqlite.Sqlite3.close(db)
-                            Logger.error("Failed to get columns: #{inspect(reason)}")
-                            {:error, "Failed to get table columns: #{reason}"}
-                        end
-
-                      {:error, reason} ->
-                        _ = Exqlite.Sqlite3.close(db)
-                        Logger.error("Failed to prepare statement: #{inspect(reason)}")
-                        {:error, "Failed to prepare SQL statement: #{reason}"}
-                    end
-
-                  nil ->
-                    _ = Exqlite.Sqlite3.close(db)
-                    Logger.error("No playback_sessions table found in database")
-                    {:error, "Invalid backup file: missing playback_sessions table"}
-                end
-
-              {:error, reason} ->
-                _ = Exqlite.Sqlite3.close(db)
-                Logger.error("Failed to prepare table list statement: #{inspect(reason)}")
-                {:error, "Failed to list database tables: #{reason}"}
-            end
-          rescue
-            e ->
-              _ = Exqlite.Sqlite3.close(db)
-              Logger.error("Error processing database: #{inspect(e)}")
-              raise e
-          end
-
-        {:error, reason} ->
-          Logger.error("Failed to open database: #{inspect(reason)}")
-          {:error, "Invalid database file: #{reason}"}
     {:ok, total_inserted}
+  rescue
+    # Fix the error type references
+    e in Postgrex.Error ->
+      Logger.error("Database error during import: #{inspect(e)}")
+      {:error, "Database error during import: #{Exception.message(e)}"}
 
-                          {:error, reason} ->
-                            _ = Exqlite.Sqlite3.release(db, stmt)
-                            _ = Exqlite.Sqlite3.close(db)
-                            Logger.error("Failed to get columns: #{inspect(reason)}")
-                            {:error, "Failed to get table columns: #{reason}"}
-                        end
+    e in DBConnection.ConnectionError ->
+      Logger.error("Database connection error during import: #{inspect(e)}")
+      {:error, "Database connection error: #{Exception.message(e)}"}
 
-                      {:error, reason} ->
-                        _ = Exqlite.Sqlite3.close(db)
-                        Logger.error("Failed to prepare statement: #{inspect(reason)}")
-                        {:error, "Failed to prepare SQL statement: #{reason}"}
-                    end
-
-                  nil ->
-                    _ = Exqlite.Sqlite3.close(db)
-                    Logger.error("No playback_sessions table found in database")
-                    {:error, "Invalid backup file: missing playback_sessions table"}
-                end
-
-              {:error, reason} ->
-                _ = Exqlite.Sqlite3.close(db)
-                Logger.error("Failed to prepare table list statement: #{inspect(reason)}")
-                {:error, "Failed to list database tables: #{reason}"}
-            end
-          rescue
-            e ->
-              _ = Exqlite.Sqlite3.close(db)
-              Logger.error("Error processing database: #{inspect(e)}")
-              raise e
-          end
-
-        {:error, reason} ->
-          Logger.error("Failed to open database: #{inspect(reason)}")
-          {:error, "Invalid database file: #{reason}"}
-      end
-      end
-    rescue
-      # Fix the error type references
-      e in Postgrex.Error ->
-        Logger.error("Database error during import: #{inspect(e)}")
-        {:error, "Database error during import: #{Exception.message(e)}"}
-
-      e in DBConnection.ConnectionError ->
-        Logger.error("Database connection error during import: #{inspect(e)}")
-        {:error, "Database connection error: #{Exception.message(e)}"}
-
-      e in Ecto.ChangeError ->
-        Logger.error("Ecto change error during import: #{inspect(e)}")
-        {:error, "Database change error: #{Exception.message(e)}"}
+    e in Ecto.ChangeError ->
+      Logger.error("Ecto change error during import: #{inspect(e)}")
+      {:error, "Database change error: #{Exception.message(e)}"}
   end
-    rescue
-      # Fix the error type references
-      e in Postgrex.Error ->
-        Logger.error("Database error during import: #{inspect(e)}")
-        {:error, "Database error during import: #{Exception.message(e)}"}
-
-      e in DBConnection.ConnectionError ->
-        Logger.error("Database connection error during import: #{inspect(e)}")
-        {:error, "Database connection error: #{Exception.message(e)}"}
-
-      e in Ecto.ChangeError ->
-        Logger.error("Ecto change error during import: #{inspect(e)}")
-        {:error, "Database change error: #{Exception.message(e)}"}
 
   defp cleanup_resources(db, stmt, temp_path) do
     if db, do: :ok = Exqlite.Sqlite3.release(db, stmt)
