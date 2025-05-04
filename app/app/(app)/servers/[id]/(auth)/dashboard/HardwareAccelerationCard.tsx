@@ -59,6 +59,12 @@ export const HardwareAccelerationCard = ({ data }: Props) => {
 
   const maxCount = Math.max(...hwAccelData.map((d) => d.count));
 
+  const total = hwAccelData.reduce((sum, item) => sum + item.count, 0);
+  const hwAccelDataWithPercent = hwAccelData.map(item => ({
+    ...item,
+    labelWithPercent: `${item.name} - ${(total > 0 ? ((item.count / total) * 100).toFixed(1) : '0.0')}%`,
+  }));
+
   return (
     <Card>
       <CardHeader>
@@ -71,7 +77,7 @@ export const HardwareAccelerationCard = ({ data }: Props) => {
         <ChartContainer config={hwAccelConfig} className="h-[200px]">
           <BarChart
             accessibilityLayer
-            data={hwAccelData}
+            data={hwAccelDataWithPercent}
             layout="vertical"
             margin={{
               right: 16,
@@ -102,25 +108,20 @@ export const HardwareAccelerationCard = ({ data }: Props) => {
               className="fill-blue-600"
             >
               <LabelList
-                dataKey="name"
-                content={<CustomBarLabel fill="#d6e3ff" fontSize={12} />}
-              />
-              <LabelList
-                dataKey="count"
-                content={({ x, y, width, height, value }) =>
-                  Number(value) === 0 ? null : (
-                    <CustomValueLabel
-                      x={Number(x)}
-                      y={Number(y)}
-                      width={Number(width)}
-                      height={Number(height)}
-                      value={value}
-                      fill="#d6e3ff"
-                      fontSize={12}
-                      isMax={value === maxCount}
-                    />
-                  )
-                }
+                dataKey="labelWithPercent"
+                content={({ x, y, width, height, value }) => (
+                  <CustomBarLabel
+                    x={Number(x)}
+                    y={Number(y)}
+                    width={Number(width)}
+                    height={Number(height)}
+                    value={value}
+                    fill="#d6e3ff"
+                    fontSize={12}
+                    containerWidth={400}
+                    alwaysOutside
+                  />
+                )}
               />
             </Bar>
           </BarChart>

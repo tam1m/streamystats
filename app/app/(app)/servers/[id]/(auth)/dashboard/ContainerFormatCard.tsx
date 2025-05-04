@@ -62,6 +62,12 @@ export const ContainerFormatCard = ({ data }: ContainerFormatCardProps) => {
 
   const maxCount = Math.max(...containerData.map((d) => d.count));
 
+  const total = containerData.reduce((sum, item) => sum + item.count, 0);
+  const containerDataWithPercent = containerData.map(item => ({
+    ...item,
+    labelWithPercent: `${item.name} - ${(total > 0 ? ((item.count / total) * 100).toFixed(1) : '0.0')}%`,
+  }));
+
   return (
     <Card>
       <CardHeader>
@@ -72,7 +78,7 @@ export const ContainerFormatCard = ({ data }: ContainerFormatCardProps) => {
         <ChartContainer config={containerConfig} className="h-[200px]">
           <BarChart
             accessibilityLayer
-            data={containerData}
+            data={containerDataWithPercent}
             layout="vertical"
             margin={{
               right: 16,
@@ -103,25 +109,20 @@ export const ContainerFormatCard = ({ data }: ContainerFormatCardProps) => {
               className="fill-blue-600"
             >
               <LabelList
-                dataKey="name"
-                content={<CustomBarLabel fill="#d6e3ff" fontSize={12} />}
-              />
-              <LabelList
-                dataKey="count"
-                content={({ x, y, width, height, value }) =>
-                  Number(value) === 0 ? null : (
-                    <CustomValueLabel
-                      x={Number(x)}
-                      y={Number(y)}
-                      width={Number(width)}
-                      height={Number(height)}
-                      value={value}
-                      fill="#d6e3ff"
-                      fontSize={12}
-                      isMax={value === maxCount}
-                    />
-                  )
-                }
+                dataKey="labelWithPercent"
+                content={({ x, y, width, height, value }) => (
+                  <CustomBarLabel
+                    x={Number(x)}
+                    y={Number(y)}
+                    width={Number(width)}
+                    height={Number(height)}
+                    value={value}
+                    fill="#d6e3ff"
+                    fontSize={12}
+                    containerWidth={400}
+                    alwaysOutside
+                  />
+                )}
               />
             </Bar>
           </BarChart>
