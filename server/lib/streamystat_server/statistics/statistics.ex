@@ -156,7 +156,7 @@ defmodule StreamystatServer.Statistics.Statistics do
           )
         ),
       libraries_count:
-        Repo.one(from(l in Library, where: l.server_id == ^server_id, select: count())),
+        Repo.one(from(l in Library, where: l.server_id == ^server_id and is_nil(l.removed_at), select: count())),
       users_count: Repo.one(from(u in User, where: u.server_id == ^server_id, select: count()))
     }
   end
