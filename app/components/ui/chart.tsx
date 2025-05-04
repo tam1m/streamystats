@@ -56,9 +56,16 @@ const ChartContainer = React.forwardRef<
       }
     };
     handleResize();
-    const resizeObserver = new window.ResizeObserver(handleResize);
-    resizeObserver.observe(containerRef.current);
-    return () => resizeObserver.disconnect();
+    let resizeObserver = null;
+    if ('ResizeObserver' in window) {
+      resizeObserver = new window.ResizeObserver(handleResize);
+      resizeObserver.observe(containerRef.current);
+    }
+    return () => {
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
+    };
   }, [onWidthChange]);
 
   return (
