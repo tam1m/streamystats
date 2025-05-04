@@ -91,8 +91,8 @@ export const BitrateDistributionCard = ({
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <ChartContainer 
-          config={bitrateConfig} 
+        <ChartContainer
+          config={bitrateConfig}
           className="h-[200px]"
           onWidthChange={setContainerWidth}
         >
