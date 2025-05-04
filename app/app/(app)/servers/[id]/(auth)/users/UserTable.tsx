@@ -38,6 +38,7 @@ import { formatDuration } from "@/lib/utils";
 import { useRouter } from "nextjs-toploader/app";
 import { useMemo } from "react";
 import JellyfinAvatar from "@/components/JellyfinAvatar";
+import { formatDistanceToNow } from "date-fns";
 
 export interface UserTableProps {
   data: User[];
@@ -64,15 +65,16 @@ export const UserTable: React.FC<UserTableProps> = ({
         );
       },
       cell: ({ row }) => (
-        <div 
-          className="flex items-center gap-3 cursor-pointer hover:opacity-80"
+        <button
+          type="button"
+          className="flex items-center gap-3 cursor-pointer hover:opacity-80 focus:outline-none bg-transparent border-0 w-full text-left"
           onClick={() => {
             router.push(`/servers/${server.id}/users/${row.original.name}`);
           }}
         >
           <JellyfinAvatar serverUrl={server.url} user={row.original} />
           <p className="font-medium">{row.getValue("name")}</p>
-        </div>
+        </button>
       ),
     },
     {
@@ -112,6 +114,42 @@ export const UserTable: React.FC<UserTableProps> = ({
       cell: ({ row }) => {
         const totalPlays = row.original.watch_stats.total_plays;
         return <div className="text-left">{totalPlays}</div>;
+      },
+    },
+    {
+      accessorKey: "watch_stats.avg_watch_time",
+      header: ({ column }) => {
+        return (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          >
+            Avg. Watch Time
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          </Button>
+        );
+      },
+      cell: ({ row }) => {
+        const avgWatchTime = row.original.watch_stats.total_watch_time / (row.original.watch_stats.total_plays || 1);
+        return <div className="text-left">{formatDuration(avgWatchTime)}</div>;
+      },
+    },
+    {
+      accessorKey: "longest_streak",
+      header: ({ column }) => {
+        return (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          >
+            Longest Streak
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          </Button>
+        );
+      },
+      cell: ({ row }) => {
+        const longestStreak = row.original.longest_streak ?? 0;
+        return <div className="text-left">{formatDuration(longestStreak, "days")}</div>;
       },
     },
   ];
