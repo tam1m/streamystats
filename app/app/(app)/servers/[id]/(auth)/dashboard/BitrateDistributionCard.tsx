@@ -25,7 +25,7 @@ import {
   YAxis,
 } from "recharts";
 import { CustomBarLabel, CustomValueLabel } from "@/components/ui/CustomBarLabel";
-import { ResponsiveContainer } from "recharts";
+import React from "react";
 
 interface BitrateDistributionCardProps {
   data: NumericStat;
@@ -34,6 +34,8 @@ interface BitrateDistributionCardProps {
 export const BitrateDistributionCard = ({
   data,
 }: BitrateDistributionCardProps) => {
+  const [containerWidth, setContainerWidth] = React.useState(400);
+
   const formatBitrate = (value: number | null) => {
     if (value === null) return "0 Mbps";
     return `${(value / 1000000).toFixed(1)} Mbps`;
@@ -89,59 +91,61 @@ export const BitrateDistributionCard = ({
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <ChartContainer config={bitrateConfig} className="h-[200px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              accessibilityLayer
-              data={bitrateDataWithPercent}
+        <ChartContainer 
+          config={bitrateConfig} 
+          className="h-[200px]"
+          onWidthChange={setContainerWidth}
+        >
+          <BarChart
+            accessibilityLayer
+            data={bitrateDataWithPercent}
+            layout="vertical"
+            margin={{
+              right: 16,
+              left: 0,
+              top: 5,
+              bottom: 5,
+            }}
+            barSize={getBarHeight(bitrateData.length)}
+          >
+            <CartesianGrid horizontal={false} />
+            <YAxis
+              dataKey="range"
+              type="category"
+              tickLine={false}
+              tickMargin={10}
+              axisLine={false}
+              hide
+            />
+            <XAxis dataKey="count" type="number" hide />
+            <ChartTooltip
+              cursor={false}
+              content={<ChartTooltipContent indicator="line" />}
+            />
+            <Bar
+              dataKey="count"
               layout="vertical"
-              margin={{
-                right: 16,
-                left: 0,
-                top: 5,
-                bottom: 5,
-              }}
-              barSize={getBarHeight(bitrateDataWithPercent.length)}
+              radius={4}
+              className="fill-blue-600"
             >
-              <CartesianGrid horizontal={false} />
-              <YAxis
-                dataKey="range"
-                type="category"
-                tickLine={false}
-                tickMargin={10}
-                axisLine={false}
-                hide
+              <LabelList
+                dataKey="labelWithPercent"
+                content={({ x, y, width: barWidth, height, value }) => (
+                  <CustomBarLabel
+                    x={Number(x)}
+                    y={Number(y)}
+                    width={Number(barWidth)}
+                    height={Number(height)}
+                    value={value}
+                    fill="#d6e3ff"
+                    fontSize={12}
+                    containerWidth={containerWidth}
+                    alwaysOutside
+                  />
+                )}
               />
-              <XAxis dataKey="count" type="number" hide />
-              <ChartTooltip
-                cursor={false}
-                content={<ChartTooltipContent indicator="line" />}
-              />
-              <Bar
-                dataKey="count"
-                layout="vertical"
-                radius={4}
-                className="fill-blue-600"
-              >
-                <LabelList
-                  dataKey="labelWithPercent"
-                  content={({ x, y, width, height, value }) => (
-                    <CustomBarLabel
-                      x={Number(x)}
-                      y={Number(y)}
-                      width={Number(width)}
-                      height={Number(height)}
-                      value={value}
-                      fill="#d6e3ff"
-                      fontSize={12}
-                      containerWidth={400}
-                      alwaysOutside
-                    />
-                  )}
-                />
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+            </Bar>
+          </BarChart>
         </ChartContainer>
       </CardContent>
       <CardFooter className="text-sm text-muted-foreground">

@@ -9,7 +9,7 @@ interface CustomBarLabelProps {
   fill?: string;
   fontSize?: number;
   offset?: number;
-  containerWidth: number;
+  containerWidth?: number;
   alwaysOutside?: boolean;
 }
 
@@ -86,7 +86,9 @@ export const CustomValueLabel: React.FC<CustomValueLabelProps> = ({
   const rightMargin = 8;
   if (width < 0) return null;
   let labelX = x + width + offset + extraOffset;
-  labelX = Math.min(labelX, containerWidth - rightMargin);
+  if (containerWidth) {
+    labelX = Math.min(labelX, containerWidth - rightMargin);
+  }
   const textAnchor = "start";
   return (
     <text

@@ -25,6 +25,7 @@ import {
 import { FileDigit } from "lucide-react";
 import { CategoryStat } from "@/lib/db/transcoding-statistics";
 import { CustomBarLabel, CustomValueLabel } from "@/components/ui/CustomBarLabel";
+import React from "react";
 
 export const CodecUsageCard = ({
   videoCodecs,
@@ -33,6 +34,7 @@ export const CodecUsageCard = ({
   videoCodecs: CategoryStat[];
   audioCodecs: CategoryStat[];
 }) => {
+  const [containerWidth, setContainerWidth] = React.useState(400);
   const codecData = [
     ...videoCodecs.map((item) => ({
       name: `Video: ${item.value}`,
@@ -79,7 +81,11 @@ export const CodecUsageCard = ({
         <CardDescription>Video and audio codec distribution</CardDescription>
       </CardHeader>
       <CardContent>
-        <ChartContainer config={codecConfig} className="h-[200px]">
+        <ChartContainer 
+          config={codecConfig} 
+          className="h-[200px]"
+          onWidthChange={setContainerWidth}
+        >
           <BarChart
             accessibilityLayer
             data={codecDataWithPercent}
@@ -114,16 +120,16 @@ export const CodecUsageCard = ({
             >
               <LabelList
                 dataKey="labelWithPercent"
-                content={({ x, y, width, height, value }) => (
+                content={({ x, y, width: barWidth, height, value }) => (
                   <CustomBarLabel
                     x={Number(x)}
                     y={Number(y)}
-                    width={Number(width)}
+                    width={Number(barWidth)}
                     height={Number(height)}
                     value={value}
                     fill="#d6e3ff"
                     fontSize={12}
-                    containerWidth={400}
+                    containerWidth={containerWidth}
                     alwaysOutside
                   />
                 )}

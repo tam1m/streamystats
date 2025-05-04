@@ -28,12 +28,15 @@ import {
   TranscodingStatisticsResponse,
 } from "@/lib/db/transcoding-statistics";
 import { CustomBarLabel, CustomValueLabel } from "@/components/ui/CustomBarLabel";
+import React from "react";
 
 interface ContainerFormatCardProps {
   data: CategoryStat[];
 }
 
 export const ContainerFormatCard = ({ data }: ContainerFormatCardProps) => {
+  const [containerWidth, setContainerWidth] = React.useState(400);
+
   const containerData = data
     .map((item) => ({
       name: item.value,
@@ -75,7 +78,11 @@ export const ContainerFormatCard = ({ data }: ContainerFormatCardProps) => {
         <CardDescription>Media container distribution</CardDescription>
       </CardHeader>
       <CardContent>
-        <ChartContainer config={containerConfig} className="h-[200px]">
+        <ChartContainer 
+          config={containerConfig} 
+          className="h-[200px]"
+          onWidthChange={setContainerWidth}
+        >
           <BarChart
             accessibilityLayer
             data={containerDataWithPercent}
@@ -110,16 +117,16 @@ export const ContainerFormatCard = ({ data }: ContainerFormatCardProps) => {
             >
               <LabelList
                 dataKey="labelWithPercent"
-                content={({ x, y, width, height, value }) => (
+                content={({ x, y, width: barWidth, height, value }) => (
                   <CustomBarLabel
                     x={Number(x)}
                     y={Number(y)}
-                    width={Number(width)}
+                    width={Number(barWidth)}
                     height={Number(height)}
                     value={value}
                     fill="#d6e3ff"
                     fontSize={12}
-                    containerWidth={400}
+                    containerWidth={containerWidth}
                     alwaysOutside
                   />
                 )}

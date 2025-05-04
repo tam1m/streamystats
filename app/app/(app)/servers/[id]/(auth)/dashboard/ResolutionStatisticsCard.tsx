@@ -25,6 +25,7 @@ import {
   YAxis,
 } from "recharts";
 import { CustomBarLabel, CustomValueLabel } from "@/components/ui/CustomBarLabel";
+import React from "react";
 
 interface Props {
   width: NumericStat;
@@ -32,6 +33,8 @@ interface Props {
 }
 
 export const ResolutionStatisticsCard = ({ width, height }: Props) => {
+  const [containerWidth, setContainerWidth] = React.useState(400);
+
   const getBarHeight = (dataLength: number) => {
     const minHeightPerBar = 30;
     const maxHeightPerBar = 40;
@@ -70,7 +73,11 @@ export const ResolutionStatisticsCard = ({ width, height }: Props) => {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <ChartContainer config={resolutionConfig} className="h-[200px]">
+        <ChartContainer 
+          config={resolutionConfig} 
+          className="h-[200px]"
+          onWidthChange={setContainerWidth}
+        >
           <BarChart
             accessibilityLayer
             data={resolutionDataWithPercent}
@@ -105,16 +112,16 @@ export const ResolutionStatisticsCard = ({ width, height }: Props) => {
             >
               <LabelList
                 dataKey="labelWithPercent"
-                content={({ x, y, width, height, value }) => (
+                content={({ x, y, width: barWidth, height, value }) => (
                   <CustomBarLabel
                     x={Number(x)}
                     y={Number(y)}
-                    width={Number(width)}
+                    width={Number(barWidth)}
                     height={Number(height)}
                     value={value}
                     fill="#d6e3ff"
                     fontSize={12}
-                    containerWidth={400}
+                    containerWidth={containerWidth}
                     alwaysOutside
                   />
                 )}
