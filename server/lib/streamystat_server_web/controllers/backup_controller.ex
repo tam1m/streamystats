@@ -12,20 +12,8 @@ defmodule StreamystatServerWeb.BackupController do
   @memory_storage_threshold 256
 
   defp configure_sqlite(db) do
-    # Get system memory info
-    {mem_info, exit_status} = System.cmd("free", ["-m"])
-    total_memory =
-      if exit_status == 0 do
-        case Regex.run(~r/Mem:\s+(\d+)/, mem_info) do
-          [_, mem] -> String.to_integer(mem)
-          _ ->
-            Logger.error("Could not parse memory info from 'free -m' output: #{mem_info}")
-            0
-        end
-      else
-        Logger.error("Failed to run system command: free -m")
-        0
-      end
+    # Get system memory info using Erlang's built-in memory function
+    total_memory = :erlang.memory(:total) / (1024 * 1024)  # Convert to MB
 
     # Configure cache size based on available memory
     cache_size =
@@ -101,11 +89,8 @@ defmodule StreamystatServerWeb.BackupController do
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       """)
 
-    # Start a transaction for better performance
-    :ok = Exqlite.Sqlite3.execute(db, "BEGIN TRANSACTION")
-
     try do
-      # Process in batches using Repo.stream
+      # Process in batches using Repo.stream within a transaction
       Repo.transaction(fn ->
         from(s in PlaybackSession, where: s.server_id == ^server_id)
         |> Repo.stream()
@@ -145,35 +130,24 @@ defmodule StreamystatServerWeb.BackupController do
         |> Stream.run()
       end, timeout: 300_000) # 5 minutes
 
-      # Commit the transaction
-      :ok = Exqlite.Sqlite3.execute(db, "COMMIT")
-
       server = Repo.get(Server, server_id)
       filename = "playback_sessions_#{server.name}_#{Date.utc_today()}.db"
 
-      # Compress the file before sending
-      compressed_path = "#{temp_path}.gz"
-      {_output, 0} = System.cmd("gzip", ["-9", "-c", temp_path], into: File.stream!(compressed_path))
-
       conn =
         conn
-        |> put_resp_content_type("application/gzip")
-        |> put_resp_header("content-disposition", "attachment; filename=#{filename}.gz")
-        |> send_file(200, compressed_path)
+        |> put_resp_content_type("application/x-sqlite3")
+        |> put_resp_header("content-disposition", "attachment; filename=#{filename}")
+        |> send_file(200, temp_path)
 
       # Schedule file deletion after response is sent
       Task.start(fn ->
         Process.sleep(10_000)
-        File.rm(compressed_path)
         File.rm(temp_path)
       end)
 
       conn
     rescue
       e ->
-        # Rollback transaction on error
-        :ok = Exqlite.Sqlite3.execute(db, "ROLLBACK")
-
         # Clean up resources
         :ok = Exqlite.Sqlite3.release(db, stmt)
         :ok = Exqlite.Sqlite3.close(db)
@@ -209,46 +183,119 @@ defmodule StreamystatServerWeb.BackupController do
 
   defp process_import(file_path, server_id) do
     try do
-      {:ok, db} = Exqlite.Sqlite3.open(file_path, mode: :readonly)
-      {:ok, stmt} = Exqlite.Sqlite3.prepare(db, "SELECT * FROM playback_sessions")
-      {:ok, cols} = Exqlite.Sqlite3.columns(db, stmt)
+      # Verify the file exists and is readable
+      unless File.exists?(file_path) do
+        raise "Database file not found: #{file_path}"
+      end
 
-      col_atoms = Enum.map(cols, &String.to_existing_atom/1)
+      # Verify the file is a valid SQLite database
+      case Exqlite.Sqlite3.open(file_path, mode: :readonly) do
+        {:ok, db} ->
+          try do
+            # List all tables in the database
+            case Exqlite.Sqlite3.prepare(db, "SELECT name FROM sqlite_master WHERE type='table'") do
+              {:ok, stmt} ->
+                tables = Stream.unfold(stmt, fn stmt ->
+                  case Exqlite.Sqlite3.step(db, stmt) do
+                    {:row, row} -> {row, stmt}
+                    :done -> nil
+                  end
+                end)
+                |> Enum.to_list()
 
-      rows =
-        Stream.unfold(stmt, fn stmt ->
-          case Exqlite.Sqlite3.step(db, stmt) do
-            {:row, row} -> {row, stmt}
-            :done -> nil
+                _ = Exqlite.Sqlite3.release(db, stmt)
+
+                # Check if playback_sessions table exists (case-insensitive)
+                case Enum.find(tables, fn [table_name] ->
+                  String.downcase(table_name) == "playback_sessions"
+                end) do
+                  [table_name] ->
+                    case Exqlite.Sqlite3.prepare(db, "SELECT * FROM #{table_name}") do
+                      {:ok, stmt} ->
+                        case Exqlite.Sqlite3.columns(db, stmt) do
+                          {:ok, cols} ->
+                            col_atoms = Enum.map(cols, &String.to_existing_atom/1)
+
+                            rows =
+                              Stream.unfold(stmt, fn stmt ->
+                                case Exqlite.Sqlite3.step(db, stmt) do
+                                  {:row, row} -> {row, stmt}
+                                  :done -> nil
+                                end
+                              end)
+                              |> Enum.to_list()
+
+                            # Release statement and close database
+                            _ = Exqlite.Sqlite3.release(db, stmt)
+                            _ = Exqlite.Sqlite3.close(db)
+
+                            # Process rows in batches of 1000 to avoid exceeding PostgreSQL's parameter limit
+                            batch_size = 1000
+
+                            total_inserted = rows
+                            |> Enum.chunk_every(batch_size)
+                            |> Enum.reduce(0, fn batch, acc ->
+                              entries =
+                                batch
+                                |> Stream.map(fn row ->
+                                  col_atoms
+                                  |> Enum.zip(row)
+                                  |> Map.new()
+                                  # Ensure the correct server_id is used
+                                  |> Map.put(:server_id, server_id)
+                                  |> format_attrs()
+                                end)
+                                |> Enum.to_list()
+
+                              # bulk‐insert, skipping any conflicts
+                              {inserted_count, _} =
+                                Repo.insert_all(
+                                  PlaybackSession,
+                                  entries,
+                                  on_conflict: :nothing,
+                                  conflict_target: [:item_jellyfin_id, :user_jellyfin_id, :start_time, :server_id]
+                                )
+
+                              acc + inserted_count
+                            end)
+
+                            {:ok, total_inserted}
+
+                          {:error, reason} ->
+                            _ = Exqlite.Sqlite3.release(db, stmt)
+                            _ = Exqlite.Sqlite3.close(db)
+                            Logger.error("Failed to get columns: #{inspect(reason)}")
+                            {:error, "Failed to get table columns: #{reason}"}
+                        end
+
+                      {:error, reason} ->
+                        _ = Exqlite.Sqlite3.close(db)
+                        Logger.error("Failed to prepare statement: #{inspect(reason)}")
+                        {:error, "Failed to prepare SQL statement: #{reason}"}
+                    end
+
+                  nil ->
+                    _ = Exqlite.Sqlite3.close(db)
+                    Logger.error("No playback_sessions table found in database")
+                    {:error, "Invalid backup file: missing playback_sessions table"}
+                end
+
+              {:error, reason} ->
+                _ = Exqlite.Sqlite3.close(db)
+                Logger.error("Failed to prepare table list statement: #{inspect(reason)}")
+                {:error, "Failed to list database tables: #{reason}"}
+            end
+          rescue
+            e ->
+              _ = Exqlite.Sqlite3.close(db)
+              Logger.error("Error processing database: #{inspect(e)}")
+              raise e
           end
-        end)
-        |> Enum.to_list()
 
-      :ok = Exqlite.Sqlite3.release(db, stmt)
-      :ok = Exqlite.Sqlite3.close(db)
-
-      entries =
-        rows
-        |> Stream.map(fn row ->
-          col_atoms
-          |> Enum.zip(row)
-          |> Map.new()
-          # Ensure the correct server_id is used
-          |> Map.put(:server_id, server_id)
-          |> format_attrs()
-        end)
-        |> Enum.to_list()
-
-      # bulk‐insert, skipping any conflicts
-      {inserted_count, _} =
-        Repo.insert_all(
-          PlaybackSession,
-          entries,
-          on_conflict: :nothing,
-          conflict_target: [:item_jellyfin_id, :user_jellyfin_id, :start_time, :server_id]
-        )
-
-      {:ok, inserted_count}
+        {:error, reason} ->
+          Logger.error("Failed to open database: #{inspect(reason)}")
+          {:error, "Invalid database file: #{reason}"}
+      end
     rescue
       # Fix the error type references
       e in Postgrex.Error ->
@@ -277,7 +324,6 @@ defmodule StreamystatServerWeb.BackupController do
   defp format_attrs(attrs) do
     # Use Map.get for optional fields to avoid KeyError if column is missing in older backups
     %{
-      # id:              Map.get(attrs, :id), # Let DB generate ID on insert
       user_jellyfin_id: Map.get(attrs, :user_jellyfin_id),
       device_id: Map.get(attrs, :device_id),
       device_name: Map.get(attrs, :device_name),
