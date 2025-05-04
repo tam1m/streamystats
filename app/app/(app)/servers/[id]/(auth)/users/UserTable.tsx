@@ -64,7 +64,12 @@ export const UserTable: React.FC<UserTableProps> = ({
         );
       },
       cell: ({ row }) => (
-        <div className="flex items-center gap-3">
+        <div 
+          className="flex items-center gap-3 cursor-pointer hover:opacity-80"
+          onClick={() => {
+            router.push(`/servers/${server.id}/users/${row.original.name}`);
+          }}
+        >
           <JellyfinAvatar serverUrl={server.url} user={row.original} />
           <p className="font-medium">{row.getValue("name")}</p>
         </div>
@@ -107,35 +112,6 @@ export const UserTable: React.FC<UserTableProps> = ({
       cell: ({ row }) => {
         const totalPlays = row.original.watch_stats.total_plays;
         return <div className="text-left">{totalPlays}</div>;
-      },
-    },
-
-    {
-      id: "actions",
-      enableHiding: false,
-      cell: ({ row }) => {
-        const user = row.original;
-
-        return (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-8 w-8 p-0">
-                <span className="sr-only">Open menu</span>
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Actions</DropdownMenuLabel>
-              <DropdownMenuItem
-                onClick={() => {
-                  router.push(`/servers/${server.id}/users/${user.name}`);
-                }}
-              >
-                View user details
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        );
       },
     },
   ];

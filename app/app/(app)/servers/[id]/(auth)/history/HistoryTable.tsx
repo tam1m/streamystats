@@ -44,6 +44,7 @@ import { useSearchParams } from "next/navigation";
 import { useDebounce } from "use-debounce";
 import { Poster } from "@/app/(app)/servers/[id]/(auth)/dashboard/Poster";
 import JellyfinAvatar from "@/components/JellyfinAvatar";
+import { PlaybackMethodBadge } from "@/components/PlaybackMethodBadge";
 
 export interface HistoryTableProps {
   data: {
@@ -108,33 +109,16 @@ export function HistoryTable({
 
   const columns: ColumnDef<UserPlaybackStatistics>[] = [
     {
-      id: "select",
-      header: ({ table }) => (
-        <Checkbox
-          checked={
-            table.getIsAllPageRowsSelected() ||
-            (table.getIsSomePageRowsSelected() && "indeterminate")
-          }
-          onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-          aria-label="Select all"
-        />
-      ),
-      cell: ({ row }) => (
-        <Checkbox
-          checked={row.getIsSelected()}
-          onCheckedChange={(value) => row.toggleSelected(!!value)}
-          aria-label="Select row"
-        />
-      ),
-      enableSorting: false,
-      enableHiding: false,
-    },
-    {
       accessorKey: "item_name",
       header: "Item",
       cell: ({ row }) => (
-        <div className="flex flex-row items-center gap-4">
-          <div className="shrink-0 rounded overflow-hidden">
+        <a
+          href={`${server.url}/web/index.html#!/details?id=${row.original.item_id}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex flex-row items-center gap-4 cursor-pointer group"
+        >
+          <div className="shrink-0 rounded overflow-hidden transition-transform duration-200 group-hover:scale-105">
             <Poster
               item={{
                 jellyfin_id: row.original.item_id,
@@ -155,63 +139,128 @@ export function HistoryTable({
               server={server}
             />
           </div>
-          <div className="capitalize">{row.getValue("item_name")}</div>
-        </div>
+          <div className="flex flex-col">
+            <div className="capitalize font-medium transition-colors duration-200 group-hover:text-primary">
+              {row.getValue("item_name")}
+            </div>
+            {row.original.series_name && (
+              <div className="text-sm text-neutral-500 transition-colors duration-200 group-hover:text-primary/80">
+                {row.original.series_name}
+                {row.original.season_name && ` • ${row.original.season_name}`}
+                {row.original.index_number && ` • Episode ${row.original.index_number}`}
+              </div>
+            )}
+            <div className="text-sm text-neutral-500 transition-colors duration-200 group-hover:text-primary/80">
+              {row.original.item_type}
+              {row.original.play_duration && ` • ${formatDuration(row.original.play_duration)}`}
+            </div>
+          </div>
+        </a>
       ),
     },
     {
-      accessorKey: "series_name",
-      header: "Series",
-      cell: ({ row }) => {
-        const seriesName = row.getValue("series_name") as string | null;
-        return <div className="capitalize">{seriesName || "-"}</div>;
-      },
-    },
-    {
-      accessorKey: "season_name",
-      header: "Season",
-      cell: ({ row }) => {
-        const seasonName = row.getValue("season_name") as string | null;
-        return <div className="capitalize">{seasonName || "-"}</div>;
-      },
-    },
-    {
-      accessorKey: "index_number",
-      header: "Episode",
-      cell: ({ row }) => {
-        const indexNumber = row.getValue("index_number") as number | null;
-        return <div>{indexNumber !== null ? indexNumber : "-"}</div>;
-      },
-    },
-    {
       accessorKey: "user_name",
-      header: () => <div className="text-right">User</div>,
+      header: () => <div className="text-left">User</div>,
       cell: ({ row }) => {
         const user = row.getValue("user_name") as string;
         return (
-          <div className="flex items-center justify-end gap-2">
+          <div className="flex items-center gap-2">
             <Link
               href={`/servers/${server.id}/users/${row.original.jellyfin_user_id}`}
-              className="flex items-center gap-2 group"
+              className="flex items-center gap-2 cursor-pointer group"
             >
               <JellyfinAvatar
                 user={{ id: row.original.jellyfin_user_id, name: user, jellyfin_id: row.original.jellyfin_user_id }}
                 serverUrl={server.url}
-                className="h-6 w-6 group-hover:opacity-80 transition"
+                className="h-6 w-6 transition-transform duration-200 group-hover:scale-110"
               />
-              <span className="font-medium group-hover:underline">{user}</span>
+              <span className="font-medium transition-colors duration-200 group-hover:text-primary">
+                {user}
+              </span>
             </Link>
           </div>
         );
       },
     },
     {
-      accessorKey: "play_duration",
-      header: () => <div className="text-right">Duration</div>,
+      accessorKey: "play_method",
+      header: ({ column }) => {
+        return (
+          <Button
+            variant="ghost"
+            onClick={() => handleSortChange("play_method")}
+          >
+            Play Method
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          </Button>
+        );
+      },
+      cell: ({ row }) => (
+        <PlaybackMethodBadge
+          isVideoDirect={row.original.transcoding_is_video_direct}
+          isAudioDirect={row.original.transcoding_is_audio_direct}
+          videoCodec={row.original.transcoding_video_codec}
+          audioCodec={row.original.transcoding_audio_codec}
+          bitrate={row.original.transcoding_bitrate}
+          playMethod={row.original.play_method}
+          width={row.original.transcoding_width}
+          height={row.original.transcoding_height}
+          audioChannels={row.original.transcoding_audio_channels}
+        />
+      ),
+    },
+    {
+      accessorKey: "remote_end_point",
+      header: ({ column }) => {
+        return (
+          <Button
+            variant="ghost"
+            onClick={() => handleSortChange("remote_end_point")}
+          >
+            IP Address
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          </Button>
+        );
+      },
       cell: ({ row }) => {
-        const playDuration = row.getValue("play_duration") as number | null;
-        const formatted = playDuration ? formatDuration(playDuration) : "-";
-        return <div className="text-right font-medium">{formatted}</div>;
+        const ip = row.original.remote_end_point;
+        return <div className="font-medium">{ip || "-"}</div>;
+      },
+    },
+    {
+      accessorKey: "client_name",
+      header: ({ column }) => {
+        return (
+          <Button
+            variant="ghost"
+            onClick={() => handleSortChange("client_name")}
+          >
+            Client
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          </Button>
+        );
+      },
+      cell: ({ row }) => {
+        const client = row.original.client_name;
+        return <div className="font-medium">{client || "-"}</div>;
+      },
+    },
+    {
+      accessorKey: "device_name",
+      header: ({ column }) => {
+        return (
+          <Button
+            variant="ghost"
+            onClick={() => handleSortChange("device_name")}
+          >
+            Device
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          </Button>
+        );
+      },
+      cell: ({ row }) => {
+        const device = row.original.device_name;
+        return <div className="font-medium">{device || "-"}</div>;
       },
     },
     {
@@ -236,54 +285,6 @@ export function HistoryTable({
         </div>
       ),
     },
-    {
-      id: "actions",
-      enableHiding: false,
-      cell: ({ row }) => {
-        const playbackActivity = row.original;
-
-        return (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-8 w-8 p-0">
-                <span className="sr-only">Open menu</span>
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Actions</DropdownMenuLabel>
-              <DropdownMenuItem
-                onClick={() =>
-                  navigator.clipboard.writeText(playbackActivity.id.toString())
-                }
-              >
-                Copy activity ID
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => {
-                  window.open(
-                    `${server.url}/web/#/details?id=${playbackActivity.item_id}`,
-                    "_blank"
-                  );
-                }}
-              >
-                Open in Jellyfin
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => {
-                  router.push(
-                    `/servers/${server.id}/users/${playbackActivity.user_name}`
-                  );
-                }}
-              >
-                View user details
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        );
-      },
-    },
   ];
 
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
@@ -293,7 +294,6 @@ export function HistoryTable({
     React.useState<VisibilityState>({
       user_name: !hideUserColumn,
     });
-  const [rowSelection, setRowSelection] = React.useState({});
 
   // Handle pagination with URL query params
   const handlePageChange = (newPage: number) => {
@@ -319,12 +319,10 @@ export function HistoryTable({
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     onColumnVisibilityChange: setColumnVisibility,
-    onRowSelectionChange: setRowSelection,
     state: {
-      sorting, // We keep this to display the current sort state
+      sorting,
       columnFilters,
       columnVisibility,
-      rowSelection,
     },
     manualPagination: true,
     pageCount: data?.total_pages || -1,
@@ -417,9 +415,6 @@ export function HistoryTable({
             {((data?.page || 0) - 1) * (data?.per_page || 20) +
               (data?.data?.length || 0)}{" "}
             of {data?.total_items || 0} results.
-            {rowSelection && Object.keys(rowSelection).length > 0 && (
-              <> ({Object.keys(rowSelection).length} selected)</>
-            )}
           </p>
         </div>
         <div className="space-x-2">

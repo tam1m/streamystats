@@ -64,9 +64,9 @@ export function ActivityLogTable({ server, data }: ActivityLogTableProps) {
             <JellyfinAvatar
               user={{ id: row.original.jellyfin_user_id?.toString() || "", name: row.getValue("name"), jellyfin_id: row.original.jellyfin_user_id?.toString() || "" }}
               serverUrl={server.url}
-              className="h-6 w-6 group-hover:opacity-80 transition"
+              className="h-6 w-6 transition-transform duration-200 group-hover:scale-110"
             />
-            <span className="capitalize group-hover:underline">{row.getValue("name")}</span>
+            <span className="capitalize transition-colors duration-200 group-hover:text-primary">{row.getValue("name")}</span>
           </Link>
         </div>
       ),

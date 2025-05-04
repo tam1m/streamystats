@@ -121,12 +121,17 @@ export function ItemWatchStatsTable({
       id: "name",
       header: "Name",
       cell: ({ row }) => (
-        <div className="flex flex-row items-center gap-4">
-          <div className="shrink-0 rounded overflow-hidden">
+        <a
+          href={`${server.url}/web/index.html#!/details?id=${row.original.item.id}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex flex-row items-center gap-4 group"
+        >
+          <div className="shrink-0 rounded overflow-hidden transition-transform duration-200 group-hover:scale-105">
             <Poster item={row.original.item} server={server} />
           </div>
-          <p className="capitalize">{row.getValue("name")}</p>
-        </div>
+          <p className="capitalize transition-colors duration-200 group-hover:text-primary">{row.getValue("name")}</p>
+        </a>
       ),
     },
     {
@@ -189,38 +194,6 @@ export function ItemWatchStatsTable({
         const totalWatchTime = row.getValue("total_watch_time") as number;
         const formatted = formatDuration(totalWatchTime);
         return <div className="text-right font-medium">{formatted}</div>;
-      },
-    },
-    {
-      id: "actions",
-      enableHiding: false,
-      cell: ({ row }) => {
-        const playbackActivity = row.original;
-
-        return (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-8 w-8 p-0">
-                <span className="sr-only">Open menu</span>
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Actions</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => {
-                  window.open(
-                    `${server.url}/web/#/details?id=${playbackActivity.item_id}`,
-                    "_blank"
-                  );
-                }}
-              >
-                Open in Jellyfin
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        );
       },
     },
   ];

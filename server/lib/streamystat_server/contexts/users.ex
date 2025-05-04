@@ -307,6 +307,19 @@ defmodule StreamystatServer.Contexts.Users do
           user_id: u.id,
           user_name: u.name,
           jellyfin_user_id: u.jellyfin_id,
+          transcoding_audio_codec: ps.transcoding_audio_codec,
+          transcoding_video_codec: ps.transcoding_video_codec,
+          transcoding_container: ps.transcoding_container,
+          transcoding_is_video_direct: ps.transcoding_is_video_direct,
+          transcoding_is_audio_direct: ps.transcoding_is_audio_direct,
+          transcoding_bitrate: ps.transcoding_bitrate,
+          transcoding_completion_percentage: ps.transcoding_completion_percentage,
+          transcoding_width: ps.transcoding_width,
+          transcoding_height: ps.transcoding_height,
+          transcoding_audio_channels: ps.transcoding_audio_channels,
+          transcoding_hardware_acceleration_type: ps.transcoding_hardware_acceleration_type,
+          transcoding_reasons: ps.transcoding_reasons,
+          remote_end_point: ps.remote_end_point
         }
       )
 

@@ -72,7 +72,7 @@ export const UserLeaderboardTable = ({ users, server }: Props) => {
           <TableBody>
             {sortedUsers.length > 0 ? (
               sortedUsers.map((user, index) => (
-                <TableRow key={user.id}>
+                <TableRow key={user.id} className="transition-colors duration-200 hover:bg-accent/60 group">
                   <TableCell className="font-medium">
                     {index === 0 ? (
                       <span className="text-yellow-500 font-bold">🥇 1</span>
@@ -87,10 +87,10 @@ export const UserLeaderboardTable = ({ users, server }: Props) => {
                   <TableCell>
                     <Link
                       href={`/servers/${server.id}/users/${user.id}`}
-                      className="flex items-center gap-2 hover:underline"
+                      className="flex items-center gap-2 group"
                     >
-                      <JellyfinAvatar user={user} serverUrl={server.url} />
-                      <span>{user.name}</span>
+                      <JellyfinAvatar user={user} serverUrl={server.url} className="h-6 w-6 transition-transform duration-200 group-hover:scale-110" />
+                      <span className="transition-colors duration-200 group-hover:text-primary">{user.name}</span>
                     </Link>
                   </TableCell>
                   <TableCell className="text-right flex items-center justify-end gap-1">
