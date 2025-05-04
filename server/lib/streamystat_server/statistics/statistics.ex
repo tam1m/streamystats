@@ -5,6 +5,7 @@ defmodule StreamystatServer.Statistics.Statistics do
   alias StreamystatServer.Jellyfin.Models.Library
   alias StreamystatServer.Jellyfin.Models.User
   alias StreamystatServer.Repo
+  alias StreamystatServer.Jellyfin.Sync.Utils
   require Logger
 
   def create_playback_stat(attrs \\ %{}) do
@@ -156,7 +157,11 @@ defmodule StreamystatServer.Statistics.Statistics do
           )
         ),
       libraries_count:
-        Repo.one(from(l in Library, where: l.server_id == ^server_id and is_nil(l.removed_at), select: count())),
+        Repo.one(
+          from(l in Library, where: l.server_id == ^server_id)
+          |> join(:inner, [l], active in Utils.get_libraries_by_server(server_id), on: l.id == active.id)
+          |> select(count())
+        ),
       users_count: Repo.one(from(u in User, where: u.server_id == ^server_id, select: count()))
     }
   end

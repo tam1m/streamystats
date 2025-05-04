@@ -87,6 +87,14 @@ defmodule StreamystatServer.Jellyfin.Sync.Utils do
   end
 
   @doc """
+  Gets a query for active (non-removed) libraries.
+  Returns a query that can be used in other queries.
+  """
+  def get_active_libraries_query do
+    from(l in Library, where: is_nil(l.removed_at))
+  end
+
+  @doc """
   Determines if fields have changed between two maps or structs.
   """
   def fields_changed?(existing_item, new_item, fields) do
