@@ -13,18 +13,11 @@ defmodule StreamystatServerWeb.BackupController do
 
   defp configure_sqlite(db) do
     # Get system memory info
-    {mem_info, exit_status} = System.cmd("free", ["-m"])
+    {mem_info, 0} = System.cmd("free", ["-m"])
     total_memory =
-      if exit_status == 0 do
-        case Regex.run(~r/Mem:\s+(\d+)/, mem_info) do
-          [_, mem] -> String.to_integer(mem)
-          _ ->
-            Logger.error("Could not parse memory info from 'free -m' output: #{mem_info}")
-            0
-        end
-      else
-        Logger.error("Failed to run system command: free -m")
-        0
+      case Regex.run(~r/Mem:\s+(\d+)/, mem_info) do
+        [_, mem] -> String.to_integer(mem)
+        _ -> 0
       end
 
     # Configure cache size based on available memory
