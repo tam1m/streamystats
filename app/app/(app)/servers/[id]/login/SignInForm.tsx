@@ -132,40 +132,38 @@ export const SignInForm: React.FC<Props> = ({ server, servers }) => {
               <Button type="submit">{loading ? <Spinner /> : "Sign In"}</Button>
             </form>
           </Form>
-          <div className="mt-6 space-y-4">
-            <div className="flex items-center">
-              <div className="h-px flex-1 bg-border"></div>
-              <span className="px-2 text-xs text-muted-foreground">
-                Or select another server
-              </span>
-              <div className="h-px flex-1 bg-border"></div>
-            </div>
+          {/* Only show this section if there are other servers available */}
+          {servers.filter((s) => s.id !== server.id).length > 0 && (
+            <div className="mt-6 space-y-4">
+              <div className="flex items-center">
+                <div className="h-px flex-1 bg-border"></div>
+                <span className="px-2 text-xs text-muted-foreground">
+                  Or select another server
+                </span>
+                <div className="h-px flex-1 bg-border"></div>
+              </div>
 
-            <div className="space-y-2">
-              <div className="grid gap-2">
-                {servers
-                  .filter((s) => s.id !== server.id)
-                  .map((s) => (
-                    <Button
-                      key={s.id}
-                      variant="outline"
-                      className="flex w-full justify-between rainbow-border-glow"
-                      onClick={() => router.push(`/servers/${s.id}/login`)}
-                    >
-                      <span className="font-medium">{s.name}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {s.url}
-                      </span>
-                    </Button>
-                  ))}
-                {servers.filter((s) => s.id !== server.id).length === 0 && (
-                  <p className="text-center text-sm text-muted-foreground py-2">
-                    No other servers available
-                  </p>
-                )}
+              <div className="space-y-2">
+                <div className="grid gap-2">
+                  {servers
+                    .filter((s) => s.id !== server.id)
+                    .map((s) => (
+                      <Button
+                        key={s.id}
+                        variant="outline"
+                        className="flex w-full justify-between rainbow-border-glow"
+                        onClick={() => router.push(`/servers/${s.id}/login`)}
+                      >
+                        <span className="font-medium">{s.name}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {s.url}
+                        </span>
+                      </Button>
+                    ))}
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </CardContent>
       </Card>
     </div>
