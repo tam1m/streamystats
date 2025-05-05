@@ -2,6 +2,8 @@
 
 defmodule StreamystatServerWeb.ActivityJSON do
   alias StreamystatServer.Activities.Models.Activity
+  alias StreamystatServer.Jellyfin.Models.User
+  alias StreamystatServer.Repo
 
   def index(%{
         activities: activities,
@@ -20,6 +22,8 @@ defmodule StreamystatServerWeb.ActivityJSON do
   end
 
   def data(%Activity{} = activity) do
+    user = if activity.user_id, do: User |> Repo.get(activity.user_id), else: nil
+
     %{
       id: activity.id,
       jellyfin_id: activity.jellyfin_id,
@@ -28,6 +32,7 @@ defmodule StreamystatServerWeb.ActivityJSON do
       type: activity.type,
       date: activity.date,
       user_id: activity.user_id,
+      jellyfin_user_id: user && user.jellyfin_id,
       server_id: activity.server_id,
       severity: activity.severity
     }

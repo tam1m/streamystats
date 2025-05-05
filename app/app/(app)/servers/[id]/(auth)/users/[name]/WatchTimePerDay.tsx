@@ -1,7 +1,7 @@
 "use client";
 
 import { TrendingUp } from "lucide-react";
-import { Bar, BarChart, CartesianGrid, XAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, XAxis, ResponsiveContainer } from "recharts";
 
 import {
   Card,
@@ -19,10 +19,11 @@ import {
 } from "@/components/ui/chart";
 import { User } from "@/lib/db";
 import { useMemo } from "react";
+import { formatDuration } from "@/lib/utils";
 
 const chartConfig = {
-  minutes: {
-    label: "minutes",
+  total_duration: {
+    label: "Watch Time",
     color: "hsl(var(--chart-1))",
   },
 } satisfies ChartConfig;
@@ -36,7 +37,7 @@ export const WatchTimePerDay: React.FC<Props> = ({ data }) => {
     () =>
       data.map((item) => ({
         date: new Date(item.date).toLocaleDateString(),
-        minutes: Math.floor(item.total_duration / 60),
+        total_duration: item.total_duration,
       })),
     [data],
   );
@@ -48,27 +49,34 @@ export const WatchTimePerDay: React.FC<Props> = ({ data }) => {
         <CardDescription></CardDescription>
       </CardHeader>
       <CardContent>
-        <ChartContainer config={chartConfig}>
-          <BarChart accessibilityLayer data={formattedData}>
-            <CartesianGrid vertical={false} />
-            <XAxis
-              dataKey="date"
-              tickLine={false}
-              tickMargin={10}
-              axisLine={false}
-            />
-            <ChartTooltip
-              cursor={false}
-              content={<ChartTooltipContent hideLabel />}
-            />
-            <Bar
-              dataKey="minutes"
-              fill="#2761D9"
-              radius={8}
-              name={"Minutes"}
-              label={"Minutes"}
-            />
-          </BarChart>
+        <ChartContainer config={chartConfig} className="h-[300px] w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={formattedData}>
+              <CartesianGrid vertical={false} />
+              <XAxis
+                dataKey="date"
+                tickLine={false}
+                tickMargin={10}
+                axisLine={false}
+                tick={{ fontSize: 12 }}
+              />
+              <ChartTooltip
+                cursor={false}
+                formatter={(val) => (
+                  <div>
+                    <p>{formatDuration(Number(val))}</p>
+                  </div>
+                )}
+                content={<ChartTooltipContent />}
+              />
+              <Bar
+                dataKey="total_duration"
+                fill="hsl(var(--chart-1))"
+                radius={[4, 4, 0, 0]}
+                name="Watch Time"
+              />
+            </BarChart>
+          </ResponsiveContainer>
         </ChartContainer>
       </CardContent>
       {/* <CardFooter className="flex-col items-start gap-2 text-sm">

@@ -204,6 +204,13 @@ defmodule StreamystatServer.Workers.JellystatsImporter do
 
       existing_map = Repo.all(existing_ids_query, timeout: @db_timeout) |> Map.new()
 
+      # Get current Jellyfin library IDs
+      current_jellyfin_ids = MapSet.new(libraries, & &1["Id"])
+
+      # Mark libraries that no longer exist as removed
+      from(l in Library, where: l.server_id == ^server.id and l.jellyfin_id not in ^current_jellyfin_ids)
+      |> Repo.update_all(set: [removed_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)])
+
       # Split libraries into chunks
       libraries
       |> Enum.chunk_every(@batch_size)
@@ -216,7 +223,8 @@ defmodule StreamystatServer.Workers.JellystatsImporter do
               jellyfin_id: library["Id"],
               name: library["Name"],
               type: library["CollectionType"] || "unknown",
-              server_id: server.id
+              server_id: server.id,
+              removed_at: nil
             }
 
             {attrs, Map.get(existing_map, attrs.jellyfin_id)}

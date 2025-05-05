@@ -53,16 +53,16 @@ export default async function User({
             </p>
           </div>
         </div>
-        <div className="grid grid-rows-2 md:grid-rows-1 md:grid-cols-2 items-center gap-2">
-          <GenreStatsGraph data={user.genre_stats} className="w-full" />
-        </div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+        <GenreStatsGraph data={user.genre_stats} />
+        <WatchTimePerDay data={user.watch_time_per_day} />
       </div>
       <HistoryTable
         server={server}
         data={user.watch_history}
         hideUserColumn={true}
       />
-      <WatchTimePerDay data={user.watch_time_per_day} />
     </Container>
   );
 }

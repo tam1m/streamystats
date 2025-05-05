@@ -119,109 +119,154 @@ export function ItemWatchStatsTable({
     {
       accessorFn: (row) => row.item.name,
       id: "name",
-      header: "Name",
+      header: () => (
+        <Button
+          variant="ghost"
+          onClick={() => handleSortChange("name")}
+        >
+          Name
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
       cell: ({ row }) => (
-        <div className="flex flex-row items-center gap-4">
-          <div className="shrink-0 rounded overflow-hidden">
+        <a
+          href={`${server.url}/web/index.html#!/details?id=${row.original.item.jellyfin_id}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex flex-row items-center gap-4 group"
+        >
+          <div className="shrink-0 rounded overflow-hidden transition-transform duration-200 group-hover:scale-110">
             <Poster item={row.original.item} server={server} />
           </div>
-          <p className="capitalize">{row.getValue("name")}</p>
-        </div>
+          <div>
+            <p className="capitalize transition-colors duration-200 group-hover:text-primary">{row.getValue("name")}</p>
+            <p className="text-sm text-muted-foreground">
+              {row.original.item.type}
+              {row.original.item.production_year && ` • ${row.original.item.production_year}`}
+              {row.original.item.series_name && ` • ${row.original.item.series_name}`}
+              {row.original.item.season_name && ` • ${row.original.item.season_name}`}
+            </p>
+          </div>
+        </a>
       ),
-    },
-    {
-      accessorFn: (row) => row.item.type,
-      id: "type",
-      header: "Type",
-      cell: ({ row }) => <div>{row.getValue("type")}</div>,
-    },
-    {
-      accessorFn: (row) => row.item.production_year,
-      id: "production_year",
-      header: "Year",
-      cell: ({ row }) => <div>{row.getValue("production_year")}</div>,
-    },
-    {
-      accessorFn: (row) => row.item.series_name,
-      id: "series_name",
-      header: "Series",
-      cell: ({ row }) => <div>{row.getValue("series_name") || "-"}</div>,
-    },
-    {
-      accessorFn: (row) => row.item.season_name,
-      id: "season_name",
-      header: "Season",
-      cell: ({ row }) => <div>{row.getValue("season_name") || "-"}</div>,
-    },
-    {
-      accessorKey: "watch_count",
-      header: ({ column }) => {
-        return (
-          <Button
-            variant="ghost"
-            onClick={() => handleSortChange("watch_count")}
-          >
-            Watch Count
-            <ArrowUpDown className="ml-2 h-4 w-4" />
-          </Button>
-        );
-      },
-      cell: ({ row }) => (
-        <div className="text-right font-medium">
-          {row.getValue("watch_count")}
-        </div>
-      ),
+      size: 320,
+      minSize: 220,
+      maxSize: 400,
     },
     {
       accessorKey: "total_watch_time",
-      header: ({ column }) => {
-        return (
-          <Button
-            variant="ghost"
-            onClick={() => handleSortChange("total_watch_time")}
-          >
-            Total Watch Time
-            <ArrowUpDown className="ml-2 h-4 w-4" />
-          </Button>
-        );
-      },
+      header: () => (
+        <Button
+          variant="ghost"
+          onClick={() => handleSortChange("total_watch_time")}
+        >
+          Total Watch Time
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
       cell: ({ row }) => {
         const totalWatchTime = row.getValue("total_watch_time") as number;
         const formatted = formatDuration(totalWatchTime);
-        return <div className="text-right font-medium">{formatted}</div>;
+        return <div className="text-left font-medium">{formatted}</div>;
       },
+      size: 120,
+      minSize: 80,
+      maxSize: 160,
     },
     {
-      id: "actions",
-      enableHiding: false,
+      accessorKey: "watch_count",
+      header: () => (
+        <Button
+          variant="ghost"
+          onClick={() => handleSortChange("watch_count")}
+        >
+          Watch Count
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
+      cell: ({ row }) => (
+        <div className="text-left font-medium">
+          {row.getValue("watch_count")}
+        </div>
+      ),
+      size: 80,
+      minSize: 60,
+      maxSize: 100,
+    },
+    {
+      accessorFn: (row) => row.item.official_rating,
+      id: "official_rating",
+      header: () => (
+        <Button
+          variant="ghost"
+          onClick={() => handleSortChange("official_rating")}
+        >
+          Rating
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
+      cell: ({ row }) => <div className="text-left">{row.original.item.official_rating || '-'}</div>,
+      size: 80,
+      minSize: 60,
+      maxSize: 100,
+    },
+    {
+      accessorFn: (row) => row.item.community_rating,
+      id: "community_rating",
+      header: () => (
+        <Button
+          variant="ghost"
+          onClick={() => handleSortChange("community_rating")}
+        >
+          User Rating
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
+      cell: ({ row }) => <div className="text-left">{row.original.item.community_rating ? row.original.item.community_rating.toFixed(1) + '★' : '-'}</div>,
+      size: 100,
+      minSize: 80,
+      maxSize: 120,
+    },
+    {
+      accessorFn: (row) => row.item.runtime_ticks,
+      id: "runtime",
+      header: () => (
+        <Button
+          variant="ghost"
+          onClick={() => handleSortChange("runtime")}
+        >
+          Runtime
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
       cell: ({ row }) => {
-        const playbackActivity = row.original;
-
-        return (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-8 w-8 p-0">
-                <span className="sr-only">Open menu</span>
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Actions</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => {
-                  window.open(
-                    `${server.url}/web/#/details?id=${playbackActivity.item_id}`,
-                    "_blank"
-                  );
-                }}
-              >
-                Open in Jellyfin
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        );
+        const ticks = Number(row.original.item.runtime_ticks);
+        if (!ticks) return <div className="text-left">-</div>;
+        const totalSeconds = Math.floor(ticks / 10000000);
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        return <div className="text-left">{hours ? `${hours}h ${minutes}m` : `${minutes}m`}</div>;
       },
+      size: 90,
+      minSize: 70,
+      maxSize: 110,
+    },
+    {
+      accessorFn: (row) => row.item.genres,
+      id: "genres",
+      header: () => (
+        <Button
+          variant="ghost"
+          onClick={() => handleSortChange("genres")}
+        >
+          Genres
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
+      cell: ({ row }) => <div className="text-left">{Array.isArray(row.original.item.genres) && row.original.item.genres.length > 0 ? row.original.item.genres.join(', ') : '-'}</div>,
+      size: 180,
+      minSize: 120,
+      maxSize: 240,
     },
   ];
 

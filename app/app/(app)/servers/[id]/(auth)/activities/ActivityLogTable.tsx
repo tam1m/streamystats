@@ -13,6 +13,7 @@ import {
 import { ChevronDown } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
+import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -30,6 +31,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ActivitiesResponse, ActivityLogEntry, Server } from "@/lib/db";
+import JellyfinAvatar from "@/components/JellyfinAvatar";
 
 export interface ActivityLogTableProps {
   server: Server;
@@ -54,7 +56,19 @@ export function ActivityLogTable({ server, data }: ActivityLogTableProps) {
       accessorKey: "name",
       header: "Name",
       cell: ({ row }) => (
-        <div className="capitalize">{row.getValue("name")}</div>
+        <div className="flex items-center gap-2">
+          <Link
+            href={`/servers/${server.id}/users/${row.original.jellyfin_user_id}`}
+            className="flex items-center gap-2 group"
+          >
+            <JellyfinAvatar
+              user={{ id: row.original.jellyfin_user_id?.toString() || "", name: row.getValue("name"), jellyfin_id: row.original.jellyfin_user_id?.toString() || "" }}
+              serverUrl={server.url}
+              className="h-6 w-6 transition-transform duration-200 group-hover:scale-110"
+            />
+            <span className="capitalize transition-colors duration-200 group-hover:text-primary">{row.getValue("name")}</span>
+          </Link>
+        </div>
       ),
     },
     {

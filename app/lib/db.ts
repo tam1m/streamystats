@@ -671,6 +671,20 @@ export type UserPlaybackStatistics = {
   user_id: string;
   user_name: string;
   jellyfin_user_id: string;
+  // Transcoding fields
+  transcoding_audio_codec: string | null;
+  transcoding_video_codec: string | null;
+  transcoding_container: string | null;
+  transcoding_is_video_direct: boolean | null;
+  transcoding_is_audio_direct: boolean | null;
+  transcoding_bitrate: number | null;
+  transcoding_completion_percentage: number | null;
+  transcoding_width: number | null;
+  transcoding_height: number | null;
+  transcoding_audio_channels: number | null;
+  transcoding_hardware_acceleration_type: string | null;
+  transcoding_reasons: string[] | null;
+  remote_end_point: string | null;
 };
 
 export type HisotryResponse = {
@@ -724,6 +738,7 @@ export type ActivityLogEntry = {
   jellyfin_id: number;
   short_overview: string;
   user_id: number;
+  jellyfin_user_id: string | null;
 };
 
 export type ActivitiesResponse = {

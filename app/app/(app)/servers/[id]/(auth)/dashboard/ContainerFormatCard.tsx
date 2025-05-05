@@ -28,12 +28,15 @@ import {
   TranscodingStatisticsResponse,
 } from "@/lib/db/transcoding-statistics";
 import { CustomBarLabel, CustomValueLabel } from "@/components/ui/CustomBarLabel";
+import React from "react";
 
 interface ContainerFormatCardProps {
   data: CategoryStat[];
 }
 
 export const ContainerFormatCard = ({ data }: ContainerFormatCardProps) => {
+  const [containerWidth, setContainerWidth] = React.useState(400);
+
   const containerData = data
     .map((item) => ({
       name: item.value,
@@ -62,6 +65,12 @@ export const ContainerFormatCard = ({ data }: ContainerFormatCardProps) => {
 
   const maxCount = Math.max(...containerData.map((d) => d.count));
 
+  const total = containerData.reduce((sum, item) => sum + item.count, 0);
+  const containerDataWithPercent = containerData.map(item => ({
+    ...item,
+    labelWithPercent: `${item.name} - ${(total > 0 ? ((item.count / total) * 100).toFixed(1) : '0.0')}%`,
+  }));
+
   return (
     <Card>
       <CardHeader>
@@ -69,10 +78,14 @@ export const ContainerFormatCard = ({ data }: ContainerFormatCardProps) => {
         <CardDescription>Media container distribution</CardDescription>
       </CardHeader>
       <CardContent>
-        <ChartContainer config={containerConfig} className="h-[200px]">
+        <ChartContainer 
+          config={containerConfig} 
+          className="h-[200px]"
+          onWidthChange={setContainerWidth}
+        >
           <BarChart
             accessibilityLayer
-            data={containerData}
+            data={containerDataWithPercent}
             layout="vertical"
             margin={{
               right: 16,
@@ -103,25 +116,20 @@ export const ContainerFormatCard = ({ data }: ContainerFormatCardProps) => {
               className="fill-blue-600"
             >
               <LabelList
-                dataKey="name"
-                content={<CustomBarLabel fill="#d6e3ff" fontSize={12} />}
-              />
-              <LabelList
-                dataKey="count"
-                content={({ x, y, width, height, value }) =>
-                  Number(value) === 0 ? null : (
-                    <CustomValueLabel
-                      x={Number(x)}
-                      y={Number(y)}
-                      width={Number(width)}
-                      height={Number(height)}
-                      value={value}
-                      fill="#d6e3ff"
-                      fontSize={12}
-                      isMax={value === maxCount}
-                    />
-                  )
-                }
+                dataKey="labelWithPercent"
+                content={({ x, y, width: barWidth, height, value }) => (
+                  <CustomBarLabel
+                    x={Number(x)}
+                    y={Number(y)}
+                    width={Number(barWidth)}
+                    height={Number(height)}
+                    value={value}
+                    fill="#d6e3ff"
+                    fontSize={12}
+                    containerWidth={containerWidth}
+                    alwaysOutside
+                  />
+                )}
               />
             </Bar>
           </BarChart>
