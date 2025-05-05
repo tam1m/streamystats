@@ -21,13 +21,15 @@ defmodule StreamystatServerWeb.BackupController do
     cache_size = get_cache_size(total_memory)
 
     # Configure SQLite for better performance while being resource-friendly
-    :ok = Exqlite.Sqlite3.execute(db, "PRAGMA journal_mode = WAL")  # Use WAL for better concurrency
+    :ok = Exqlite.Sqlite3.execute(db, "PRAGMA journal_mode = DELETE")  # Use DELETE instead of WAL
     :ok = Exqlite.Sqlite3.execute(db, "PRAGMA synchronous = NORMAL") # Safer than OFF
     :ok = Exqlite.Sqlite3.execute(db, "PRAGMA cache_size = #{cache_size}")
     # Only use memory storage if we have enough RAM
     :ok = Exqlite.Sqlite3.execute(db, "PRAGMA temp_store = #{if total_memory > @memory_storage_threshold, do: "MEMORY", else: "FILE"}")
     # Set page size to 4KB (default) for better compatibility
     :ok = Exqlite.Sqlite3.execute(db, "PRAGMA page_size = 4096")
+    # Set busy timeout to 5 seconds
+    :ok = Exqlite.Sqlite3.execute(db, "PRAGMA busy_timeout = 5000")
   end
 
   defp get_cache_size(total_memory) do
@@ -41,7 +43,7 @@ defmodule StreamystatServerWeb.BackupController do
   def export(conn, %{"server_id" => server_id_str}) do
     server_id = String.to_integer(server_id_str)
     # Create a temporary file for the SQLite database
-    temp_path = Temp.path!("playback_sessions", ".db")
+    temp_path = Temp.path!(".db")
     db = nil
     stmt = nil
 
@@ -51,27 +53,61 @@ defmodule StreamystatServerWeb.BackupController do
       :ok = create_playback_sessions_table(db)
       {:ok, stmt} = prepare_insert_statement(db)
 
-      :ok = export_sessions(db, stmt, server_id)
-      server = Repo.get(Server, server_id)
+      # Start a transaction for better performance
+      :ok = Exqlite.Sqlite3.execute(db, "BEGIN IMMEDIATE TRANSACTION")
+      
+      case export_sessions(db, stmt, server_id) do
+        {:ok, _} ->
+          # Verify data was written
+          {:ok, verify_stmt} = Exqlite.Sqlite3.prepare(db, "SELECT COUNT(*) FROM playback_sessions")
+          {:row, [written_count]} = Exqlite.Sqlite3.step(db, verify_stmt)
+          :ok = Exqlite.Sqlite3.release(db, verify_stmt)
+          
+          Logger.info("Successfully wrote #{written_count} sessions to SQLite database")
 
-      filename = "playback_sessions_#{server.name}_#{Date.utc_today()}.db"
+          :ok = Exqlite.Sqlite3.execute(db, "COMMIT")
 
-      conn =
-        conn
-        |> put_resp_content_type("application/x-sqlite3")
-        |> put_resp_header("content-disposition", "attachment; filename=#{filename}")
-        |> send_file(200, temp_path)
+          # Close the database properly
+          :ok = Exqlite.Sqlite3.close(db)
+          db = nil
 
-      # Schedule file deletion after response is sent
-      Task.start(fn ->
-        Process.sleep(10_000)
-        File.rm(temp_path)
-      end)
+          server = Repo.get(Server, server_id)
+          filename = "playback_sessions_#{server.name}_#{Date.utc_today()}.db"
 
-      conn
+          # Verify file exists and has content
+          case File.stat(temp_path) do
+            {:ok, %{size: size}} ->
+              Logger.info("Database file size: #{size} bytes")
+            {:error, reason} ->
+              Logger.error("Failed to stat database file: #{inspect(reason)}")
+              raise "Database file not found or inaccessible"
+          end
+
+          conn =
+            conn
+            |> put_resp_content_type("application/x-sqlite3")
+            |> put_resp_header("content-disposition", "attachment; filename=#{filename}")
+            |> send_file(200, temp_path)
+
+          # Schedule file deletion after response is sent
+          Task.start(fn ->
+            Process.sleep(10_000)
+            File.rm(temp_path)
+          end)
+
+          conn
+        {:error, reason} ->
+          Logger.error("Export failed: #{inspect(reason)}")
+          :ok = Exqlite.Sqlite3.execute(db, "ROLLBACK")
+          conn |> put_status(:internal_server_error) |> json(%{error: "Failed to export playback sessions"})
+      end
     rescue
       e ->
         Logger.error("Export failed: #{inspect(e)}")
+        # Rollback transaction if it exists
+        if db do
+          :ok = Exqlite.Sqlite3.execute(db, "ROLLBACK")
+        end
         conn |> put_status(:internal_server_error) |> json(%{error: "Failed to export playback sessions"})
     after
       cleanup_resources(db, stmt, temp_path)
@@ -123,24 +159,25 @@ defmodule StreamystatServerWeb.BackupController do
   end
 
   defp export_sessions(db, stmt, server_id) do
-    case Repo.transaction(fn ->
+    Repo.transaction(fn ->
       from(s in PlaybackSession, where: s.server_id == ^server_id)
       |> Repo.stream()
       |> Stream.each(fn s ->
         bind_session_to_statement(stmt, s)
-        :done = Exqlite.Sqlite3.step(db, stmt)
+        case Exqlite.Sqlite3.step(db, stmt) do
+          :done -> :ok
+          {:error, reason} -> 
+            Logger.error("Failed to write session #{s.id}: #{inspect(reason)}")
+            raise "Failed to write session to SQLite"
+        end
         :ok = Exqlite.Sqlite3.reset(stmt)
       end)
       |> Stream.run()
-    end, timeout: 300_000) do
-      {:ok, _} -> :ok
-      :ok -> :ok
-      error -> error
-    end
+    end, timeout: 300_000)
   end
 
   defp bind_session_to_statement(stmt, session) do
-    Exqlite.Sqlite3.bind(stmt, [
+    values = [
       session.id,
       session.user_jellyfin_id,
       session.device_id,
@@ -162,7 +199,14 @@ defmodule StreamystatServerWeb.BackupController do
       session.server_id,
       NaiveDateTime.to_iso8601(session.inserted_at),
       NaiveDateTime.to_iso8601(session.updated_at)
-    ])
+    ]
+    
+    case Exqlite.Sqlite3.bind(stmt, values) do
+      :ok -> :ok
+      {:error, reason} ->
+        Logger.error("Failed to bind session #{session.id}: #{inspect(reason)}")
+        raise "Failed to bind session to SQLite statement"
+    end
   end
 
   def import(conn, %{"server_id" => server_id_str, "file" => %Plug.Upload{path: path}}) do
