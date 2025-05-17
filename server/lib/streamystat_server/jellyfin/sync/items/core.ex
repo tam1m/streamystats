@@ -4,6 +4,7 @@ defmodule StreamystatServer.Jellyfin.Sync.Items.Core do
   """
 
   require Logger
+  import Ecto.Query
 
   alias StreamystatServer.Repo
   alias StreamystatServer.Jellyfin.Client
@@ -77,6 +78,13 @@ defmodule StreamystatServer.Jellyfin.Sync.Items.Core do
   defp process_libraries(server, libraries, metrics_agent, options) do
     max_concurrency = options.max_library_concurrency
 
+    # Get all existing non-removed items for this server
+    existing_items = get_existing_items(server.id)
+    existing_item_ids = MapSet.new(existing_items, & &1.jellyfin_id)
+
+    # Track the start time of this sync
+    sync_start = NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second) |> NaiveDateTime.add(-5, :second)
+
     results =
       Task.async_stream(
         libraries,
@@ -90,6 +98,27 @@ defmodule StreamystatServer.Jellyfin.Sync.Items.Core do
         timeout: 600_000
       )
       |> Enum.map(fn {:ok, result} -> result end)
+
+    # Get all items that were found during sync
+    found_items = get_found_items(sync_start, server.id)
+    found_item_ids = MapSet.new(found_items, & &1.jellyfin_id)
+
+    # Mark items as removed if they weren't found in the sync
+    removed_items = MapSet.difference(existing_item_ids, found_item_ids)
+    removed_list = MapSet.to_list(removed_items)
+
+    if MapSet.size(removed_items) > 0 do
+      Logger.info("Marking #{MapSet.size(removed_items)} items as removed: #{inspect(removed_list)}")
+      now = NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+      {count, _} =
+        Repo.update_all(
+          from(i in Item,
+            where: i.jellyfin_id in ^removed_list and i.server_id == ^server.id
+          ),
+          set: [removed_at: now]
+        )
+      Logger.info("Successfully marked #{count} items as removed")
+    end
 
     total_count = Enum.sum(Enum.map(results, fn {_, count, _} -> count end))
     total_errors = Enum.flat_map(results, fn {_, _, errors} -> errors end)
@@ -109,6 +138,26 @@ defmodule StreamystatServer.Jellyfin.Sync.Items.Core do
         Logger.warning("Errors: #{inspect(total_errors)}")
         {:partial, total_count, total_errors}
     end
+  end
+
+  defp get_existing_items(server_id) do
+    Repo.all(
+      from(i in Item,
+        where: i.server_id == ^server_id and is_nil(i.removed_at)
+      )
+    )
+  end
+
+  defp get_found_items(sync_start, server_id) do
+    # Get all items from the database that were synced in this run
+    # Using the sync_start which already includes a 5-second buffer
+    Repo.all(
+      from(i in Item,
+        where: i.server_id == ^server_id and
+               i.updated_at >= ^sync_start and
+               is_nil(i.removed_at)
+      )
+    )
   end
 
   defp sync_library_items(server, jellyfin_library_id, metrics_agent, options) do

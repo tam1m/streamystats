@@ -64,7 +64,8 @@ defmodule StreamystatServer.Contexts.Users do
       remote_client_bitrate_limit: policy["RemoteClientBitrateLimit"],
       authentication_provider_id: policy["AuthenticationProviderId"],
       password_reset_provider_id: policy["PasswordResetProviderId"],
-      sync_play_access: policy["SyncPlayAccess"]
+      sync_play_access: policy["SyncPlayAccess"],
+      # primary_image_tag: jellyfin_user["PrimaryImageTag"]
     }
 
     Logger.debug("User params with server_id #{inspect(server_id)}: #{inspect(user_params)}")
@@ -246,9 +247,9 @@ defmodule StreamystatServer.Contexts.Users do
     |> Enum.group_by(fn %{genre: genre} -> genre end)
     |> Enum.map(fn {genre, entries} ->
       total = Enum.reduce(entries, 0, fn %{total_duration: duration}, acc -> acc + duration end)
-      %{genre: genre, total_duration: total}
+      %{genre: genre, watch_time: total}
     end)
-    |> Enum.sort_by(fn %{total_duration: duration} -> duration end, :desc)
+    |> Enum.sort_by(fn %{watch_time: duration} -> duration end, :desc)
     |> Enum.take(5)
   end
 
@@ -305,7 +306,20 @@ defmodule StreamystatServer.Contexts.Users do
           primary_image_logo_tag: i.primary_image_logo_tag,
           user_id: u.id,
           user_name: u.name,
-          jellyfin_user_id: u.jellyfin_id
+          jellyfin_user_id: u.jellyfin_id,
+          transcoding_audio_codec: ps.transcoding_audio_codec,
+          transcoding_video_codec: ps.transcoding_video_codec,
+          transcoding_container: ps.transcoding_container,
+          transcoding_is_video_direct: ps.transcoding_is_video_direct,
+          transcoding_is_audio_direct: ps.transcoding_is_audio_direct,
+          transcoding_bitrate: ps.transcoding_bitrate,
+          transcoding_completion_percentage: ps.transcoding_completion_percentage,
+          transcoding_width: ps.transcoding_width,
+          transcoding_height: ps.transcoding_height,
+          transcoding_audio_channels: ps.transcoding_audio_channels,
+          transcoding_hardware_acceleration_type: ps.transcoding_hardware_acceleration_type,
+          transcoding_reasons: ps.transcoding_reasons,
+          remote_end_point: ps.remote_end_point
         }
       )
 

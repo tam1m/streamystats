@@ -17,6 +17,7 @@ import { Clock, Trophy, User as UserIcon } from "lucide-react";
 import Link from "next/link";
 import { useMemo } from "react";
 import { UserLeaderboardFilter } from "./UserLeaderBoardFilter";
+import JellyfinAvatar from "@/components/JellyfinAvatar";
 
 interface Props {
   users: User[];
@@ -71,7 +72,7 @@ export const UserLeaderboardTable = ({ users, server }: Props) => {
           <TableBody>
             {sortedUsers.length > 0 ? (
               sortedUsers.map((user, index) => (
-                <TableRow key={user.id}>
+                <TableRow key={user.id} className="transition-colors duration-200 hover:bg-accent/60 group">
                   <TableCell className="font-medium">
                     {index === 0 ? (
                       <span className="text-yellow-500 font-bold">🥇 1</span>
@@ -86,14 +87,10 @@ export const UserLeaderboardTable = ({ users, server }: Props) => {
                   <TableCell>
                     <Link
                       href={`/servers/${server.id}/users/${user.id}`}
-                      className="flex items-center gap-2 hover:underline"
+                      className="flex items-center gap-2 group"
                     >
-                      <Avatar className="h-8 w-8">
-                        <AvatarFallback>
-                          <UserIcon className="h-4 w-4" />
-                        </AvatarFallback>
-                      </Avatar>
-                      <span>{user.name}</span>
+                      <JellyfinAvatar user={user} serverUrl={server.url} className="h-6 w-6 transition-transform duration-200 group-hover:scale-110" />
+                      <span className="transition-colors duration-200 group-hover:text-primary">{user.name}</span>
                     </Link>
                   </TableCell>
                   <TableCell className="text-right flex items-center justify-end gap-1">

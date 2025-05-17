@@ -24,6 +24,8 @@ import {
 } from "recharts";
 import { FileDigit } from "lucide-react";
 import { CategoryStat } from "@/lib/db/transcoding-statistics";
+import { CustomBarLabel, CustomValueLabel } from "@/components/ui/CustomBarLabel";
+import React from "react";
 
 export const CodecUsageCard = ({
   videoCodecs,
@@ -32,6 +34,7 @@ export const CodecUsageCard = ({
   videoCodecs: CategoryStat[];
   audioCodecs: CategoryStat[];
 }) => {
+  const [containerWidth, setContainerWidth] = React.useState(400);
   const codecData = [
     ...videoCodecs.map((item) => ({
       name: `Video: ${item.value}`,
@@ -41,7 +44,7 @@ export const CodecUsageCard = ({
       name: `Audio: ${item.value}`,
       count: item.count,
     })),
-  ];
+  ].filter((item) => item.count > 0);
 
   const codecConfig = {
     count: {
@@ -63,6 +66,14 @@ export const CodecUsageCard = ({
     );
   };
 
+  const maxCount = Math.max(...codecData.map((d) => d.count));
+
+  const total = codecData.reduce((sum, item) => sum + item.count, 0);
+  const codecDataWithPercent = codecData.map(item => ({
+    ...item,
+    labelWithPercent: `${item.name} - ${(total > 0 ? ((item.count / total) * 100).toFixed(1) : '0.0')}%`,
+  }));
+
   return (
     <Card>
       <CardHeader>
@@ -70,10 +81,14 @@ export const CodecUsageCard = ({
         <CardDescription>Video and audio codec distribution</CardDescription>
       </CardHeader>
       <CardContent>
-        <ChartContainer config={codecConfig} className="h-[200px]">
+        <ChartContainer 
+          config={codecConfig} 
+          className="h-[200px]"
+          onWidthChange={setContainerWidth}
+        >
           <BarChart
             accessibilityLayer
-            data={codecData}
+            data={codecDataWithPercent}
             layout="vertical"
             margin={{
               right: 16,
@@ -104,18 +119,20 @@ export const CodecUsageCard = ({
               className="fill-blue-600"
             >
               <LabelList
-                dataKey="name"
-                position="insideLeft"
-                offset={8}
-                className="fill-[#d6e3ff]"
-                fontSize={12}
-              />
-              <LabelList
-                dataKey="count"
-                position="right"
-                offset={8}
-                className="fill-[#d6e3ff]"
-                fontSize={12}
+                dataKey="labelWithPercent"
+                content={({ x, y, width: barWidth, height, value }) => (
+                  <CustomBarLabel
+                    x={Number(x)}
+                    y={Number(y)}
+                    width={Number(barWidth)}
+                    height={Number(height)}
+                    value={value}
+                    fill="#d6e3ff"
+                    fontSize={12}
+                    containerWidth={containerWidth}
+                    alwaysOutside
+                  />
+                )}
               />
             </Bar>
           </BarChart>

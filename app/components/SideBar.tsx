@@ -1,6 +1,6 @@
 "use client";
 
-import { Server } from "@/lib/db";
+import { Server, User, getUser } from "@/lib/db";
 import { UserMe } from "@/lib/me";
 import {
   ActivitySquare,
@@ -12,11 +12,11 @@ import {
   Library,
   Settings,
   TrendingUp,
-  User,
+  User as UserIcon,
   Users,
 } from "lucide-react";
 import { useParams } from "next/navigation";
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { ServerSelector } from "./ServerSelector";
 import { UserMenu } from "./UserMenu";
 import {
@@ -66,8 +66,20 @@ export const SideBar: React.FC<Props> = ({
   allowedToCreateServer = false,
 }) => {
   const params = useParams();
-
+  const [fullUser, setFullUser] = useState<User | null>(null);
   const { id } = params as { id: string };
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      if (me?.name && me?.serverId) {
+        const user = await getUser(me.name, me.serverId);
+        if (user) {
+          setFullUser(user);
+        }
+      }
+    };
+    fetchUser();
+  }, [me?.name, me?.serverId]);
 
   const items = useMemo(() => {
     return [
@@ -81,11 +93,10 @@ export const SideBar: React.FC<Props> = ({
         url: "/library",
         icon: Library,
       },
-
       {
         title: "Me",
         url: "/users/" + me?.name,
-        icon: User,
+        icon: UserIcon,
       },
     ];
   }, [me]);
@@ -137,7 +148,7 @@ export const SideBar: React.FC<Props> = ({
         )}
       </SidebarContent>
       <SidebarFooter>
-        <UserMenu me={me} />
+        <UserMenu me={fullUser || undefined} serverUrl={servers.find(s => s.id === parseInt(id))?.url} />
       </SidebarFooter>
     </Sidebar>
   );

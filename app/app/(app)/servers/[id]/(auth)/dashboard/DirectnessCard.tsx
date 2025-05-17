@@ -21,9 +21,11 @@ import {
   YAxis,
   CartesianGrid,
   LabelList,
+  ResponsiveContainer,
 } from "recharts";
 import { InfoIcon } from "lucide-react";
 import { DirectnessStat } from "@/lib/db/transcoding-statistics";
+import { CustomBarLabel, CustomValueLabel } from "@/components/ui/CustomBarLabel";
 
 interface DirectnessCardProps {
   data: DirectnessStat[];
@@ -40,9 +42,20 @@ export const DirectnessCard = ({ data }: DirectnessCardProps) => {
     },
   } satisfies ChartConfig;
 
-  const directnessData = data.map((item) => ({
-    name: item.label,
-    count: item.count,
+  const directnessData = data
+    .map((item) => ({
+      name: item.label,
+      count: item.count,
+    }))
+    .filter((item) => item.count > 0);
+
+  const maxCount = Math.max(...directnessData.map((d) => d.count));
+
+  const total = directnessData.reduce((sum, item) => sum + item.count, 0);
+  const directnessDataWithPercent = directnessData.map(item => ({
+    ...item,
+    percent: total > 0 ? ((item.count / total) * 100) : 0,
+    labelWithPercent: `${item.name} - ${(total > 0 ? ((item.count / total) * 100).toFixed(1) : '0.0')}%`,
   }));
 
   // Calculate bar height based on number of items
@@ -65,54 +78,58 @@ export const DirectnessCard = ({ data }: DirectnessCardProps) => {
       </CardHeader>
       <CardContent>
         <ChartContainer config={directnessConfig} className="h-[200px]">
-          <BarChart
-            accessibilityLayer
-            data={directnessData}
-            layout="vertical"
-            margin={{
-              right: 16,
-              left: 0,
-              top: 5,
-              bottom: 5,
-            }}
-            barSize={getBarHeight(directnessData.length)}
-          >
-            <CartesianGrid horizontal={false} />
-            <YAxis
-              dataKey="name"
-              type="category"
-              tickLine={false}
-              tickMargin={10}
-              axisLine={false}
-              hide
-            />
-            <XAxis dataKey="count" type="number" hide />
-            <ChartTooltip
-              cursor={false}
-              content={<ChartTooltipContent indicator="line" />}
-            />
-            <Bar
-              dataKey="count"
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              accessibilityLayer
+              data={directnessDataWithPercent}
               layout="vertical"
-              radius={4}
-              className="fill-blue-600"
+              margin={{
+                right: 16,
+                left: 0,
+                top: 5,
+                bottom: 5,
+              }}
+              barSize={getBarHeight(directnessData.length)}
             >
-              <LabelList
+              <CartesianGrid horizontal={false} />
+              <YAxis
                 dataKey="name"
-                position="insideLeft"
-                offset={8}
-                className="fill-[#d6e3ff]"
-                fontSize={12}
+                type="category"
+                tickLine={false}
+                tickMargin={10}
+                axisLine={false}
+                hide
               />
-              <LabelList
+              <XAxis dataKey="count" type="number" hide />
+              <ChartTooltip
+                cursor={false}
+                content={<ChartTooltipContent indicator="line" />}
+              />
+              <Bar
                 dataKey="count"
-                position="right"
-                offset={8}
-                className="fill-[#d6e3ff]"
-                fontSize={12}
-              />
-            </Bar>
-          </BarChart>
+                layout="vertical"
+                radius={4}
+                className="fill-blue-600"
+              >
+                <LabelList
+                  dataKey="labelWithPercent"
+                  content={({ x, y, width, height, value }) => (
+                    <CustomBarLabel
+                      x={Number(x)}
+                      y={Number(y)}
+                      width={Number(width)}
+                      height={Number(height)}
+                      value={value}
+                      fill="#d6e3ff"
+                      fontSize={12}
+                      containerWidth={400}
+                      alwaysOutside
+                    />
+                  )}
+                />
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
         </ChartContainer>
       </CardContent>
       <CardFooter className="text-sm text-muted-foreground">

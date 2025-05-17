@@ -34,8 +34,8 @@ defmodule StreamystatServer.Jellyfin.Sync.Items.Recent do
 
     {result, updated_metrics} =
       try do
-        # Fetch libraries
-        libraries = Utils.get_libraries_by_server(server.id)
+        # Fetch libraries that haven't been removed
+        libraries = Utils.get_libraries_by_server(server.id) |> Repo.all()
         metrics = Map.update(metrics, :api_requests, 1, &(&1 + 1))
 
         # Collect recent items from all libraries with their already-known library IDs
@@ -271,7 +271,7 @@ defmodule StreamystatServer.Jellyfin.Sync.Items.Recent do
         update_fields =
           tracked_fields
           |> Enum.map(fn field -> {field, Map.get(item, field)} end)
-          |> Enum.into([])
+          |> Enum.concat([{:updated_at, NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)}])
 
         {updated, _} =
           Repo.update_all(

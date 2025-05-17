@@ -15,7 +15,7 @@ defmodule StreamystatServerWeb.UserController do
     render(conn, :index, users: users_with_details)
   end
 
-  def show(conn, %{"server_id" => server_id, "id" => user_id}) do
+  def show(conn, %{"server_id" => server_id, "id" => user_id} = params) do
     case Users.get_user(server_id, user_id) do
       nil ->
         conn
@@ -28,7 +28,7 @@ defmodule StreamystatServerWeb.UserController do
         watch_time_per_day = Users.get_user_watch_time_per_day(server_id, user.id)
         genre_stats = Users.get_user_genre_watch_time(server_id, user.id)
         longest_streak = Users.get_user_longest_streak(user.id)
-        watch_history = Users.get_user_watch_history(server_id, user.id)
+        watch_history = Users.get_user_watch_history(server_id, user.id, params)
 
         render(conn, :show,
           user: user,

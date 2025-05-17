@@ -24,6 +24,8 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { CustomBarLabel, CustomValueLabel } from "@/components/ui/CustomBarLabel";
+import React from "react";
 
 interface BitrateDistributionCardProps {
   data: NumericStat;
@@ -32,6 +34,8 @@ interface BitrateDistributionCardProps {
 export const BitrateDistributionCard = ({
   data,
 }: BitrateDistributionCardProps) => {
+  const [containerWidth, setContainerWidth] = React.useState(400);
+
   const formatBitrate = (value: number | null) => {
     if (value === null) return "0 Mbps";
     return `${(value / 1000000).toFixed(1)} Mbps`;
@@ -39,7 +43,7 @@ export const BitrateDistributionCard = ({
 
   // Use all distribution categories, even those with zero count
   // to show the complete range of possible bitrates
-  const bitrateData = data.distribution;
+  const bitrateData = data.distribution.filter((item) => item.count > 0);
 
   const bitrateConfig = {
     count: {
@@ -64,11 +68,18 @@ export const BitrateDistributionCard = ({
 
   // Find categories with data for the footer
   const categoriesWithData = bitrateData
-    .filter((item) => item.count > 0)
     .sort((a, b) => b.count - a.count);
 
   const mostCommonCategory =
     categoriesWithData.length > 0 ? categoriesWithData[0].range : "N/A";
+
+  const maxCount = Math.max(...bitrateData.map((d) => d.count));
+
+  const total = bitrateData.reduce((sum, item) => sum + item.count, 0);
+  const bitrateDataWithPercent = bitrateData.map(item => ({
+    ...item,
+    labelWithPercent: `${item.range} - ${(total > 0 ? ((item.count / total) * 100).toFixed(1) : '0.0')}%`,
+  }));
 
   return (
     <Card>
@@ -80,10 +91,14 @@ export const BitrateDistributionCard = ({
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <ChartContainer config={bitrateConfig} className="h-[200px]">
+        <ChartContainer
+          config={bitrateConfig}
+          className="h-[200px]"
+          onWidthChange={setContainerWidth}
+        >
           <BarChart
             accessibilityLayer
-            data={bitrateData}
+            data={bitrateDataWithPercent}
             layout="vertical"
             margin={{
               right: 16,
@@ -114,18 +129,20 @@ export const BitrateDistributionCard = ({
               className="fill-blue-600"
             >
               <LabelList
-                dataKey="range"
-                position="insideLeft"
-                offset={8}
-                className="fill-[#d6e3ff]"
-                fontSize={12}
-              />
-              <LabelList
-                dataKey="count"
-                position="right"
-                offset={8}
-                className="fill-[#d6e3ff]"
-                fontSize={12}
+                dataKey="labelWithPercent"
+                content={({ x, y, width: barWidth, height, value }) => (
+                  <CustomBarLabel
+                    x={Number(x)}
+                    y={Number(y)}
+                    width={Number(barWidth)}
+                    height={Number(height)}
+                    value={value}
+                    fill="#d6e3ff"
+                    fontSize={12}
+                    containerWidth={containerWidth}
+                    alwaysOutside
+                  />
+                )}
               />
             </Bar>
           </BarChart>

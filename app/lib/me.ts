@@ -8,6 +8,19 @@ export type UserMe = {
   id?: string;
   name?: string;
   serverId?: number;
+  jellyfin_id?: string | null;
+  watch_stats?: { total_watch_time: number; total_plays: number };
+  watch_time_per_day?: { date: string; total_duration: number }[];
+  is_administrator?: boolean;
+  genre_stats?: { genre: string; count: number }[];
+  longest_streak?: number;
+  watch_history?: {
+    page: number;
+    per_page: number;
+    total_items: number;
+    total_pages: number;
+    data: any[];
+  };
 };
 
 export const getMe = async (): Promise<UserMe | null> => {

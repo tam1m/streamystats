@@ -5,6 +5,7 @@ defmodule StreamystatServer.Statistics.Statistics do
   alias StreamystatServer.Jellyfin.Models.Library
   alias StreamystatServer.Jellyfin.Models.User
   alias StreamystatServer.Repo
+  alias StreamystatServer.Jellyfin.Sync.Utils
   require Logger
 
   def create_playback_stat(attrs \\ %{}) do
@@ -132,28 +133,38 @@ defmodule StreamystatServer.Statistics.Statistics do
     }
   end
 
+  @doc """
+  Gets statistics for a server.
+  """
   def get_library_statistics(server_id) do
     %{
       movies_count:
         Repo.one(
-          from(i in Item, where: i.server_id == ^server_id and i.type == "Movie", select: count())
+          from(i in Item,
+            where: i.server_id == ^server_id and i.type == "Movie" and is_nil(i.removed_at),
+            select: count()
+          )
         ),
       episodes_count:
         Repo.one(
           from(i in Item,
-            where: i.server_id == ^server_id and i.type == "Episode",
+            where: i.server_id == ^server_id and i.type == "Episode" and is_nil(i.removed_at),
             select: count()
           )
         ),
       series_count:
         Repo.one(
           from(i in Item,
-            where: i.server_id == ^server_id and i.type == "Series",
+            where: i.server_id == ^server_id and i.type == "Series" and is_nil(i.removed_at),
             select: count()
           )
         ),
       libraries_count:
-        Repo.one(from(l in Library, where: l.server_id == ^server_id, select: count())),
+        Repo.one(
+          from(l in Library, where: l.server_id == ^server_id)
+          |> join(:inner, [l], active in subquery(Utils.get_libraries_by_server(server_id)), on: l.id == active.id)
+          |> select(count())
+        ),
       users_count: Repo.one(from(u in User, where: u.server_id == ^server_id, select: count()))
     }
   end

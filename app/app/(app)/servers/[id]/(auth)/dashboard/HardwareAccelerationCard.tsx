@@ -24,12 +24,16 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { CustomBarLabel, CustomValueLabel } from "@/components/ui/CustomBarLabel";
+import React from "react";
 
 type Props = {
   data: CategoryStat[];
 };
 
 export const HardwareAccelerationCard = ({ data }: Props) => {
+  const [containerWidth, setContainerWidth] = React.useState(400);
+
   const getBarHeight = (dataLength: number) => {
     const minHeightPerBar = 30;
     const maxHeightPerBar = 40;
@@ -39,10 +43,12 @@ export const HardwareAccelerationCard = ({ data }: Props) => {
     );
   };
 
-  const hwAccelData = data.map((item) => ({
-    name: item.value,
-    count: item.count,
-  }));
+  const hwAccelData = data
+    .map((item) => ({
+      name: item.value,
+      count: item.count,
+    }))
+    .filter((item) => item.count > 0);
 
   const hwAccelConfig = {
     count: {
@@ -54,6 +60,14 @@ export const HardwareAccelerationCard = ({ data }: Props) => {
     },
   } satisfies ChartConfig;
 
+  const maxCount = Math.max(...hwAccelData.map((d) => d.count));
+
+  const total = hwAccelData.reduce((sum, item) => sum + item.count, 0);
+  const hwAccelDataWithPercent = hwAccelData.map(item => ({
+    ...item,
+    labelWithPercent: `${item.name} - ${(total > 0 ? ((item.count / total) * 100).toFixed(1) : '0.0')}%`,
+  }));
+
   return (
     <Card>
       <CardHeader>
@@ -63,10 +77,14 @@ export const HardwareAccelerationCard = ({ data }: Props) => {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <ChartContainer config={hwAccelConfig} className="h-[200px]">
+        <ChartContainer 
+          config={hwAccelConfig} 
+          className="h-[200px]"
+          onWidthChange={setContainerWidth}
+        >
           <BarChart
             accessibilityLayer
-            data={hwAccelData}
+            data={hwAccelDataWithPercent}
             layout="vertical"
             margin={{
               right: 16,
@@ -97,18 +115,20 @@ export const HardwareAccelerationCard = ({ data }: Props) => {
               className="fill-blue-600"
             >
               <LabelList
-                dataKey="name"
-                position="insideLeft"
-                offset={8}
-                className="fill-[#d6e3ff]"
-                fontSize={12}
-              />
-              <LabelList
-                dataKey="count"
-                position="right"
-                offset={8}
-                className="fill-[#d6e3ff]"
-                fontSize={12}
+                dataKey="labelWithPercent"
+                content={({ x, y, width: barWidth, height, value }) => (
+                  <CustomBarLabel
+                    x={Number(x)}
+                    y={Number(y)}
+                    width={Number(barWidth)}
+                    height={Number(height)}
+                    value={value}
+                    fill="#d6e3ff"
+                    fontSize={12}
+                    containerWidth={containerWidth}
+                    alwaysOutside
+                  />
+                )}
               />
             </Bar>
           </BarChart>

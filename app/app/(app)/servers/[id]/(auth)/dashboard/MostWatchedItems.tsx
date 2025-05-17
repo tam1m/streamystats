@@ -66,16 +66,20 @@ export const MostWatchedItems: React.FC<Props> = ({ data, server }) => {
       <h2 className="text-xl font-bold mb-4">Most Watched {title}</h2>
       {items.length === 0 && (
         <p className="text-neutral-500">
-          No {type.toLowerCase()}s watched yet.
+          No {title.toLowerCase()} watched yet.
         </p>
       )}
       <div className="flex flex-col gap-2">
         {items?.slice(0, 5).map((item, index) => (
-          <Card
+          <a
             key={`${type}-${item.jellyfin_id || item.id || index}`}
-            className="flex flex-row items-center px-2 py-2 min-h-[120px]"
+            href={`${server.url}/web/#/details?id=${item.jellyfin_id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex flex-row items-center px-2 py-2 min-h-[120px] rounded-lg border border-border bg-card shadow-sm transition-transform transition-colors duration-200 hover:scale-[1.03] hover:bg-accent/60 group"
+            style={{ textDecoration: 'none' }}
           >
-            <div className="rounded-lg overflow-hidden w-16">
+            <div className="rounded-lg overflow-hidden w-16 transition-transform duration-200 group-hover:scale-110">
               <Poster
                 item={item}
                 server={server}
@@ -83,8 +87,8 @@ export const MostWatchedItems: React.FC<Props> = ({ data, server }) => {
               />
             </div>
             <div className="flex-1 overflow-hidden">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 py-1 px-2 relative">
-                <CardTitle className="text-sm">
+              <div className="flex flex-row items-center justify-between space-y-0 py-1 px-2 relative">
+                <div className="text-sm">
                   {item.type === "Episode" && (
                     <div className="flex gap-0.5 flex-col">
                       <p className="text-xs text-neutral-500 font-normal truncate">
@@ -113,40 +117,18 @@ export const MostWatchedItems: React.FC<Props> = ({ data, server }) => {
                       </p>
                     </div>
                   )}
-                </CardTitle>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      className="h-6 w-6 p-0 absolute top-0 right-0"
-                    >
-                      <span className="sr-only">Open menu</span>
-                      <MoreHorizontal className="h-3 w-3" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem>
-                      <a
-                        href={`${server.url}/web/#/details?id=${item.jellyfin_id}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        Open in Jellyfin
-                      </a>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </CardHeader>
-              <CardContent className="pt-0 pb-2 px-2">
+                </div>
+              </div>
+              <div className="pt-0 pb-2 px-2">
                 <p className="text-xs font-semibold">
                   {formatDuration(item.total_play_duration || 0)}
                 </p>
                 <p className="text-neutral-500 text-xs">
                   Played {item.total_play_count} times
                 </p>
-              </CardContent>
+              </div>
             </div>
-          </Card>
+          </a>
         ))}
       </div>
     </div>

@@ -98,10 +98,10 @@ export const LibraryStatisticsCards: React.FC<Props> = ({
         return (
           <Card
             key={item.title}
-            className={`${
-              item.filterable ? "cursor-pointer hover:bg-muted" : ""
-            } 
-                      ${isActive ? "border-primary bg-primary/10" : ""}`}
+            className={`
+              ${item.filterable ? "cursor-pointer transition-colors duration-200 transition-transform hover:bg-accent/60 hover:scale-[1.03] duration-200" : ""}
+              ${isActive ? "border-primary bg-primary/10" : ""}
+            `}
             onClick={() => {
               if (item.filterable) {
                 handleFilter(item.filterValue);

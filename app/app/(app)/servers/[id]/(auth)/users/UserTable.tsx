@@ -37,6 +37,8 @@ import { Server, User } from "@/lib/db";
 import { formatDuration } from "@/lib/utils";
 import { useRouter } from "nextjs-toploader/app";
 import { useMemo } from "react";
+import JellyfinAvatar from "@/components/JellyfinAvatar";
+import { formatDistanceToNow } from "date-fns";
 
 export interface UserTableProps {
   data: User[];
@@ -62,7 +64,18 @@ export const UserTable: React.FC<UserTableProps> = ({
           </Button>
         );
       },
-      cell: ({ row }) => <div className="">{row.getValue("name")}</div>,
+      cell: ({ row }) => (
+        <button
+          type="button"
+          className="flex items-center gap-3 cursor-pointer hover:opacity-80 focus:outline-none bg-transparent border-0 w-full text-left"
+          onClick={() => {
+            router.push(`/servers/${server.id}/users/${row.original.name}`);
+          }}
+        >
+          <JellyfinAvatar serverUrl={server.url} user={row.original} />
+          <p className="font-medium">{row.getValue("name")}</p>
+        </button>
+      ),
     },
     {
       accessorKey: "watch_stats.total_watch_time",
@@ -103,33 +116,40 @@ export const UserTable: React.FC<UserTableProps> = ({
         return <div className="text-left">{totalPlays}</div>;
       },
     },
-
     {
-      id: "actions",
-      enableHiding: false,
-      cell: ({ row }) => {
-        const user = row.original;
-
+      accessorKey: "watch_stats.avg_watch_time",
+      header: ({ column }) => {
         return (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-8 w-8 p-0">
-                <span className="sr-only">Open menu</span>
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Actions</DropdownMenuLabel>
-              <DropdownMenuItem
-                onClick={() => {
-                  router.push(`/servers/${server.id}/users/${user.name}`);
-                }}
-              >
-                View user details
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          >
+            Avg. Watch Time
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          </Button>
         );
+      },
+      cell: ({ row }) => {
+        const avgWatchTime = row.original.watch_stats.total_watch_time / (row.original.watch_stats.total_plays || 1);
+        return <div className="text-left">{formatDuration(avgWatchTime)}</div>;
+      },
+    },
+    {
+      accessorKey: "longest_streak",
+      header: ({ column }) => {
+        return (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          >
+            Longest Streak
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          </Button>
+        );
+      },
+      cell: ({ row }) => {
+        const longestStreak = row.original.longest_streak ?? 0;
+        return <div className="text-left">{formatDuration(longestStreak, "days")}</div>;
       },
     },
   ];
@@ -139,7 +159,7 @@ export const UserTable: React.FC<UserTableProps> = ({
   ]);
 
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
-    [],
+    []
   );
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>({});
@@ -214,7 +234,7 @@ export const UserTable: React.FC<UserTableProps> = ({
                         ? null
                         : flexRender(
                             header.column.columnDef.header,
-                            header.getContext(),
+                            header.getContext()
                           )}
                     </TableHead>
                   );
@@ -233,7 +253,7 @@ export const UserTable: React.FC<UserTableProps> = ({
                     <TableCell key={cell.id}>
                       {flexRender(
                         cell.column.columnDef.cell,
-                        cell.getContext(),
+                        cell.getContext()
                       )}
                     </TableCell>
                   ))}

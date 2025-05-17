@@ -39,7 +39,20 @@ defmodule StreamystatServerWeb.UserStatisticsJSON do
             primary_image_logo_tag: activity.primary_image_logo_tag,
             user_id: activity.user_id,
             user_name: activity.user_name,
-            jellyfin_user_id: activity.jellyfin_user_id
+            jellyfin_user_id: activity.jellyfin_user_id,
+            transcoding_audio_codec: activity.transcoding_audio_codec,
+            transcoding_video_codec: activity.transcoding_video_codec,
+            transcoding_container: activity.transcoding_container,
+            transcoding_is_video_direct: activity.transcoding_is_video_direct,
+            transcoding_is_audio_direct: activity.transcoding_is_audio_direct,
+            transcoding_bitrate: activity.transcoding_bitrate,
+            transcoding_completion_percentage: activity.transcoding_completion_percentage,
+            transcoding_width: activity.transcoding_width,
+            transcoding_height: activity.transcoding_height,
+            transcoding_audio_channels: activity.transcoding_audio_channels,
+            transcoding_hardware_acceleration_type: activity.transcoding_hardware_acceleration_type,
+            transcoding_reasons: activity.transcoding_reasons,
+            remote_end_point: activity.remote_end_point
           }
         end
     }

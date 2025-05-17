@@ -55,6 +55,7 @@ defmodule StreamystatServer.Jellyfin.Models.Item do
              :server_id,
              :people,
              :embedding,
+             :removed_at,
              :inserted_at,
              :updated_at
            ]}
@@ -105,6 +106,7 @@ defmodule StreamystatServer.Jellyfin.Models.Item do
     field(:primary_image_logo_tag, :string)
     field(:people, {:array, :map})
     field(:embedding, Pgvector.Ecto.Vector)
+    field(:removed_at, :utc_datetime)
     belongs_to(:library, Library)
     belongs_to(:server, Server)
 
@@ -168,6 +170,7 @@ defmodule StreamystatServer.Jellyfin.Models.Item do
       :primary_image_thumb_tag,
       :primary_image_logo_tag,
       :embedding
+      :removed_at
     ])
     |> validate_required([:jellyfin_id, :name, :type, :library_id, :server_id])
     |> unique_constraint([:jellyfin_id, :library_id])

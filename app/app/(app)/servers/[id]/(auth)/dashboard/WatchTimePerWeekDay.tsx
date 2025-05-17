@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, XAxis } from "recharts";
 
 import {
   Card,
@@ -70,19 +70,12 @@ export const WatchTimePerWeekDay: React.FC<Props> = ({
               axisLine={false}
               tickMargin={8}
             />
-            <YAxis
-              tickLine={false}
-              axisLine={false}
-              tickMargin={8}
-              tickFormatter={(value) => `${value}m`}
-            />
             <ChartTooltip
               cursor={false}
               content={
                 <ChartTooltipContent
                   formatter={(m) => (
                     <div className="flex flex-row items-center justify-between w-full">
-                      <p>Time</p>
                       <p>{formatDuration(Number(m), "minutes")}</p>
                     </div>
                   )}
