@@ -66,7 +66,7 @@ export const MostWatchedItems: React.FC<Props> = ({ data, server }) => {
       <h2 className="text-xl font-bold mb-4">Most Watched {title}</h2>
       {items.length === 0 && (
         <p className="text-neutral-500">
-          No {type.toLowerCase()}s watched yet.
+          No {title.toLowerCase()} watched yet.
         </p>
       )}
       <div className="flex flex-col gap-2">
