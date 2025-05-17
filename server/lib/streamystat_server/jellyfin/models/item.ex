@@ -169,7 +169,7 @@ defmodule StreamystatServer.Jellyfin.Models.Item do
       :people,
       :primary_image_thumb_tag,
       :primary_image_logo_tag,
-      :embedding
+      :embedding,
       :removed_at
     ])
     |> validate_required([:jellyfin_id, :name, :type, :library_id, :server_id])
