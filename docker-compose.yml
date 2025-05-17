@@ -28,7 +28,7 @@ services:
       - backend
 
   db:
-    image: tensorchord/pgvecto-rs:pg16-v0.3.0
+    image: tensorchord/pgvecto-rs:pg16-v0.4.0
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -38,8 +38,6 @@ services:
       - backend
     volumes:
       - pgdata:/var/lib/postgresql/data
-    logging:
-      driver: "none"
 
 volumes:
   pgdata:
