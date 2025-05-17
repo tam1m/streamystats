@@ -76,10 +76,10 @@ export const MostWatchedItems: React.FC<Props> = ({ data, server }) => {
             href={`${server.url}/web/#/details?id=${item.jellyfin_id}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex flex-row items-center px-2 py-2 min-h-[120px] rounded-lg border border-border bg-card shadow-sm transition-transform transition-colors duration-200 hover:scale-[1.03] hover:bg-accent/60 group"
-            style={{ textDecoration: 'none' }}
+            className="flex flex-row items-center px-2 py-2 min-h-[120px] rounded-lg border border-border bg-card shadow-sm transition-transform transition-colors duration-200 hover:scale-[1.01] hover:bg-accent/60 group"
+            style={{ textDecoration: "none" }}
           >
-            <div className="rounded-lg overflow-hidden w-16 transition-transform duration-200 group-hover:scale-110">
+            <div className="rounded-lg overflow-hidden w-16 transition-transform duration-200 group-hover:scale-[1.03]">
               <Poster
                 item={item}
                 server={server}

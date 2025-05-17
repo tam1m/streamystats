@@ -11,12 +11,14 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Clock, Film, Tv } from "lucide-react";
+import { ChevronRight, Clock, Film, Tv } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Poster } from "./Poster";
 import { Item, Server } from "@/lib/db";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { useState, useEffect } from "react";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface Props {
   data: Item[];
@@ -24,6 +26,9 @@ interface Props {
 }
 
 export const SimilarStatstics = ({ data, server }: Props) => {
+  const [showAllItems, setShowAllItems] = useState<Record<string, boolean>>({});
+  const isMobile = useIsMobile();
+
   // Group items by type
   const groupedItems = data.reduce((acc: Record<string, Item[]>, item) => {
     acc[item.type] = acc[item.type] || [];
@@ -55,6 +60,13 @@ export const SimilarStatstics = ({ data, server }: Props) => {
     return `${minutes}m`;
   };
 
+  const toggleShowMore = (type: string) => {
+    setShowAllItems((prev) => ({
+      ...prev,
+      [type]: !prev[type],
+    }));
+  };
+
   if (data.length === 0) {
     return (
       <Card>
@@ -68,29 +80,38 @@ export const SimilarStatstics = ({ data, server }: Props) => {
 
   return (
     <Card className="flex-1">
-      <CardHeader>
-        <CardTitle>Recommended Content</CardTitle>
-        <CardDescription>Based on your viewing habits</CardDescription>
+      <CardHeader className="p-4 sm:p-6">
+        <CardTitle className="text-lg sm:text-xl">
+          Recommended Content
+        </CardTitle>
+        <CardDescription className="text-xs sm:text-sm">
+          Based on your viewing habits
+        </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-3 sm:p-6">
         <Tabs defaultValue={defaultTab}>
-          <TabsList className="mb-4">
+          {/* <TabsList className="mb-4 w-full justify-start overflow-x-auto">
             {types.map((type) => (
-              <TabsTrigger key={type} value={type.toLowerCase()}>
+              <TabsTrigger key={type} value={type.toLowerCase()} className="flex-shrink-0">
                 {type === "Movie" ? (
-                  <Film className="h-4 w-4 mr-2" />
+                  <Film className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                 ) : (
-                  <Tv className="h-4 w-4 mr-2" />
+                  <Tv className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                 )}
-                {type}
+                <span className="truncate">{type}</span>
               </TabsTrigger>
             ))}
-          </TabsList>
+          </TabsList> */}
 
           {!server.open_ai_api_token || server.open_ai_api_token === "" ? (
-            <div className="flex flex-col gap-2 mb-4">
-              <Link href={`/servers/${server.id}/settings`}>
-                <Button>Set up OpenAI API key</Button>
+            <div className="flex flex-col gap-2 mb-4 max-w-full">
+              <Link
+                href={`/servers/${server.id}/settings`}
+                className="w-full sm:w-auto"
+              >
+                <Button className="w-full sm:w-auto text-sm" size="sm">
+                  Set up OpenAI API key
+                </Button>
               </Link>
               <p className="opacity-70 text-xs">
                 To get recommendations, you need to set up an OpenAI API key.
@@ -100,67 +121,96 @@ export const SimilarStatstics = ({ data, server }: Props) => {
 
           {types.map((type) => (
             <TabsContent key={type} value={type.toLowerCase()} className="">
-              <div className="grid grid-cols-4 gap-4">
-                {groupedItems[type].map((item) => (
-                  <Link
-                    key={item.id}
-                    href={`${server.url}/web/index.html#!/details?id=${item.jellyfin_id}`}
-                    className="hover:opacity-50 transition-opacity"
-                  >
-                    <Card className="flex-shrink-0 flex-1">
-                      <div className="relative h-40 overflow-hidden">
-                        <Poster
-                          item={item}
-                          server={server}
-                          className="w-full"
-                        />
-                      </div>
-
-                      <CardHeader className="p-3">
-                        <CardTitle className="text-base truncate">
-                          {item.name}
-                        </CardTitle>
-                        <div className="flex gap-2 flex-wrap">
-                          {item.production_year && (
-                            <Badge variant="outline">
-                              {item.production_year}
-                            </Badge>
-                          )}
-                          {item.runtime_ticks && (
-                            <Badge
-                              variant="outline"
-                              className="flex items-center gap-1"
-                            >
-                              <Clock className="h-3 w-3" />
-                              {formatRuntime(Number(item.runtime_ticks))}
-                            </Badge>
-                          )}
+              <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 gap-3 md:gap-4">
+                {groupedItems[type]
+                  .slice(
+                    0,
+                    showAllItems[type]
+                      ? groupedItems[type].length
+                      : isMobile
+                      ? 2
+                      : 3
+                  )
+                  .map((item) => (
+                    <Link
+                      key={item.id}
+                      href={`${server.url}/web/index.html#!/details?id=${item.jellyfin_id}`}
+                      className="hover:opacity-50 transition-opacity"
+                    >
+                      <Card className="flex-shrink-0 h-full flex flex-col">
+                        <div className="relative h-32 sm:h-36 md:h-40 overflow-hidden">
+                          <Poster
+                            item={item}
+                            server={server}
+                            className="w-full h-full object-cover"
+                          />
                         </div>
-                      </CardHeader>
 
-                      <CardContent className="px-3 pb-1">
-                        <p className="text-sm text-muted-foreground line-clamp-3">
-                          {item.overview || "No description available"}
-                        </p>
-                      </CardContent>
+                        <CardHeader className="p-2 sm:p-3">
+                          <CardTitle className="text-sm sm:text-base truncate">
+                            {item.name}
+                          </CardTitle>
+                          <div className="flex gap-1 sm:gap-2 flex-wrap">
+                            {item.production_year && (
+                              <Badge variant="outline" className="text-xs">
+                                {item.production_year}
+                              </Badge>
+                            )}
+                            {item.runtime_ticks && (
+                              <Badge
+                                variant="outline"
+                                className="flex items-center gap-1 text-xs"
+                              >
+                                <Clock className="h-2.5 w-2.5" />
+                                {formatRuntime(Number(item.runtime_ticks))}
+                              </Badge>
+                            )}
+                          </div>
+                        </CardHeader>
 
-                      <CardFooter className="px-3 pb-3">
-                        <div className="flex flex-wrap gap-1">
-                          {item.genres?.slice(0, 2).map((genre) => (
-                            <Badge
-                              key={genre}
-                              variant="secondary"
-                              className="text-xs"
-                            >
-                              {genre}
-                            </Badge>
-                          ))}
-                        </div>
-                      </CardFooter>
-                    </Card>
-                  </Link>
-                ))}
+                        <CardContent className="px-2 sm:px-3 pb-1 flex-grow">
+                          <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2 sm:line-clamp-3">
+                            {item.overview || "No description available"}
+                          </p>
+                        </CardContent>
+
+                        <CardFooter className="px-2 sm:px-3 pb-2 sm:pb-3">
+                          <div className="flex flex-wrap gap-1">
+                            {item.genres?.slice(0, 2).map((genre) => (
+                              <Badge
+                                key={genre}
+                                variant="secondary"
+                                className="text-xs px-1.5 py-0"
+                              >
+                                {genre}
+                              </Badge>
+                            ))}
+                          </div>
+                        </CardFooter>
+                      </Card>
+                    </Link>
+                  ))}
               </div>
+
+              {groupedItems[type].length > (isMobile ? 2 : 3) && (
+                <div className="mt-4 flex justify-center">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => toggleShowMore(type)}
+                    className="flex items-center gap-1 text-xs sm:text-sm w-full xs:w-auto"
+                  >
+                    {showAllItems[type]
+                      ? "Show less"
+                      : `See all ${groupedItems[type].length} recommendations`}
+                    <ChevronRight
+                      className={`h-3 w-3 transition-transform ${
+                        showAllItems[type] ? "rotate-90" : ""
+                      }`}
+                    />
+                  </Button>
+                </div>
+              )}
             </TabsContent>
           ))}
         </Tabs>
