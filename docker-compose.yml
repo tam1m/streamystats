@@ -17,7 +17,9 @@ services:
       DATABASE_URL: "ecto://postgres:postgres@db/streamystat"
       SECRET_KEY_BASE: "r0NgGxu5ETTDgF5G7mJsMevMbAF7y4w0IJlCRjzxHqSjbcrPqTQTzajOH0ne0sHH"
     ulimits:
-      nofile: 1024
+      nofile:
+        soft: 65536
+        hard: 65536
     ports:
       - "4000:4000"
     depends_on:
