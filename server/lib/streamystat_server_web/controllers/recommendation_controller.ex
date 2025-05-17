@@ -11,36 +11,50 @@ defmodule StreamystatServerWeb.RecommendationController do
   Returns recommendations based on user's viewing history
   """
   def for_me(conn, params) do
-    user_id = get_user_id(conn)
-    limit = Map.get(params, "limit", "10") |> parse_limit()
+    try do
+      user_id = get_user_id(conn)
+      limit = Map.get(params, "limit", "10") |> parse_limit()
 
-    recommendations = SessionAnalysis.find_similar_items_for_user(user_id, limit)
+      recommendations = SessionAnalysis.find_similar_items_for_user(user_id, limit)
 
-    conn
-    |> put_status(:ok)
-    |> render(:recommendations, items: recommendations)
+      conn
+      |> put_status(:ok)
+      |> render(:recommendations, items: recommendations)
+    rescue
+      e in RuntimeError ->
+        conn
+        |> put_status(:unauthorized)
+        |> render(:error, error: e.message)
+    end
   end
 
   @doc """
   Returns items similar to a specific item
   """
   def similar_to(conn, %{"item_id" => item_jellyfin_id} = params) do
-    user_id = get_user_id(conn)
-    limit = Map.get(params, "limit", "10") |> parse_limit()
+    try do
+      user_id = get_user_id(conn)
+      limit = Map.get(params, "limit", "10") |> parse_limit()
 
-    # First check if the user has access to this item
-    has_access = user_has_access_to_item?(user_id, item_jellyfin_id)
+      # First check if the user has access to this item
+      has_access = user_has_access_to_item?(user_id, item_jellyfin_id)
 
-    if has_access do
-      recommendations = SessionAnalysis.find_similar_items_to_item(item_jellyfin_id, limit)
+      if has_access do
+        recommendations = SessionAnalysis.find_similar_items_to_item(item_jellyfin_id, limit)
 
-      conn
-      |> put_status(:ok)
-      |> render(:recommendations, items: recommendations)
-    else
-      conn
-      |> put_status(:forbidden)
-      |> render(:error, error: "You don't have access to this item")
+        conn
+        |> put_status(:ok)
+        |> render(:recommendations, items: recommendations)
+      else
+        conn
+        |> put_status(:forbidden)
+        |> render(:error, error: "You don't have access to this item")
+      end
+    rescue
+      e in RuntimeError ->
+        conn
+        |> put_status(:unauthorized)
+        |> render(:error, error: e.message)
     end
   end
 
@@ -48,29 +62,36 @@ defmodule StreamystatServerWeb.RecommendationController do
   Returns recommendations based on what the user is currently watching
   """
   def current_session(conn, %{"session_id" => session_id} = params) do
-    user_id = get_user_id(conn)
-    limit = Map.get(params, "limit", "10") |> parse_limit()
+    try do
+      user_id = get_user_id(conn)
+      limit = Map.get(params, "limit", "10") |> parse_limit()
 
-    # Check if this session belongs to the user
-    session_id = parse_id(session_id)
+      # Check if this session belongs to the user
+      session_id = parse_id(session_id)
 
-    session_exists =
-      Repo.exists?(
-        from(s in PlaybackSession,
-          where: s.id == ^session_id and s.user_id == ^user_id
+      session_exists =
+        Repo.exists?(
+          from(s in PlaybackSession,
+            where: s.id == ^session_id and s.user_id == ^user_id
+          )
         )
-      )
 
-    if session_exists do
-      recommendations = SessionAnalysis.find_similar_items_for_session(session_id, limit)
+      if session_exists do
+        recommendations = SessionAnalysis.find_similar_items_for_session(session_id, limit)
 
-      conn
-      |> put_status(:ok)
-      |> render(:recommendations, items: recommendations)
-    else
-      conn
-      |> put_status(:forbidden)
-      |> render(:error, error: "Session not found or doesn't belong to you")
+        conn
+        |> put_status(:ok)
+        |> render(:recommendations, items: recommendations)
+      else
+        conn
+        |> put_status(:forbidden)
+        |> render(:error, error: "Session not found or doesn't belong to you")
+      end
+    rescue
+      e in RuntimeError ->
+        conn
+        |> put_status(:unauthorized)
+        |> render(:error, error: e.message)
     end
   end
 
@@ -78,29 +99,43 @@ defmodule StreamystatServerWeb.RecommendationController do
   Returns "people who watched this also watched" recommendations
   """
   def others_watched(conn, %{"item_id" => item_jellyfin_id} = params) do
-    user_id = get_user_id(conn)
-    limit = Map.get(params, "limit", "10") |> parse_limit()
+    try do
+      user_id = get_user_id(conn)
+      limit = Map.get(params, "limit", "10") |> parse_limit()
 
-    # Check if the user has access to this item
-    has_access = user_has_access_to_item?(user_id, item_jellyfin_id)
+      # Check if the user has access to this item
+      has_access = user_has_access_to_item?(user_id, item_jellyfin_id)
 
-    if has_access do
-      recommendations = SessionAnalysis.find_items_from_similar_sessions(item_jellyfin_id, limit)
+      if has_access do
+        recommendations = SessionAnalysis.find_items_from_similar_sessions(item_jellyfin_id, limit)
 
-      conn
-      |> put_status(:ok)
-      |> render(:recommendations, items: recommendations)
-    else
-      conn
-      |> put_status(:forbidden)
-      |> render(:error, error: "You don't have access to this item")
+        conn
+        |> put_status(:ok)
+        |> render(:recommendations, items: recommendations)
+      else
+        conn
+        |> put_status(:forbidden)
+        |> render(:error, error: "You don't have access to this item")
+      end
+    rescue
+      e in RuntimeError ->
+        conn
+        |> put_status(:unauthorized)
+        |> render(:error, error: e.message)
     end
   end
 
   # Private helper functions
 
   defp get_user_id(conn) do
-    conn.assigns[:current_user_id]
+    user_id = conn.assigns[:current_user_id]
+    
+    # Return nil if user_id is missing, will be handled in the endpoints
+    if is_nil(user_id) do
+      raise "User not authenticated"
+    else
+      user_id
+    end
   end
 
   defp parse_limit(limit) when is_binary(limit) do

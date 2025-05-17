@@ -1,4 +1,4 @@
-defmodule YourApp.Repo.Migrations.AddEmbeddingToItems do
+defmodule StreamystatServer.Repo.Migrations.AddEmbeddingToItems do
   use Ecto.Migration
 
   def change do

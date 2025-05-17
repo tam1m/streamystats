@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git cherry-pick:*)",
+      "Bash(ls:*)"
+    ],
+    "deny": []
+  }
+}

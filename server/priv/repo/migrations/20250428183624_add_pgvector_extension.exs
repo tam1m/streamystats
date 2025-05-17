@@ -1,4 +1,4 @@
-defmodule YourApp.Repo.Migrations.AddPgvectorExtension do
+defmodule StreamystatServer.Repo.Migrations.AddPgvectorExtension do
   use Ecto.Migration
 
   def change do

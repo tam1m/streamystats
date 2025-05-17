@@ -43,11 +43,12 @@ defmodule StreamystatServer.SessionAnalysis do
 
         watched_item_ids = Map.keys(watched_data)
 
-        # Get the embeddings for those items
+        # Get the embeddings for those items and include server_id for filtering
         watched_items =
     Repo.all(
       from(i in Item,
-              where: i.jellyfin_id in ^watched_item_ids and not is_nil(i.embedding)
+              where: i.jellyfin_id in ^watched_item_ids and not is_nil(i.embedding),
+              select: %{item: i, server_id: i.server_id, library_id: i.library_id}
       )
     )
 
@@ -55,11 +56,19 @@ defmodule StreamystatServer.SessionAnalysis do
         if Enum.empty?(watched_items) do
           []
         else
+          # Get server_id and library_id from the first item (assuming user has items from one server)
+          # This helps avoid cross-server recommendations
+          first_item = List.first(watched_items)
+          server_id = first_item.server_id
+          library_id = first_item.library_id
+          
           # Calculate a weighted "user taste profile"
-          weighted_embedding = weighted_average_embeddings(watched_items, watched_data)
+          # Extract just the items from the map
+          items_only = Enum.map(watched_items, fn %{item: item} -> item end)
+          weighted_embedding = weighted_average_embeddings(items_only, watched_data)
 
-          # Find similar items using the weighted embedding
-          query = build_similarity_query(weighted_embedding, watched_item_ids, limit, genre_filter)
+          # Find similar items using the weighted embedding and filter by server/library
+          query = build_similarity_query(weighted_embedding, watched_item_ids, limit, genre_filter, server_id, library_id)
           similar_items = Repo.all(query)
 
           # Store in cache
@@ -90,7 +99,8 @@ end
             []
 
           item ->
-            query = build_similarity_query(item.embedding, [item_jellyfin_id], limit, genre_filter)
+            # Use server_id and library_id to prevent cross-server recommendations
+            query = build_similarity_query(item.embedding, [item_jellyfin_id], limit, genre_filter, item.server_id, item.library_id)
             similar_items = Repo.all(query)
             put_in_cache(cache_key, similar_items, @cache_ttl)
             similar_items
@@ -117,7 +127,9 @@ end
           )
 
         if item do
-          find_similar_items(item.embedding, [item.jellyfin_id], limit)
+          # Use build_similarity_query with server and library filtering
+          query = build_similarity_query(item.embedding, [item.jellyfin_id], limit, nil, item.server_id, item.library_id)
+          Repo.all(query)
         else
           []
         end
@@ -140,37 +152,48 @@ end
     if Enum.empty?(sessions) do
       []
     else
-      # Find users who watched this item
-      users =
+      # First, get the server_id and library_id of the original item for filtering
+      base_item = Repo.one(from(i in Item, where: i.jellyfin_id == ^item_jellyfin_id, select: i))
+      
+      # Proceed only if we have the base item
+      if base_item do
+        server_id = base_item.server_id
+        library_id = base_item.library_id
+        
+        # Find users who watched this item
+        users =
+          Repo.all(
+            from(s in PlaybackSession,
+              where: s.item_jellyfin_id == ^item_jellyfin_id,
+              select: s.user_id,
+              distinct: true
+            )
+          )
+  
+        # Find other items these users watched
+        other_items =
+          Repo.all(
+            from(s in PlaybackSession,
+              where: s.user_id in ^users and s.item_jellyfin_id != ^item_jellyfin_id,
+              group_by: s.item_jellyfin_id,
+              select: {s.item_jellyfin_id, count(s.id)},
+              order_by: [desc: count(s.id)],
+              limit: ^limit
+            )
+          )
+  
+        # Fetch the actual items
+        item_ids = Enum.map(other_items, fn {id, _} -> id end)
+  
         Repo.all(
-          from(s in PlaybackSession,
-            where: s.item_jellyfin_id == ^item_jellyfin_id,
-            select: s.user_id,
-            distinct: true
+          from(i in Item,
+            where: i.jellyfin_id in ^item_ids and i.server_id == ^server_id,
+            order_by: fragment("array_position(?, jellyfin_id)", ^item_ids)
           )
         )
-
-      # Find other items these users watched
-      other_items =
-        Repo.all(
-          from(s in PlaybackSession,
-            where: s.user_id in ^users and s.item_jellyfin_id != ^item_jellyfin_id,
-            group_by: s.item_jellyfin_id,
-            select: {s.item_jellyfin_id, count(s.id)},
-            order_by: [desc: count(s.id)],
-            limit: ^limit
-          )
-        )
-
-      # Fetch the actual items
-      item_ids = Enum.map(other_items, fn {id, _} -> id end)
-
-      Repo.all(
-        from(i in Item,
-          where: i.jellyfin_id in ^item_ids,
-          order_by: fragment("array_position(?, jellyfin_id)", ^item_ids)
-        )
-      )
+      else
+        []
+      end
     end
   end
 
@@ -214,7 +237,7 @@ end
     if is_list(embedding), do: embedding, else: Pgvector.to_list(embedding)
   end
 
-  defp build_similarity_query(embedding, excluded_item_ids, limit, genre_filter) do
+  defp build_similarity_query(embedding, excluded_item_ids, limit, genre_filter, server_id \\ nil, library_id \\ nil) do
     # Start with a simple query structure
     query = from(i in Item,
       where: i.jellyfin_id not in ^excluded_item_ids and not is_nil(i.embedding)
@@ -223,6 +246,20 @@ end
     # Apply genre filter if provided
     query = if genre_filter do
       from(i in query, where: fragment("? && ?", i.genres, ^[genre_filter]))
+    else
+      query
+    end
+    
+    # Filter by server_id if provided to prevent cross-server recommendations
+    query = if server_id do
+      from(i in query, where: i.server_id == ^server_id)
+    else
+      query
+    end
+    
+    # Filter by library_id if provided
+    query = if library_id do
+      from(i in query, where: i.library_id == ^library_id)
     else
       query
     end
@@ -246,6 +283,7 @@ end
   end
 
   defp put_in_cache(key, value, ttl) do
+    # ttl is in milliseconds, so we need to convert to seconds
     expiry = :os.system_time(:second) + div(ttl, 1000)
     :persistent_term.put({__MODULE__, key}, {value, expiry})
   rescue

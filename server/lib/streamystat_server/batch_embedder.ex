@@ -55,21 +55,18 @@ defmodule StreamystatServer.BatchEmbedder do
     Logger.info("Found #{items_count} movies without embeddings for server #{server_id}")
 
     if items_count > 0 do
-      Repo.transaction(
-        fn ->
-          Item
-          |> where([i], is_nil(i.embedding) and i.type == "Movie" and i.server_id == ^server_id)
-          |> Repo.stream()
-          |> Stream.chunk_every(@batch, @batch)
-          |> Task.async_stream(&embed_batch_with_direct_api(&1, token),
-            max_concurrency: @concurrency,
-            ordered: false,
-            timeout: @timeout
-          )
-          |> Stream.run()
-        end,
-        timeout: :infinity
+      # Process items in smaller chunks without a global transaction
+      Item
+      |> where([i], is_nil(i.embedding) and i.type == "Movie" and i.server_id == ^server_id)
+      |> limit(500) # Process in chunks of 500 items at a time
+      |> Repo.all()
+      |> Stream.chunk_every(@batch, @batch)
+      |> Task.async_stream(&embed_batch_with_direct_api(&1, token),
+        max_concurrency: @concurrency,
+        ordered: false,
+        timeout: @timeout
       )
+      |> Stream.run()
 
       Logger.info("Completed batch embedding process for movies on server #{server_id}")
     end

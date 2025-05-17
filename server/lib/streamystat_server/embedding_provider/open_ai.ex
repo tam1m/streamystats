@@ -128,9 +128,16 @@ defmodule StreamystatServer.EmbeddingProvider.OpenAI do
         do_request(headers, body, retry_count + 1, next_backoff)
 
       {:ok, %HTTPoison.Response{status_code: code, body: resp_body}} ->
-        error_body = Jason.decode!(resp_body)
-        Logger.error("OpenAI API error (#{code}): #{inspect(error_body)}")
-        {:error, "OpenAI API error: #{code} - #{error_body["error"]["message"]}"}
+        # Safely extract error message with pattern matching
+        error_message = 
+          case Jason.decode(resp_body) do
+            {:ok, %{"error" => %{"message" => message}}} -> message
+            {:ok, error_body} -> inspect(error_body)
+            {:error, _} -> "Invalid JSON response"
+          end
+        
+        Logger.error("OpenAI API error (#{code}): #{error_message}")
+        {:error, "OpenAI API error: #{code} - #{error_message}"}
 
       {:error, %HTTPoison.Error{reason: :timeout}} ->
         # Timeout - back off and retry
