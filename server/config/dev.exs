@@ -22,7 +22,10 @@ config :streamystat_server, StreamystatServer.Repo,
   pool_size: String.to_integer(System.get_env("DATABASE_POOL_SIZE", "10")),
   stacktrace: true,
   show_sensitive_data_on_connection_error: true,
-  log: false
+  pool_size: 10,
+  log: false,
+  adapter: Postgrex,
+  types: StreamystatServer.PostgrexTypes
 
 # For development, we disable any cache and enable
 # debugging and code reloading.
