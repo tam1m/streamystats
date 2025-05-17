@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.1](https://github.com/fredrikburmester/streamystats/compare/v1.7.0...v1.7.1) (2025-05-17)
+
+
+### Bug Fixes
+
+* issues ([2763c7a](https://github.com/fredrikburmester/streamystats/commit/2763c7ab10525e3082e8172e9f73f0cf1c70cec7))
+
 ## [1.7.0](https://github.com/fredrikburmester/streamystats/compare/v1.6.0...v1.7.0) (2025-05-17)
 
 
