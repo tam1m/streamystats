@@ -51,7 +51,6 @@ defmodule StreamystatServer.MixProject do
       {:exqlite, "~> 0.29"},
       {:pgvector, "~> 0.3.0"},
       {:postgrex, ">= 0.0.0"},
-      {:dotenv, "~> 3.0.0", only: [:dev, :test]}
     ]
   end
 
