@@ -25,3 +25,4 @@ server/.env
 .vscode/
 coverage/
 erl_crash.dump
+.claude/settings.local.json
