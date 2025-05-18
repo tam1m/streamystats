@@ -96,9 +96,12 @@ defmodule StreamystatServer.BatchEmbedder do
           # Process successful results
           Enum.zip(valid_items, embeddings)
           |> Enum.each(fn {item, embedding} ->
+            # Convert embedding list to a Pgvector compatible format
+            vector = Pgvector.Ecto.Vector.cast(embedding)
+            
             Repo.update_all(
               from(i in Item, where: i.id == ^item.id),
-              set: [embedding: embedding]
+              set: [embedding: vector]
             )
           end)
 
@@ -128,9 +131,12 @@ defmodule StreamystatServer.BatchEmbedder do
       try do
         case OpenAI.embed(text, token) do
           {:ok, embedding} ->
+            # Convert embedding list to a Pgvector compatible format
+            vector = Pgvector.Ecto.Vector.cast(embedding)
+            
             Repo.update_all(
               from(i in Item, where: i.id == ^item.id),
-              set: [embedding: embedding]
+              set: [embedding: vector]
             )
 
             Logger.info("Successfully embedded item #{item.id}")
