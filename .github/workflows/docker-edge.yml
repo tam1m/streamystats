@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        part: [app, server]
+        part: [streamystats-nextjs, streamystats-phoenix]
 
     steps:
       - uses: actions/checkout@v4
