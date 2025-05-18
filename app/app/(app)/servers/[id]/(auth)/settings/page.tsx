@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/accordion";
 import DatabaseBackupRestore from "./DatabaseBackupRestore";
 import { OpenAIAPI } from "./OpenAIAPI";
+import { EmbeddingProgress } from "./EmbeddingProgress";
 
 export default async function Settings({
   params,
@@ -37,6 +38,7 @@ export default async function Settings({
         serverId={server.id}
         initialApiKey={server.open_ai_api_token}
       />
+      <EmbeddingProgress serverId={server.id} />
       <Accordion type="single" collapsible className="mb-4">
         <AccordionItem value="jellystat-import">
           <AccordionTrigger className="text-2xl font-semibold">

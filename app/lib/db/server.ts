@@ -47,14 +47,21 @@ export const getEmbeddingProgress = async (
           Authorization: `Bearer ${await getToken()}`,
         },
         cache: "no-store", // Don't cache this dynamic data
+        next: { revalidate: 0 }, // Ensure Next.js doesn't cache the response
       }
     );
-    
+
     if (!response.ok) {
+      console.error(
+        "Failed to fetch embedding progress:",
+        response.status,
+        response.statusText
+      );
       throw new Error("Failed to fetch embedding progress");
     }
-    
+
     const result = await response.json();
+    console.log("Raw embedding progress response:", result);
     return result.data;
   } catch (error) {
     console.error("Error fetching embedding progress:", error);
@@ -63,7 +70,7 @@ export const getEmbeddingProgress = async (
       total: 0,
       processed: 0,
       status: "idle",
-      percentage: 0
+      percentage: 0,
     };
   }
 };
