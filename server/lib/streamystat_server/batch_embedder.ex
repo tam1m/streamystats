@@ -15,6 +15,49 @@ defmodule StreamystatServer.BatchEmbedder do
   @timeout 60_000
   # Small delay between batches to avoid rate limiting
   @delay_between_batches 500
+  
+  # Store embedding progress for each server
+  def start_progress_tracking(server_id) do
+    try do
+      :ets.insert(:embedding_progress, {server_id, %{total: 0, processed: 0, status: "starting"}})
+    catch
+      _, _ -> ensure_table_exists()
+    end
+  end
+  
+  def update_progress(server_id, total, processed, status \\ "processing") do
+    try do
+      :ets.insert(:embedding_progress, {server_id, %{total: total, processed: processed, status: status}})
+    catch
+      _, _ -> ensure_table_exists()
+    end
+  end
+  
+  def get_progress(server_id) do
+    try do
+      case :ets.lookup(:embedding_progress, server_id) do
+        [{^server_id, progress}] -> progress
+        [] -> %{total: 0, processed: 0, status: "idle"}
+      end
+    catch
+      _, _ -> 
+        ensure_table_exists()
+        %{total: 0, processed: 0, status: "idle"}
+    end
+  end
+  
+  # Create the table if it doesn't exist
+  defp ensure_table_exists do
+    try do
+      if !:ets.info(:embedding_progress) do
+        :ets.new(:embedding_progress, [:set, :public, :named_table])
+      end
+    catch
+      _, _ -> 
+        # If we still can't create it, just log the error
+        Logger.error("Failed to create or access embedding_progress ETS table")
+    end
+  end
 
   def embed_all_items do
     Logger.info("Starting batch embedding process for movies without embeddings")
@@ -41,6 +84,9 @@ defmodule StreamystatServer.BatchEmbedder do
   end
 
   def embed_items_for_server(server_id, token) do
+    # Start tracking progress
+    start_progress_tracking(server_id)
+    
     items_count =
       Repo.one(
         from(i in Item,
@@ -52,23 +98,44 @@ defmodule StreamystatServer.BatchEmbedder do
         )
       )
 
+    # Update total count
+    update_progress(server_id, items_count, 0, "starting")
     Logger.info("Found #{items_count} movies without embeddings for server #{server_id}")
 
     if items_count > 0 do
+      # Process counter to track progress
+      processed_count = 0
+      
       # Process items in smaller chunks without a global transaction
-      Item
+      items = Item
       |> where([i], is_nil(i.embedding) and i.type == "Movie" and i.server_id == ^server_id)
       |> limit(500) # Process in chunks of 500 items at a time
       |> Repo.all()
+      
+      items
       |> Stream.chunk_every(@batch, @batch)
-      |> Task.async_stream(&embed_batch_with_direct_api(&1, token),
+      |> Task.async_stream(
+        fn batch -> 
+          result = embed_batch_with_direct_api(batch, token)
+          
+          # Update progress after each batch
+          processed_count = min(processed_count + length(batch), items_count)
+          update_progress(server_id, items_count, processed_count)
+          
+          result
+        end,
         max_concurrency: @concurrency,
         ordered: false,
         timeout: @timeout
       )
       |> Stream.run()
 
+      # Mark as completed
+      update_progress(server_id, items_count, items_count, "completed")
       Logger.info("Completed batch embedding process for movies on server #{server_id}")
+    else
+      # No items to process
+      update_progress(server_id, 0, 0, "completed")
     end
   end
 
@@ -96,13 +163,27 @@ defmodule StreamystatServer.BatchEmbedder do
           # Process successful results
           Enum.zip(valid_items, embeddings)
           |> Enum.each(fn {item, embedding} ->
-            # Convert embedding list to a Pgvector compatible format
-            vector = Pgvector.Ecto.Vector.cast(embedding)
+            # Ensure embedding is a raw list before casting to vector
+            embedding_data = case embedding do
+              {:ok, vector} -> vector # Handle case where it's already wrapped in {:ok, vector}
+              _ when is_list(embedding) -> embedding # Regular list data
+              _ -> nil # Skip invalid data
+            end
             
-            Repo.update_all(
-              from(i in Item, where: i.id == ^item.id),
-              set: [embedding: vector]
-            )
+            if embedding_data do
+              # Cast to Pgvector format safely
+              case Pgvector.Ecto.Vector.cast(embedding_data) do
+                {:ok, vector} ->
+                  Repo.update_all(
+                    from(i in Item, where: i.id == ^item.id),
+                    set: [embedding: vector]
+                  )
+                _ ->
+                  Logger.error("Failed to cast embedding for item #{item.id} - invalid format")
+              end
+            else
+              Logger.error("Invalid embedding data for item #{item.id}")
+            end
           end)
 
           # Add a small delay to avoid rate limiting
@@ -131,15 +212,28 @@ defmodule StreamystatServer.BatchEmbedder do
       try do
         case OpenAI.embed(text, token) do
           {:ok, embedding} ->
-            # Convert embedding list to a Pgvector compatible format
-            vector = Pgvector.Ecto.Vector.cast(embedding)
+            # Ensure embedding is a raw list before casting to vector
+            embedding_data = case embedding do
+              {:ok, vector} -> vector # Handle case where it's already wrapped in {:ok, vector}
+              _ when is_list(embedding) -> embedding # Regular list data
+              _ -> nil # Skip invalid data
+            end
             
-            Repo.update_all(
-              from(i in Item, where: i.id == ^item.id),
-              set: [embedding: vector]
-            )
-
-            Logger.info("Successfully embedded item #{item.id}")
+            if embedding_data do
+              # Cast to Pgvector format safely
+              case Pgvector.Ecto.Vector.cast(embedding_data) do
+                {:ok, vector} ->
+                  Repo.update_all(
+                    from(i in Item, where: i.id == ^item.id),
+                    set: [embedding: vector]
+                  )
+                  Logger.info("Successfully embedded item #{item.id}")
+                _ ->
+                  Logger.error("Failed to cast embedding for item #{item.id} - invalid format")
+              end
+            else
+              Logger.error("Invalid embedding data for item #{item.id}")
+            end
 
           {:error, reason} ->
             Logger.error("Failed to embed item #{item.id}: #{reason}")

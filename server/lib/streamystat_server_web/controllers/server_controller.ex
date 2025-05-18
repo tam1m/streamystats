@@ -1,6 +1,7 @@
 defmodule StreamystatServerWeb.ServerController do
   use StreamystatServerWeb, :controller
   alias StreamystatServer.Servers.Servers
+  alias StreamystatServer.BatchEmbedder
 
   def index(conn, _params) do
     servers = Servers.list_servers()
@@ -81,5 +82,23 @@ defmodule StreamystatServerWeb.ServerController do
         |> put_status(:unprocessable_entity)
         |> json(%{error: reason})
     end
+  end
+  
+  def embedding_progress(conn, %{"server_id" => server_id}) do
+    # Get embedding progress for the server
+    progress = BatchEmbedder.get_progress(String.to_integer(server_id))
+    
+    # Calculate percentage if available
+    percentage = if progress.total > 0 do
+      Float.round(progress.processed / progress.total * 100, 1)
+    else
+      0.0
+    end
+    
+    # Add percentage to the progress data
+    progress_with_percentage = Map.put(progress, :percentage, percentage)
+    
+    conn
+    |> json(%{data: progress_with_percentage})
   end
 end

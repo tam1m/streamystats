@@ -7,6 +7,16 @@ defmodule StreamystatServer.Application do
 
   @impl true
   def start(_type, _args) do
+    # Initialize ETS table for embedding progress tracking
+    # Use try/catch to handle potential issues with table creation
+    try do
+      :ets.new(:embedding_progress, [:set, :public, :named_table])
+    catch
+      :error, :badarg ->
+        # Table might already exist, which is fine
+        :ok
+    end
+    
     children = [
       StreamystatServerWeb.Telemetry,
       StreamystatServer.Repo,
