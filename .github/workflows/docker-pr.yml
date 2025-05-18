@@ -15,7 +15,7 @@ jobs:
     if: github.event.pull_request.head.repo.full_name == github.repository # no secrets for forks
     strategy:
       matrix:
-        part: [app, server]
+        part: [streamystats-nextjs, streamystats-phoenix]
 
     steps:
       - uses: actions/checkout@v4
