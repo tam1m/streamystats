@@ -103,25 +103,32 @@ defmodule StreamystatServer.Jellyfin.Sync.Items.Core do
     found_items = get_found_items(sync_start, server.id)
     found_item_ids = MapSet.new(found_items, & &1.jellyfin_id)
 
-    # Mark items as removed if they weren't found in the sync
-    removed_items = MapSet.difference(existing_item_ids, found_item_ids)
-    removed_list = MapSet.to_list(removed_items)
-
-    if MapSet.size(removed_items) > 0 do
-      Logger.info("Marking #{MapSet.size(removed_items)} items as removed: #{inspect(removed_list)}")
-      now = NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
-      {count, _} =
-        Repo.update_all(
-          from(i in Item,
-            where: i.jellyfin_id in ^removed_list and i.server_id == ^server.id
-          ),
-          set: [removed_at: now]
-        )
-      Logger.info("Successfully marked #{count} items as removed")
-    end
-
-    total_count = Enum.sum(Enum.map(results, fn {_, count, _} -> count end))
+    # Calculate errors from all library syncs
     total_errors = Enum.flat_map(results, fn {_, _, errors} -> errors end)
+    total_count = Enum.sum(Enum.map(results, fn {_, count, _} -> count end))
+
+    # Only mark items as removed if there were no errors during sync
+    # This prevents marking thousands of items as removed when a sync fails
+    if Enum.empty?(total_errors) do
+      # Mark items as removed if they weren't found in the sync
+      removed_items = MapSet.difference(existing_item_ids, found_item_ids)
+      removed_list = MapSet.to_list(removed_items)
+
+      if MapSet.size(removed_items) > 0 do
+        Logger.info("Marking #{MapSet.size(removed_items)} items as removed: #{inspect(removed_list)}")
+        now = NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+        {count, _} =
+          Repo.update_all(
+            from(i in Item,
+              where: i.jellyfin_id in ^removed_list and i.server_id == ^server.id
+            ),
+            set: [removed_at: now]
+          )
+        Logger.info("Successfully marked #{count} items as removed")
+      end
+    else
+      Logger.warning("Skipping removal of missing items due to sync errors")
+    end
 
     Metrics.update(metrics_agent, %{items_processed: total_count, errors: total_errors})
 

@@ -24,8 +24,13 @@ defmodule StreamystatServer.Jellyfin.Sync.Libraries do
         current_jellyfin_ids = Enum.map(jellyfin_libraries, & &1["Id"])
 
         # Mark libraries that no longer exist as removed
-        from(l in Library, where: l.server_id == ^server.id and l.jellyfin_id not in ^current_jellyfin_ids)
-        |> Repo.update_all(set: [removed_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)])
+        # Only proceed with this if we have at least one library
+        if length(current_jellyfin_ids) > 0 do
+          from(l in Library, where: l.server_id == ^server.id and l.jellyfin_id not in ^current_jellyfin_ids)
+          |> Repo.update_all(set: [removed_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)])
+        else
+          Logger.warning("No libraries found - skipping library removal step")
+        end
 
         # Process existing libraries
         libraries = Enum.map(jellyfin_libraries, &map_jellyfin_library(&1, server.id))
