@@ -17,8 +17,14 @@ export const getSimilarStatistics = async (
         },
       }
     );
+    
+    if (!res.ok) {
+      console.error(`Error fetching similar statistics: ${res.status} ${res.statusText}`);
+      return [];
+    }
+    
     const data = await res.json();
-    return data.data;
+    return data.data || [];
   } catch (error) {
     console.error("Error fetching similar statistics:", error);
     return [];

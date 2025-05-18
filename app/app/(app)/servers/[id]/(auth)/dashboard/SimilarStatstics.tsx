@@ -30,16 +30,20 @@ export const SimilarStatstics = ({ data, server }: Props) => {
   const isMobile = useIsMobile();
 
   // Group items by type
-  const groupedItems = data.reduce((acc: Record<string, Item[]>, item) => {
-    acc[item.type] = acc[item.type] || [];
+  const groupedItems = Array.isArray(data) 
+    ? data.reduce((acc: Record<string, Item[]>, item) => {
+        if (!item || !item.type) return acc;
+        
+        acc[item.type] = acc[item.type] || [];
 
-    // Only add if we don't have 5 yet
-    if (acc[item.type].length < 5) {
-      acc[item.type].push(item);
-    }
+        // Only add if we don't have 5 yet
+        if (acc[item.type].length < 5) {
+          acc[item.type].push(item);
+        }
 
-    return acc;
-  }, {});
+        return acc;
+      }, {})
+    : {};
 
   // Get unique types
   const types = Object.keys(groupedItems);
@@ -67,7 +71,7 @@ export const SimilarStatstics = ({ data, server }: Props) => {
     }));
   };
 
-  if (data.length === 0) {
+  if (!data || !Array.isArray(data) || data.length === 0) {
     return (
       <Card>
         <CardHeader>
