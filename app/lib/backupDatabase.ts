@@ -59,10 +59,6 @@ export const importDatabaseBackup = async (
       };
     }
 
-    console.log(
-      `Making API request to ${process.env.API_URL}/servers/${serverId}/backup/import`
-    );
-
     // Make API request to backend
     const response = await fetch(
       `${process.env.API_URL}/servers/${serverId}/backup/import`,

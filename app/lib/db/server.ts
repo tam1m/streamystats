@@ -61,7 +61,6 @@ export const getEmbeddingProgress = async (
     }
 
     const result = await response.json();
-    console.log("Raw embedding progress response:", result);
     return result.data;
   } catch (error) {
     console.error("Error fetching embedding progress:", error);
