@@ -29,8 +29,7 @@ export const OpenAIAPI = ({
     try {
       console.log("Saving API key:", apiKey);
       await saveOpenAIKey(serverId, apiKey);
-      toast.success("API Key saved successfully");
-      toast;
+      toast.success("API Key saved successfully. Embedding job started.");
     } catch (error) {
       toast.error("Failed to save API key");
       console.error("Failed to save API key:", error);

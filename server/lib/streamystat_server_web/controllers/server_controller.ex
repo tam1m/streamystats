@@ -37,6 +37,7 @@ defmodule StreamystatServerWeb.ServerController do
 
   def update_settings(conn, %{"id" => id} = params) do
     settings_params = Map.drop(params, ["id"])
+    openai_token_updated = Map.has_key?(settings_params, "open_ai_api_token")
 
     case Servers.get_server(id) do
       nil ->
@@ -48,6 +49,17 @@ defmodule StreamystatServerWeb.ServerController do
       server ->
         case Servers.update_server(server, settings_params) do
           {:ok, updated_server} ->
+            # If OpenAI token was updated, start embedding process
+            if openai_token_updated && updated_server.open_ai_api_token do
+              # Start embedding process in a separate process
+              Task.start(fn -> 
+                StreamystatServer.BatchEmbedder.embed_items_for_server(
+                  updated_server.id, 
+                  updated_server.open_ai_api_token
+                )
+              end)
+            end
+            
             render(conn, :show, server: updated_server)
 
           {:error, changeset} ->
