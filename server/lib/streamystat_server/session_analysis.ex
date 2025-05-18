@@ -5,8 +5,7 @@ defmodule StreamystatServer.SessionAnalysis do
   require Logger
   import Ecto.Query
 
-  # Add a configurable similarity threshold and cache TTL
-  @similarity_threshold 0.7  # Minimum similarity score to consider
+  # Add a configurable cache TTL
   @cache_ttl :timer.hours(24)  # Cache recommendations for 24 hours
 
   @doc """
@@ -28,29 +27,29 @@ defmodule StreamystatServer.SessionAnalysis do
       nil ->
         # Get the items the user has watched with watch completion data
         watched_sessions =
-      Repo.all(
-        from(s in PlaybackSession,
+          Repo.all(
+            from(s in PlaybackSession,
               where: s.user_id == ^user_id,
               select: {s.item_jellyfin_id, s.percent_complete}
-        )
-      )
+            )
+          )
 
         # Group by item to handle multiple views of same item
         watched_data =
           Enum.reduce(watched_sessions, %{}, fn {item_id, pct}, acc ->
             Map.update(acc, item_id, pct, fn existing -> max(existing, pct) end)
-      end)
+          end)
 
         watched_item_ids = Map.keys(watched_data)
 
         # Get the embeddings for those items and include server_id for filtering
         watched_items =
-    Repo.all(
-      from(i in Item,
+          Repo.all(
+            from(i in Item,
               where: i.jellyfin_id in ^watched_item_ids and not is_nil(i.embedding),
               select: %{item: i, server_id: i.server_id, library_id: i.library_id}
-      )
-    )
+            )
+          )
 
         # If no watched items with embeddings, return empty list
         if Enum.empty?(watched_items) do
@@ -61,7 +60,7 @@ defmodule StreamystatServer.SessionAnalysis do
           first_item = List.first(watched_items)
           server_id = first_item.server_id
           library_id = first_item.library_id
-          
+
           # Calculate a weighted "user taste profile"
           # Extract just the items from the map
           items_only = Enum.map(watched_items, fn %{item: item} -> item end)
@@ -75,10 +74,10 @@ defmodule StreamystatServer.SessionAnalysis do
           put_in_cache(cache_key, similar_items, @cache_ttl)
 
           similar_items
-  end
+        end
       cached_results ->
         cached_results
-end
+    end
   end
 
   @doc """
@@ -154,12 +153,12 @@ end
     else
       # First, get the server_id and library_id of the original item for filtering
       base_item = Repo.one(from(i in Item, where: i.jellyfin_id == ^item_jellyfin_id, select: i))
-      
+
       # Proceed only if we have the base item
       if base_item do
         server_id = base_item.server_id
-        library_id = base_item.library_id
-        
+        _library_id = base_item.library_id
+
         # Find users who watched this item
         users =
           Repo.all(
@@ -169,7 +168,7 @@ end
               distinct: true
             )
           )
-  
+
         # Find other items these users watched
         other_items =
           Repo.all(
@@ -181,10 +180,10 @@ end
               limit: ^limit
             )
           )
-  
+
         # Fetch the actual items
         item_ids = Enum.map(other_items, fn {id, _} -> id end)
-  
+
         Repo.all(
           from(i in Item,
             where: i.jellyfin_id in ^item_ids and i.server_id == ^server_id,
@@ -249,94 +248,47 @@ end
     else
       query
     end
-    
-    # Filter by server_id if provided to prevent cross-server recommendations
+
+    # Apply server and library filters if provided
     query = if server_id do
       from(i in query, where: i.server_id == ^server_id)
     else
       query
     end
-    
-    # Filter by library_id if provided
+
     query = if library_id do
       from(i in query, where: i.library_id == ^library_id)
     else
       query
     end
 
-    # Calculate similarity directly in the final query
-    from i in query,
-      order_by: [asc: fragment("embedding <=> ?", ^embedding)],
-      limit: ^limit,
-      select: i
-  end
-
-  # Simple in-memory cache functions - could be replaced with Redis/Memcached in production
-  defp get_from_cache(key) do
-    case :persistent_term.get({__MODULE__, key}, :not_found) do
-      :not_found -> nil
-      {value, expiry} ->
-        if :os.system_time(:second) < expiry, do: value, else: nil
-    end
-  rescue
-    _ -> nil
-  end
-
-  defp put_in_cache(key, value, ttl) do
-    # ttl is in milliseconds, so we need to convert to seconds
-    expiry = :os.system_time(:second) + div(ttl, 1000)
-    :persistent_term.put({__MODULE__, key}, {value, expiry})
-  rescue
-    _ -> :ok
-  end
-
-  defp find_similar_items(embedding, excluded_item_ids, limit) do
-    # Use the pgvector extension to find similar items by cosine similarity
-    Repo.all(
-      from(i in Item,
-        where: i.jellyfin_id not in ^excluded_item_ids and not is_nil(i.embedding),
-        order_by: fragment("embedding <=> ?", ^embedding),
-        limit: ^limit,
-        select: i
-      )
+    # Add similarity calculation and ordering
+    from(i in query,
+      select: %{
+        item: i,
+        similarity: fragment("1 - (? <=> ?)", i.embedding, ^embedding)
+      },
+      order_by: [desc: fragment("1 - (? <=> ?)", i.embedding, ^embedding)],
+      limit: ^limit
     )
   end
 
-  defp average_embeddings(items) do
-    # Extract embeddings and convert to lists for manipulation
-    embedding_lists =
-      Enum.map(items, fn item ->
-        # Convert Pgvector to list if it's not already
-        if is_list(item.embedding) do
-          item.embedding
+  # Cache functions
+  defp get_from_cache(key) do
+    case :ets.lookup(:recommendation_cache, key) do
+      [{^key, value, expiry}] ->
+        if System.system_time(:second) < expiry do
+          value
         else
-          # Extract vector values from the Pgvector struct
-          # This assumes Pgvector exposes a way to access the raw values
-          # If not, check the Pgvector library documentation for the correct approach
-          Pgvector.to_list(item.embedding)
+          :ets.delete(:recommendation_cache, key)
+          nil
         end
-      end)
+      [] -> nil
+    end
+  end
 
-    # Calculate the dimensionality (length of first embedding)
-    [first | _] = embedding_lists
-    dims = length(first)
-
-    # Initialize an accumulator with zeros
-    zeros = List.duplicate(0.0, dims)
-
-    # Sum the vectors
-    summed =
-      Enum.reduce(embedding_lists, zeros, fn embedding, acc ->
-        Enum.zip_with(embedding, acc, fn e1, e2 -> e1 + e2 end)
-      end)
-
-    # Divide by count to get average
-    count = length(embedding_lists)
-
-    # Create the averaged vector
-    averaged = Enum.map(summed, fn value -> value / count end)
-
-    # Convert back to Pgvector format
-    Pgvector.new(averaged)
+  defp put_in_cache(key, value, ttl) do
+    expiry = System.system_time(:second) + ttl
+    :ets.insert(:recommendation_cache, {key, value, expiry})
   end
 end
