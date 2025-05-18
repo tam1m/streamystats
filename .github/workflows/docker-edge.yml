@@ -13,6 +13,11 @@ jobs:
     strategy:
       matrix:
         part: [streamystats-nextjs, streamystats-phoenix]
+        include:
+          - part: streamystats-nextjs
+            folder: app
+          - part: streamystats-phoenix
+            folder: server
 
     steps:
       - uses: actions/checkout@v4
@@ -27,8 +32,8 @@ jobs:
       - name: Build & push ${{ matrix.part }}
         uses: docker/build-push-action@v5
         with:
-          context: ./${{ matrix.part }}
-          file: ./${{ matrix.part }}/Dockerfile
+          context: ./${{ matrix.folder }}
+          file: ./${{ matrix.folder }}/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ env.IMAGE_NAMESPACE }}/${{ matrix.part }}:edge
