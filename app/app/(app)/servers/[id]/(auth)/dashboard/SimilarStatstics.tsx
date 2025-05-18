@@ -1,6 +1,7 @@
 "use client";
 
-import { getSimilarStatistics } from "@/lib/db/similar-statistics";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -9,16 +10,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ChevronRight, Clock, Film, Tv } from "lucide-react";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Poster } from "./Poster";
-import { Item, Server } from "@/lib/db";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { useState, useEffect } from "react";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { Item, Server } from "@/lib/db";
+import { ChevronRight, Clock } from "lucide-react";
+import Link from "next/link";
+import { useState } from "react";
+import { Poster } from "./Poster";
 
 interface Props {
   data: Item[];
@@ -30,10 +28,10 @@ export const SimilarStatstics = ({ data, server }: Props) => {
   const isMobile = useIsMobile();
 
   // Group items by type
-  const groupedItems = Array.isArray(data) 
+  const groupedItems = Array.isArray(data)
     ? data.reduce((acc: Record<string, Item[]>, item) => {
         if (!item || !item.type) return acc;
-        
+
         acc[item.type] = acc[item.type] || [];
 
         // Only add if we don't have 5 yet

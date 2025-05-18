@@ -46,8 +46,7 @@ export const getEmbeddingProgress = async (
           "Content-Type": "application/json",
           Authorization: `Bearer ${await getToken()}`,
         },
-        cache: "no-store", // Don't cache this dynamic data
-        next: { revalidate: 0 }, // Ensure Next.js doesn't cache the response
+        cache: "no-store",
       }
     );
 
@@ -73,3 +72,24 @@ export const getEmbeddingProgress = async (
     };
   }
 };
+
+export async function clearEmbeddings(
+  serverId: number
+): Promise<{ message: string }> {
+  const response = await fetch(
+    `/api/admin/servers/${serverId}/clear-embeddings`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    }
+  );
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || "Failed to clear embeddings");
+  }
+
+  return response.json();
+}

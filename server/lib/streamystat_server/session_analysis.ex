@@ -6,7 +6,25 @@ defmodule StreamystatServer.SessionAnalysis do
   import Ecto.Query
 
   # Add a configurable cache TTL
-  @cache_ttl :timer.hours(24)  # Cache recommendations for 24 hours
+  @cache_ttl :timer.minutes(1)  # Cache recommendations for 24 hours
+
+  @doc """
+  Removes all embeddings from jellyfin_items table for a specific server.
+  Returns {:ok, count} where count is the number of items updated.
+  """
+  def remove_all_embeddings(server_id) do
+    try do
+      {count, _} = Repo.update_all(
+        from(i in Item, where: not is_nil(i.embedding) and i.server_id == ^server_id),
+        set: [embedding: nil]
+      )
+      {:ok, count}
+    rescue
+      e ->
+        Logger.error("Failed to remove embeddings for server #{server_id}: #{inspect(e)}")
+        {:error, "Failed to remove embeddings: #{Exception.message(e)}"}
+    end
+  end
 
   @doc """
   Finds similar items based on a user's viewing history.
@@ -275,20 +293,58 @@ defmodule StreamystatServer.SessionAnalysis do
 
   # Cache functions
   defp get_from_cache(key) do
-    case :ets.lookup(:recommendation_cache, key) do
-      [{^key, value, expiry}] ->
-        if System.system_time(:second) < expiry do
-          value
-        else
-          :ets.delete(:recommendation_cache, key)
-          nil
-        end
-      [] -> nil
+    try do
+      case :ets.lookup(:recommendation_cache, key) do
+        [{^key, value, expiry}] ->
+          if System.system_time(:second) < expiry do
+            value
+          else
+            # Delete expired entry
+            :ets.delete(:recommendation_cache, key)
+            nil
+          end
+        [] -> nil
+      end
+    rescue
+      ArgumentError ->
+        # Table doesn't exist, gracefully handle it
+        Logger.warning("ETS table :recommendation_cache not found when trying to get #{key}")
+        try_create_cache_table()
+        nil
     end
   end
 
   defp put_in_cache(key, value, ttl) do
-    expiry = System.system_time(:second) + ttl
-    :ets.insert(:recommendation_cache, {key, value, expiry})
+    try do
+      expiry = System.system_time(:second) + ttl
+      :ets.insert(:recommendation_cache, {key, value, expiry})
+    rescue
+      ArgumentError ->
+        # Table doesn't exist, try to create it
+        Logger.warning("ETS table :recommendation_cache not found when trying to put #{key}")
+        if try_create_cache_table() do
+          # Try again if table was created
+          expiry = System.system_time(:second) + ttl
+          :ets.insert(:recommendation_cache, {key, value, expiry})
+        end
+    end
+  end
+
+  # Attempt to create the cache table if it doesn't exist
+  defp try_create_cache_table do
+    try do
+      :ets.new(:recommendation_cache, [:set, :public, :named_table])
+      Logger.info("Created missing :recommendation_cache ETS table")
+      true
+    rescue
+      ArgumentError ->
+        # Table might have been created in the meantime by another process
+        case :ets.info(:recommendation_cache) do
+          :undefined ->
+            Logger.error("Failed to create :recommendation_cache ETS table")
+            false
+          _ -> true
+        end
+    end
   end
 end

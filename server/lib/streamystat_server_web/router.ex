@@ -52,6 +52,8 @@ defmodule StreamystatServerWeb.Router do
         PlaybackReportingImportController,
         :import
       )
+
+      post "/servers/:id/clear-embeddings", ServerController, :clear_embeddings
     end
 
     # Protected routes

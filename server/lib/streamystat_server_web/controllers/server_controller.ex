@@ -2,6 +2,8 @@ defmodule StreamystatServerWeb.ServerController do
   use StreamystatServerWeb, :controller
   alias StreamystatServer.Servers.Servers
   alias StreamystatServer.BatchEmbedder
+  alias StreamystatServer.Repo
+  alias StreamystatServer.SessionAnalysis
 
   def index(conn, _params) do
     servers = Servers.list_servers()
@@ -53,14 +55,14 @@ defmodule StreamystatServerWeb.ServerController do
             # If OpenAI token was updated, start embedding process
             if openai_token_updated && updated_server.open_ai_api_token do
               # Start embedding process in a separate process
-              Task.start(fn -> 
+              Task.start(fn ->
                 StreamystatServer.BatchEmbedder.embed_items_for_server(
-                  updated_server.id, 
+                  updated_server.id,
                   updated_server.open_ai_api_token
                 )
               end)
             end
-            
+
             render(conn, :show, server: updated_server)
 
           {:error, changeset} ->
@@ -83,22 +85,44 @@ defmodule StreamystatServerWeb.ServerController do
         |> json(%{error: reason})
     end
   end
-  
+
   def embedding_progress(conn, %{"server_id" => server_id}) do
     # Get embedding progress for the server
     progress = BatchEmbedder.get_progress(String.to_integer(server_id))
-    
+
     # Calculate percentage if available
     percentage = if progress.total > 0 do
       Float.round(progress.processed / progress.total * 100, 1)
     else
       0.0
     end
-    
+
     # Add percentage to the progress data
     progress_with_percentage = Map.put(progress, :percentage, percentage)
-    
+
     conn
     |> json(%{data: progress_with_percentage})
+  end
+
+  def clear_embeddings(conn, %{"id" => id}) do
+    server = Repo.get(Server, id)
+
+    case server do
+      nil ->
+        conn
+        |> put_status(:not_found)
+        |> json(%{error: "Server not found"})
+
+      _ ->
+        case SessionAnalysis.remove_all_embeddings(server.id) do
+          {:ok, count} ->
+            json(conn, %{message: "Successfully cleared #{count} embeddings"})
+
+          {:error, reason} ->
+            conn
+            |> put_status(:internal_server_error)
+            |> json(%{error: reason})
+        end
+    end
   end
 end

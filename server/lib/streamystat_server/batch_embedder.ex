@@ -15,7 +15,7 @@ defmodule StreamystatServer.BatchEmbedder do
   @timeout 60_000
   # Small delay between batches to avoid rate limiting
   @delay_between_batches 500
-  
+
   # Store embedding progress for each server
   def start_progress_tracking(server_id) do
     try do
@@ -24,7 +24,7 @@ defmodule StreamystatServer.BatchEmbedder do
       _, _ -> ensure_table_exists()
     end
   end
-  
+
   def update_progress(server_id, total, processed, status \\ "processing") do
     try do
       :ets.insert(:embedding_progress, {server_id, %{total: total, processed: processed, status: status}})
@@ -32,7 +32,7 @@ defmodule StreamystatServer.BatchEmbedder do
       _, _ -> ensure_table_exists()
     end
   end
-  
+
   def get_progress(server_id) do
     try do
       case :ets.lookup(:embedding_progress, server_id) do
@@ -40,12 +40,12 @@ defmodule StreamystatServer.BatchEmbedder do
         [] -> %{total: 0, processed: 0, status: "idle"}
       end
     catch
-      _, _ -> 
+      _, _ ->
         ensure_table_exists()
         %{total: 0, processed: 0, status: "idle"}
     end
   end
-  
+
   # Create the table if it doesn't exist
   defp ensure_table_exists do
     try do
@@ -53,7 +53,7 @@ defmodule StreamystatServer.BatchEmbedder do
         :ets.new(:embedding_progress, [:set, :public, :named_table])
       end
     catch
-      _, _ -> 
+      _, _ ->
         # If we still can't create it, just log the error
         Logger.error("Failed to create or access embedding_progress ETS table")
     end
@@ -86,7 +86,31 @@ defmodule StreamystatServer.BatchEmbedder do
   def embed_items_for_server(server_id, token) do
     # Start tracking progress
     start_progress_tracking(server_id)
-    
+
+    # Initialize the progress counter
+    initialize_progress_counter()
+
+    # Get total count of ALL movies for this server
+    total_movies_count =
+      Repo.one(
+        from(i in Item,
+          where: i.type == "Movie" and i.server_id == ^server_id,
+          select: count()
+        )
+      )
+
+    # Get count of movies that already have embeddings
+    already_embedded_count =
+      Repo.one(
+        from(i in Item,
+          where: not is_nil(i.embedding) and
+                i.type == "Movie" and
+                i.server_id == ^server_id,
+          select: count()
+        )
+      )
+
+    # Get count of movies that need embeddings
     items_count =
       Repo.one(
         from(i in Item,
@@ -98,30 +122,65 @@ defmodule StreamystatServer.BatchEmbedder do
         )
       )
 
-    # Update total count
-    update_progress(server_id, items_count, 0, "starting")
-    Logger.info("Found #{items_count} movies without embeddings for server #{server_id}")
+    # Update total count - we want to track total movies vs. how many have embeddings
+    update_progress(server_id, total_movies_count, already_embedded_count, "starting")
+    Logger.info("Server #{server_id}: #{already_embedded_count}/#{total_movies_count} movies embedded, #{items_count} need processing")
 
     if items_count > 0 do
-      # Process counter to track progress
-      processed_count = 0
-      
-      # Process items in smaller chunks without a global transaction
-      items = Item
-      |> where([i], is_nil(i.embedding) and i.type == "Movie" and i.server_id == ^server_id)
-      |> limit(500) # Process in chunks of 500 items at a time
-      |> Repo.all()
-      
-      items
-      |> Stream.chunk_every(@batch, @batch)
+      # Initialize counter with already embedded count
+      if Process.whereis(:embedding_progress_counter) do
+        Agent.update(:embedding_progress_counter, fn _ -> already_embedded_count end)
+      else
+        {:ok, _} = Agent.start_link(fn -> already_embedded_count end, name: :embedding_progress_counter)
+      end
+
+      # Get a query for all movies without embeddings
+      base_query = from i in Item,
+        where: is_nil(i.embedding) and i.type == "Movie" and i.server_id == ^server_id
+
+      # Process in chunks of 500 to avoid loading everything into memory
+      chunk_size = 500
+
+      # Process until we've handled all items
+      Stream.unfold(0, fn offset ->
+        if offset >= items_count do
+          nil
+        else
+          # Get the next chunk of items
+          items = base_query
+            |> limit(^chunk_size)
+            |> offset(^offset)
+            |> Repo.all()
+
+          # If no more items, end the stream
+          if items == [] do
+            nil
+          else
+            # Process this chunk and return the next offset
+            {items, offset + length(items)}
+          end
+        end
+      end)
+      |> Stream.flat_map(fn chunk ->
+        # Process each chunk in batches of @batch size
+        chunk
+        |> Stream.chunk_every(@batch)
+      end)
       |> Task.async_stream(
-        fn batch -> 
+        fn batch ->
           result = embed_batch_with_direct_api(batch, token)
-          
-          # Update progress after each batch
-          processed_count = min(processed_count + length(batch), items_count)
-          update_progress(server_id, items_count, processed_count)
-          
+
+          # Update the total processed count atomically
+          new_total = Agent.get_and_update(:embedding_progress_counter, fn current ->
+            new_count = current + length(batch)
+            # Ensure we don't exceed the total
+            capped_count = min(new_count, total_movies_count)
+            {capped_count, capped_count}
+          end)
+
+          # Update progress with the new total from our counter
+          update_progress(server_id, total_movies_count, new_total)
+
           result
         end,
         max_concurrency: @concurrency,
@@ -131,11 +190,21 @@ defmodule StreamystatServer.BatchEmbedder do
       |> Stream.run()
 
       # Mark as completed
-      update_progress(server_id, items_count, items_count, "completed")
+      update_progress(server_id, total_movies_count, total_movies_count, "completed")
       Logger.info("Completed batch embedding process for movies on server #{server_id}")
     else
-      # No items to process
-      update_progress(server_id, 0, 0, "completed")
+      # No items to process but show existing progress
+      update_progress(server_id, total_movies_count, already_embedded_count, "completed")
+      Logger.info("No movies to process for server #{server_id}. Already embedded: #{already_embedded_count}/#{total_movies_count}")
+    end
+  end
+
+  # Initialize progress counter before starting embedding process
+  def initialize_progress_counter do
+    if Process.whereis(:embedding_progress_counter) do
+      Agent.update(:embedding_progress_counter, fn _ -> 0 end)
+    else
+      {:ok, _} = Agent.start_link(fn -> 0 end, name: :embedding_progress_counter)
     end
   end
 
@@ -169,7 +238,7 @@ defmodule StreamystatServer.BatchEmbedder do
               _ when is_list(embedding) -> embedding # Regular list data
               _ -> nil # Skip invalid data
             end
-            
+
             if embedding_data do
               # Cast to Pgvector format safely
               case Pgvector.Ecto.Vector.cast(embedding_data) do
@@ -218,7 +287,7 @@ defmodule StreamystatServer.BatchEmbedder do
               _ when is_list(embedding) -> embedding # Regular list data
               _ -> nil # Skip invalid data
             end
-            
+
             if embedding_data do
               # Cast to Pgvector format safely
               case Pgvector.Ecto.Vector.cast(embedding_data) do
