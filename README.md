@@ -2,11 +2,21 @@
 
 Streamystats is a statistics service for Jellyfin, providing analytics and data visualization. 📈 Built with modern advanced frameworks.
 
-> ⚠️ This is a hobby project of mine. Don't expect fast development.
+> This is a hobby project of mine. Don't expect fast development.
 
 ## ⚠️ Important Note: Vector PG Version
 
-This project now uses a Vector-enabled Postgres version (`tensorchord/pgvecto-rs:pg16-v0.4.0`). If you're updating from a previous version, you'll need to modify your `docker-compose.yml` file to use this image. Check the compose file for specific configuration details.
+This project now uses a Vector-enabled Postgres version (`pgvector/pgvector:pg16`). If you're updating from a previous version, you'll need to modify your `docker-compose.yml` file to use this image. Check the compose file for specific configuration details.
+
+After changing image, if you have issues with generating embeddings or anything else you might need to create a backup, drop the database and restore it. Please join the discord or open an issue if you need help with this.
+
+Quick tutorial for backup and restore:
+
+1. Backup your database: `docker exec streamystats-db-1 pg_dump -U postgres -t playback_sessions --inserts --column-inserts streamystat > playback_sessions_backup.sql`
+2. Remove the stack: `docker compose down`
+3. Drop the database: `docker volume rm streamystats_pgdata`
+4. Reinstall: `docker compose up -d`
+5. Restore the database: `cat playback_sessions_backup.sql | docker exec -i streamystats-db-1 psql -U postgres -d streamystat`
 
 ## ✨ Features
 
