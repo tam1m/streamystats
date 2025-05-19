@@ -1,6 +1,7 @@
 defmodule StreamystatServerWeb.ServerController do
   use StreamystatServerWeb, :controller
   alias StreamystatServer.Servers.Servers
+  alias StreamystatServer.Servers.Models.Server
   alias StreamystatServer.BatchEmbedder
   alias StreamystatServer.Repo
   alias StreamystatServer.SessionAnalysis
@@ -116,6 +117,8 @@ defmodule StreamystatServerWeb.ServerController do
       _ ->
         case SessionAnalysis.remove_all_embeddings(server.id) do
           {:ok, count} ->
+            # Reset the progress tracking after clearing embeddings
+            BatchEmbedder.update_progress(server.id, 0, 0, "idle")
             json(conn, %{message: "Successfully cleared #{count} embeddings"})
 
           {:error, reason} ->

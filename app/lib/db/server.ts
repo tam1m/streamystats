@@ -77,11 +77,12 @@ export async function clearEmbeddings(
   serverId: number
 ): Promise<{ message: string }> {
   const response = await fetch(
-    `/api/admin/servers/${serverId}/clear-embeddings`,
+    `${process.env.API_URL}/admin/servers/${serverId}/clear-embeddings`,
     {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        Authorization: `Bearer ${await getToken()}`,
       },
     }
   );
