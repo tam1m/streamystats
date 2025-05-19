@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.7.1](https://github.com/fredrikburmester/streamystats/compare/streamystat-v1.7.0...streamystat-v1.7.1) (2025-05-19)
+
+
+### Bug Fixes
+
+* auto start embedding ([646b63d](https://github.com/fredrikburmester/streamystats/commit/646b63de30f94b5e6d41954de170cc6c3a80e8fe))
+* auto start embedding ([0284f35](https://github.com/fredrikburmester/streamystats/commit/0284f35e349f1490f4d77bc22339b6cbc29385aa))
+* remove logs [skip ci] ([e741703](https://github.com/fredrikburmester/streamystats/commit/e74170385df8e110136b42911794168621e51c3e))
+* save dismissed new version hash - don't show again ([27e216b](https://github.com/fredrikburmester/streamystats/commit/27e216bf112f752f0501bf62a767321dfff7b968))
+* save dismissed new version hash - don't show again ([1b3574a](https://github.com/fredrikburmester/streamystats/commit/1b3574a882d5ca6f65df024f280576290f899d90))
+* undefined reduce ([24f0226](https://github.com/fredrikburmester/streamystats/commit/24f02260affcc0479452532af3b4e2247899da1b)), closes [#85](https://github.com/fredrikburmester/streamystats/issues/85)
+
 ## [1.7.0](https://github.com/fredrikburmester/streamystats/compare/streamystat-v1.6.0...streamystat-v1.7.0) (2025-05-17)
 
 

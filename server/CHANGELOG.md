@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.7.2](https://github.com/fredrikburmester/streamystats/compare/v1.7.1...v1.7.2) (2025-05-19)
+
+
+### Bug Fixes
+
+* auto start embedding ([646b63d](https://github.com/fredrikburmester/streamystats/commit/646b63de30f94b5e6d41954de170cc6c3a80e8fe))
+* auto start embedding ([0284f35](https://github.com/fredrikburmester/streamystats/commit/0284f35e349f1490f4d77bc22339b6cbc29385aa))
+* convert embeddings to proper Pgvector format ([8a76035](https://github.com/fredrikburmester/streamystats/commit/8a76035b7416f741380ee008d23b687c70bb42df))
+* correct extension name ([3579dfb](https://github.com/fredrikburmester/streamystats/commit/3579dfb5cd200110b70903d05b93af0c1c10e476))
+* correct migration ([75e9b00](https://github.com/fredrikburmester/streamystats/commit/75e9b001bf7a628d02683173b021c180e3091291))
+* embedding fail due to old data (?) ([cdf2e6d](https://github.com/fredrikburmester/streamystats/commit/cdf2e6d9a6ee6d2eefcfe500b99626685a3805ef))
+* remove dotenv ([8ae1182](https://github.com/fredrikburmester/streamystats/commit/8ae1182925146912eddefe7746d134860be043f3))
+* save dismissed new version hash - don't show again ([27e216b](https://github.com/fredrikburmester/streamystats/commit/27e216bf112f752f0501bf62a767321dfff7b968))
+
 ## [1.7.1](https://github.com/fredrikburmester/streamystats/compare/v1.7.0...v1.7.1) (2025-05-17)
 
 
