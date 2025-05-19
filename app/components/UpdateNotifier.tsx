@@ -11,19 +11,12 @@ interface VersionInfo {
 
 export function UpdateNotifier() {
   const { toasts } = useSonner();
-  const [dismissedVersion, setDismissedVersion] = useState<string | null>(null);
-
-  // Load dismissed version from localStorage on mount
-  useEffect(() => {
-    const storedVersion = localStorage.getItem("dismissedUpdateVersion");
-    if (storedVersion) {
-      setDismissedVersion(storedVersion);
-    }
-  }, []);
 
   const notifyUserOfUpdate = useCallback(
     (newVersion: string) => {
       // Don't show notification if this version was already dismissed
+      const dismissedVersion = localStorage.getItem("dismissedUpdateVersion");
+
       if (
         dismissedVersion === newVersion ||
         toasts.find((t) => t.id === "update-notification")
@@ -43,7 +36,6 @@ export function UpdateNotifier() {
             onClick={() => {
               // Save the dismissed version to localStorage
               localStorage.setItem("dismissedUpdateVersion", newVersion);
-              setDismissedVersion(newVersion);
               toast.dismiss();
             }}
           >
@@ -85,23 +77,18 @@ export function UpdateNotifier() {
         ),
       });
     },
-    [dismissedVersion, toasts]
+    [toasts]
   );
 
   useEffect(() => {
-    // biome-ignore lint/style/useConst: <explanation>
     let intervalId: NodeJS.Timeout;
 
-    // Function to check for updates
     const checkForUpdates = async () => {
       try {
         const response = await fetch("/api/version");
         const versionInfo: VersionInfo = await response.json();
 
-        if (
-          versionInfo.hasUpdate &&
-          versionInfo.latestVersion !== dismissedVersion
-        ) {
+        if (versionInfo.hasUpdate) {
           notifyUserOfUpdate(versionInfo.latestVersion);
         }
       } catch (error) {
@@ -109,14 +96,12 @@ export function UpdateNotifier() {
       }
     };
 
-    // Check for updates every 15 minutes
     intervalId = setInterval(checkForUpdates, 15 * 60 * 1000);
 
-    // Initial check (with a slight delay to not impact page load)
     setTimeout(checkForUpdates, 1000);
 
     return () => clearInterval(intervalId);
-  }, [notifyUserOfUpdate, dismissedVersion]);
+  }, [notifyUserOfUpdate]);
 
   return null;
 }
