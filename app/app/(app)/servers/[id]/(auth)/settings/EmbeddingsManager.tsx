@@ -18,6 +18,8 @@ import {
   clearEmbeddings,
   getEmbeddingProgress,
   EmbeddingProgress,
+  startEmbedding,
+  stopEmbedding,
 } from "@/lib/db/server";
 import { useQuery } from "@tanstack/react-query";
 import { Separator } from "@/components/ui/separator";
@@ -32,10 +34,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Loader, Play, Square } from "lucide-react";
 
 export function EmbeddingsManager({ server }: { server: Server }) {
   const [apiKey, setApiKey] = useState(server.open_ai_api_token || "");
   const [isSaving, setIsSaving] = useState(false);
+  const [isStarting, setIsStarting] = useState(false);
+  const [isStopping, setIsStopping] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
   const [showClearDialog, setShowClearDialog] = useState(false);
 
@@ -43,13 +48,11 @@ export function EmbeddingsManager({ server }: { server: Server }) {
     data: progress,
     error,
     isLoading,
+    refetch,
   } = useQuery<EmbeddingProgress>({
     queryKey: ["embedding-progress", server.id],
     queryFn: async () => await getEmbeddingProgress(server.id),
-    refetchInterval: (query) => {
-      const { data } = query.state;
-      return data?.status === "processing" ? 2000 : false;
-    },
+    refetchInterval: 1000, // Poll every second
     retry: 3,
     retryDelay: 1000,
     initialData: {
@@ -64,11 +67,42 @@ export function EmbeddingsManager({ server }: { server: Server }) {
     setIsSaving(true);
     try {
       await saveOpenAIKey(server.id, apiKey);
-      toast.success("API Key saved successfully. Embedding job started.");
+      toast.success("API Key saved successfully");
+      refetch();
     } catch (error) {
       toast.error("Failed to save API key");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleStartEmbedding = async () => {
+    setIsStarting(true);
+    try {
+      const result = await startEmbedding(server.id);
+      toast.success(result.message);
+      refetch();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to start embedding process"
+      );
+    } finally {
+      setIsStarting(false);
+    }
+  };
+
+  const handleStopEmbedding = async () => {
+    setIsStopping(true);
+    try {
+      const result = await stopEmbedding(server.id);
+      toast.success(result.message);
+      refetch();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to stop embedding process"
+      );
+    } finally {
+      setIsStopping(false);
     }
   };
 
@@ -77,6 +111,7 @@ export function EmbeddingsManager({ server }: { server: Server }) {
     try {
       const result = await clearEmbeddings(server.id);
       toast.success(result.message);
+      refetch();
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : "Failed to clear embeddings"
@@ -86,6 +121,30 @@ export function EmbeddingsManager({ server }: { server: Server }) {
       setShowClearDialog(false);
     }
   };
+
+  // Helper to get status text
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case "idle":
+        return "Idle";
+      case "starting":
+        return "Starting embedding process...";
+      case "processing":
+        return "Generating embeddings for movies...";
+      case "completed":
+        return "All requested movies have embeddings";
+      case "failed":
+        return "Process failed. Please try again.";
+      case "stopped":
+        return "Process was stopped";
+      default:
+        return status.charAt(0).toUpperCase() + status.slice(1);
+    }
+  };
+
+  // Check if the process is actively running
+  const isProcessRunning =
+    progress?.status === "processing" || progress?.status === "starting";
 
   return (
     <>
@@ -107,41 +166,77 @@ export function EmbeddingsManager({ server }: { server: Server }) {
                 onChange={(e) => setApiKey(e.target.value)}
                 className="flex-1"
               />
-              <Button onClick={handleSaveApiKey} disabled={isSaving}>
-                {isSaving ? "Saving..." : "Save and run"}
+              <Button onClick={handleSaveApiKey} disabled={isSaving || !apiKey}>
+                {isSaving ? "Saving..." : "Save API Key"}
               </Button>
             </div>
           </div>
 
-          {progress?.status !== "idle" || progress?.total > 0 ? (
-            <div className="space-y-4">
-              <Separator />
-              <h3 className="text-sm font-medium">Movie Embeddings</h3>
-              <Progress value={progress.percentage} />
-              <div className="flex justify-between text-sm text-muted-foreground">
-                <span>
-                  {progress.processed} of {progress.total} movies embedded
-                </span>
-                <span>{progress.percentage.toFixed(1)}%</span>
-              </div>
-              <div className="text-sm text-muted-foreground">
-                Status:{" "}
-                {progress.status === "processing"
-                  ? "Generating embeddings for movies..."
-                  : progress.status === "completed"
-                  ? "All requested movies have embeddings"
-                  : progress.status.charAt(0).toUpperCase() +
-                    progress.status.slice(1)}
-              </div>
-              {error && (
-                <div className="text-sm text-red-500">
-                  Error fetching progress. Retrying...
-                </div>
-              )}
+          <Separator />
+
+          <div className="space-y-4">
+            <h3 className="text-sm font-medium">Movie Embeddings</h3>
+            <div className="flex justify-between mb-2">
+              <span className="text-sm font-medium">
+                Status: {getStatusText(progress?.status || "idle")}
+              </span>
+              <span className="text-sm text-muted-foreground">
+                {progress?.processed || 0} of {progress?.total || 0} movies
+                embedded
+                {progress?.total > 0
+                  ? ` (${progress.percentage.toFixed(1)}%)`
+                  : ""}
+              </span>
             </div>
-          ) : null}
+
+            <Progress value={progress?.percentage || 0} className="h-2" />
+
+            <div className="flex gap-2 mt-4">
+              <Button
+                onClick={handleStartEmbedding}
+                disabled={
+                  isStarting || isProcessRunning || !server.open_ai_api_token
+                }
+                className="flex items-center gap-1"
+              >
+                {isStarting ? (
+                  <>
+                    <Loader className="h-4 w-4 animate-spin" /> Starting...
+                  </>
+                ) : (
+                  <>
+                    <Play className="h-4 w-4" /> Start Embedding
+                  </>
+                )}
+              </Button>
+
+              <Button
+                onClick={handleStopEmbedding}
+                disabled={isStopping || !isProcessRunning}
+                variant="secondary"
+                className="flex items-center gap-1"
+              >
+                {isStopping ? (
+                  <>
+                    <Loader className="h-4 w-4 animate-spin" /> Stopping...
+                  </>
+                ) : (
+                  <>
+                    <Square className="h-4 w-4" /> Stop Embedding
+                  </>
+                )}
+              </Button>
+            </div>
+
+            {error && (
+              <div className="text-sm text-red-500 mt-2">
+                Error fetching progress. Retrying...
+              </div>
+            )}
+          </div>
 
           <Separator />
+
           <div className="space-y-4">
             <h3 className="text-sm font-medium">Clear Embeddings</h3>
             <p className="text-sm text-muted-foreground">
@@ -151,7 +246,7 @@ export function EmbeddingsManager({ server }: { server: Server }) {
             <Button
               variant="destructive"
               onClick={() => setShowClearDialog(true)}
-              disabled={isClearing || progress?.status === "processing"}
+              disabled={isClearing || isProcessRunning}
             >
               {isClearing ? "Clearing..." : "Clear All Embeddings"}
             </Button>
@@ -162,16 +257,23 @@ export function EmbeddingsManager({ server }: { server: Server }) {
       <AlertDialog open={showClearDialog} onOpenChange={setShowClearDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Clear All Embeddings</AlertDialogTitle>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to clear all embeddings? This action cannot
-              be undone.
+              This action will delete all existing movie embeddings. You will
+              need to regenerate them if you want to use AI-powered
+              recommendations.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleClearEmbeddings}>
-              Continue
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleClearEmbeddings();
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isClearing ? "Clearing..." : "Clear Embeddings"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

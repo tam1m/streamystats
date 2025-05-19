@@ -16,73 +16,182 @@ defmodule StreamystatServer.BatchEmbedder do
   # Small delay between batches to avoid rate limiting
   @delay_between_batches 500
 
+  # Create the tables when the module is loaded
+  @on_load :create_tables
+
+  def create_tables do
+    # Create the tables at module load time
+    ensure_table_exists()
+    :ok
+  end
+
   # Store embedding progress for each server
   def start_progress_tracking(server_id) do
-    try do
+    ensure_table_exists()
+    :ets.insert(:embedding_progress, {server_id, %{total: 0, processed: 0, status: "starting"}})
+  rescue
+    _ ->
+      ensure_table_exists()
       :ets.insert(:embedding_progress, {server_id, %{total: 0, processed: 0, status: "starting"}})
-    catch
-      _, _ -> ensure_table_exists()
-    end
   end
 
   def update_progress(server_id, total, processed, status \\ "processing") do
-    try do
+    ensure_table_exists()
+    :ets.insert(:embedding_progress, {server_id, %{total: total, processed: processed, status: status}})
+  rescue
+    _ ->
+      ensure_table_exists()
       :ets.insert(:embedding_progress, {server_id, %{total: total, processed: processed, status: status}})
-    catch
-      _, _ -> ensure_table_exists()
-    end
   end
 
   def get_progress(server_id) do
-    try do
-      case :ets.lookup(:embedding_progress, server_id) do
-        [{^server_id, progress}] -> progress
-        [] -> %{total: 0, processed: 0, status: "idle"}
-      end
-    catch
-      _, _ ->
-        ensure_table_exists()
-        %{total: 0, processed: 0, status: "idle"}
+    ensure_table_exists()
+
+    case :ets.lookup(:embedding_progress, server_id) do
+      [{^server_id, progress}] -> progress
+      [] -> %{total: 0, processed: 0, status: "idle"}
     end
+  rescue
+    _ -> %{total: 0, processed: 0, status: "idle"}
   end
 
   # Create the table if it doesn't exist
-  defp ensure_table_exists do
-    try do
-      if !:ets.info(:embedding_progress) do
-        :ets.new(:embedding_progress, [:set, :public, :named_table])
+  def ensure_table_exists do
+    # Create embedding progress table
+    if :ets.info(:embedding_progress) == :undefined do
+      :ets.new(:embedding_progress, [:set, :public, :named_table])
+    end
+
+    # Create process registry table
+    if :ets.info(:embedding_process_registry) == :undefined do
+      :ets.new(:embedding_process_registry, [:set, :public, :named_table])
+    end
+
+    :ok
+  rescue
+    _ ->
+      # If we're here, there was an error but we'll try once more to create the tables
+      try do
+        if :ets.info(:embedding_progress) == :undefined do
+          :ets.new(:embedding_progress, [:set, :public, :named_table])
+        end
+      rescue
+        _ -> Logger.error("Failed to create embedding_progress ETS table")
       end
-    catch
-      _, _ ->
-        # If we still can't create it, just log the error
-        Logger.error("Failed to create or access embedding_progress ETS table")
+
+      try do
+        if :ets.info(:embedding_process_registry) == :undefined do
+          :ets.new(:embedding_process_registry, [:set, :public, :named_table])
+        end
+      rescue
+        _ -> Logger.error("Failed to create embedding_process_registry ETS table")
+      end
+  end
+
+  # Start embedding process for a specific server with better error handling
+  def start_embed_items_for_server(server_id, token) do
+    # First ensure tables exist
+    ensure_table_exists()
+
+    # Check if a process is already running for this server
+    case get_embedding_process(server_id) do
+      nil ->
+        # Start a new process and track its PID
+        {:ok, pid} = Task.start(fn ->
+          embed_items_for_server(server_id, token)
+        end)
+
+        # Register the process in our ETS table
+        register_embedding_process(server_id, pid)
+
+        # Start monitoring the process to update status if it crashes
+        Process.monitor(pid)
+
+        {:ok, "Embedding process started"}
+
+      pid ->
+        # Check if the process is still alive
+        if Process.alive?(pid) do
+          {:error, "Embedding process already running for server #{server_id}"}
+        else
+          # Process is dead but not unregistered, clean up and start a new one
+          unregister_embedding_process(server_id)
+          start_embed_items_for_server(server_id, token)
+        end
     end
   end
 
-  def embed_all_items do
-    Logger.info("Starting batch embedding process for movies without embeddings")
+  # Stop embedding process for a specific server
+  def stop_embed_items_for_server(server_id) do
+    # First ensure tables exist
+    ensure_table_exists()
 
-    # Get servers with OpenAI API tokens
-    servers_with_tokens =
-      Repo.all(
-        from(s in Servers.Models.Server,
-          where: not is_nil(s.open_ai_api_token),
-          select: {s.id, s.open_ai_api_token}
-        )
-      )
+    case get_embedding_process(server_id) do
+      nil ->
+        {:error, "No embedding process running for server #{server_id}"}
 
+      pid ->
+        if Process.alive?(pid) do
+          # Kill the process
+          Process.exit(pid, :kill)
 
-    if Enum.empty?(servers_with_tokens) do
-      Logger.warning("No servers with OpenAI API tokens found. Skipping embedding.")
-      :ok
+          # Update status to stopped
+          update_progress(server_id, get_progress(server_id).total, get_progress(server_id).processed, "stopped")
+
+          # Unregister the process
+          unregister_embedding_process(server_id)
+
+          {:ok, "Embedding process stopped"}
+        else
+          # Process already dead, just unregister and update status
+          unregister_embedding_process(server_id)
+          update_progress(server_id, get_progress(server_id).total, get_progress(server_id).processed, "stopped")
+
+          {:ok, "Embedding process was not running"}
+        end
+    end
+  end
+
+  # Register an embedding process PID for a server
+  defp register_embedding_process(server_id, pid) do
+    ensure_table_exists()
+    :ets.insert(:embedding_process_registry, {server_id, pid})
+  rescue
+    _ ->
+      ensure_table_exists()
+      :ets.insert(:embedding_process_registry, {server_id, pid})
+  end
+
+  # Unregister an embedding process for a server
+  defp unregister_embedding_process(server_id) do
+    ensure_table_exists()
+    :ets.delete(:embedding_process_registry, server_id)
+  rescue
+    _ -> Logger.error("Failed to unregister embedding process for server #{server_id}")
+  end
+
+  # Get the current embedding process PID for a server
+  def get_embedding_process(server_id) do
+    ensure_table_exists()
+
+    case :ets.lookup(:embedding_process_registry, server_id) do
+      [{^server_id, pid}] -> pid
+      [] -> nil
+    end
+  rescue
+    _ -> nil
+  end
+
+  # Initialize progress counter before starting embedding process
+  def initialize_progress_counter do
+    if Process.whereis(:embedding_progress_counter) do
+      Agent.update(:embedding_progress_counter, fn _ -> 0 end)
     else
-      # Process each server
-      Enum.each(servers_with_tokens, fn {server_id, token} ->
-        embed_items_for_server(server_id, token)
-      end)
+      {:ok, _} = Agent.start_link(fn -> 0 end, name: :embedding_progress_counter)
     end
   end
 
+  # The main embedding function that processes items for a server
   def embed_items_for_server(server_id, token) do
     # Start tracking progress
     start_progress_tracking(server_id)
@@ -168,11 +277,23 @@ defmodule StreamystatServer.BatchEmbedder do
           |> Stream.chunk_every(@batch)
         end)
         |> Stream.each(fn batch ->
+          # Check if the process has been externally killed
+          Process.sleep(50)
+
+          # Update the progress counter
+          processed = Agent.get_and_update(:embedding_progress_counter, fn count ->
+            new_count = count + length(batch)
+            {new_count, new_count}
+          end)
+          update_progress(server_id, total_movies_count, processed)
+
           case embed_batch_with_direct_api(batch, token) do
             :ok -> :ok
             {:error, reason} ->
               Logger.error("Failed to embed batch: #{inspect(reason)}")
-              update_progress(server_id, total_movies_count, already_embedded_count, "failed")
+              update_progress(server_id, total_movies_count, processed, "failed")
+              # Clean up the process registry since we're exiting with an error
+              unregister_embedding_process(server_id)
               raise "Batch embedding failed: #{inspect(reason)}"
           end
         end)
@@ -184,22 +305,20 @@ defmodule StreamystatServer.BatchEmbedder do
         # No items to process, mark as completed
         update_progress(server_id, total_movies_count, total_movies_count, "completed")
       end
+
+      # Clean up the process registry since we're done
+      unregister_embedding_process(server_id)
+
+      {:ok, "Embedding process completed"}
     rescue
       e ->
         Logger.error("Error during embedding process: #{inspect(e)}")
         Logger.error(Exception.format_stacktrace())
         # Update progress to failed
         update_progress(server_id, 0, 0, "failed")
+        # Clean up the process registry since we're exiting with an error
+        unregister_embedding_process(server_id)
         {:error, Exception.message(e)}
-    end
-  end
-
-  # Initialize progress counter before starting embedding process
-  def initialize_progress_counter do
-    if Process.whereis(:embedding_progress_counter) do
-      Agent.update(:embedding_progress_counter, fn _ -> 0 end)
-    else
-      {:ok, _} = Agent.start_link(fn -> 0 end, name: :embedding_progress_counter)
     end
   end
 
@@ -253,6 +372,7 @@ defmodule StreamystatServer.BatchEmbedder do
           # Add a small delay to avoid rate limiting
           Process.sleep(@delay_between_batches)
           Logger.info("Successfully embedded batch of #{length(valid_items)} items")
+          :ok
 
         {:error, reason} ->
           Logger.error("Batch embedding failed: #{reason}")
@@ -264,6 +384,7 @@ defmodule StreamystatServer.BatchEmbedder do
             # Add a small delay between individual requests
             Process.sleep(200)
           end)
+          :ok
       end
     end
   end

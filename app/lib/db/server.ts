@@ -30,7 +30,13 @@ export const saveOpenAIKey = async (
 export interface EmbeddingProgress {
   total: number;
   processed: number;
-  status: "idle" | "starting" | "processing" | "completed";
+  status:
+    | "idle"
+    | "starting"
+    | "processing"
+    | "completed"
+    | "failed"
+    | "stopped";
   percentage: number;
 }
 
@@ -70,6 +76,60 @@ export const getEmbeddingProgress = async (
       status: "idle",
       percentage: 0,
     };
+  }
+};
+
+export const startEmbedding = async (
+  serverId: string | number
+): Promise<{ message: string }> => {
+  try {
+    const response = await fetch(
+      `${process.env.API_URL}/admin/servers/${serverId}/embedding/start`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${await getToken()}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || "Failed to start embedding process");
+    }
+
+    return response.json();
+  } catch (error) {
+    console.error("Error starting embedding process:", error);
+    throw error;
+  }
+};
+
+export const stopEmbedding = async (
+  serverId: string | number
+): Promise<{ message: string }> => {
+  try {
+    const response = await fetch(
+      `${process.env.API_URL}/admin/servers/${serverId}/embedding/stop`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${await getToken()}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || "Failed to stop embedding process");
+    }
+
+    return response.json();
+  } catch (error) {
+    console.error("Error stopping embedding process:", error);
+    throw error;
   }
 };
 

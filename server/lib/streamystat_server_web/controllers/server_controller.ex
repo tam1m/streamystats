@@ -55,13 +55,11 @@ defmodule StreamystatServerWeb.ServerController do
           {:ok, updated_server} ->
             # If OpenAI token was updated, start embedding process
             if openai_token_updated && updated_server.open_ai_api_token do
-              # Start embedding process in a separate process
-              Task.start(fn ->
-                StreamystatServer.BatchEmbedder.embed_items_for_server(
-                  updated_server.id,
-                  updated_server.open_ai_api_token
-                )
-              end)
+              # Start embedding process using the new function
+              BatchEmbedder.start_embed_items_for_server(
+                updated_server.id,
+                updated_server.open_ai_api_token
+              )
             end
 
             render(conn, :show, server: updated_server)
@@ -103,6 +101,49 @@ defmodule StreamystatServerWeb.ServerController do
 
     conn
     |> json(%{data: progress_with_percentage})
+  end
+
+  def start_embedding(conn, %{"server_id" => server_id}) do
+    server_id = String.to_integer(server_id)
+
+    # Get the server to ensure it exists and has a token
+    case Servers.get_server(server_id) do
+      nil ->
+        conn
+        |> put_status(:not_found)
+        |> json(%{error: "Server not found"})
+
+      server ->
+        if server.open_ai_api_token do
+          case BatchEmbedder.start_embed_items_for_server(server_id, server.open_ai_api_token) do
+            {:ok, message} ->
+              json(conn, %{message: message})
+
+            {:error, error} ->
+              conn
+              |> put_status(:bad_request)
+              |> json(%{error: error})
+          end
+        else
+          conn
+          |> put_status(:bad_request)
+          |> json(%{error: "No OpenAI API token configured for this server"})
+        end
+    end
+  end
+
+  def stop_embedding(conn, %{"server_id" => server_id}) do
+    server_id = String.to_integer(server_id)
+
+    case BatchEmbedder.stop_embed_items_for_server(server_id) do
+      {:ok, message} ->
+        json(conn, %{message: message})
+
+      {:error, error} ->
+        conn
+        |> put_status(:bad_request)
+        |> json(%{error: error})
+    end
   end
 
   def clear_embeddings(conn, %{"id" => id}) do

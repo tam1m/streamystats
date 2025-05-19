@@ -43,6 +43,8 @@ defmodule StreamystatServerWeb.Router do
       get("/servers/:server_id/sync/tasks", SyncController, :list_tasks)
       get("/servers/:server_id/sync/tasks/:task_id", SyncController, :show_task)
       get("/servers/:server_id/embedding/progress", ServerController, :embedding_progress)
+      post("/servers/:server_id/embedding/start", ServerController, :start_embedding)
+      post("/servers/:server_id/embedding/stop", ServerController, :stop_embedding)
       get("/servers/:server_id/activities", ActivityController, :index)
       post("/servers/:server_id/tautulli/import", TautulliImportController, :import)
       post("/servers/:server_id/jellystats/import", JellystatsImportController, :import)

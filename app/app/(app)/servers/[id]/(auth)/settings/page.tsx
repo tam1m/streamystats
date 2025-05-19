@@ -15,9 +15,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import DatabaseBackupRestore from "./DatabaseBackupRestore";
-import { OpenAIAPI } from "./OpenAIAPI";
-import { EmbeddingProgress } from "./EmbeddingProgress";
-import { ClearEmbeddings } from "./ClearEmbeddings";
+import { EmbeddingsManager } from "./EmbeddingsManager";
 import {
   Card,
   CardContent,
@@ -25,7 +23,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { EmbeddingsManager } from "./EmbeddingsManager";
 
 export default async function Settings({
   params,
