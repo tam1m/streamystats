@@ -22,6 +22,7 @@ defmodule StreamystatServerWeb.ServerJSON do
       url: server.url,
       api_key: server.api_key,
       open_ai_api_token: server.open_ai_api_token,
+      auto_generate_embeddings: server.auto_generate_embeddings,
       inserted_at: server.inserted_at,
       updated_at: server.updated_at
     }

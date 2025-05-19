@@ -265,7 +265,7 @@ export function EmbeddingsManager({ server }: { server: Server }) {
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
                 <p className="text-sm text-muted-foreground">
-                  Automatically generate embeddings for new items every hour
+                  Automatically generate embeddings for all (and new) items
                 </p>
                 <p className="text-xs text-muted-foreground">
                   This requires a valid OpenAI API key
