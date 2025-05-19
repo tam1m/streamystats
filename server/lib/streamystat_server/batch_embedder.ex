@@ -19,6 +19,10 @@ defmodule StreamystatServer.BatchEmbedder do
   # Create the tables when the module is loaded
   @on_load :create_tables
 
+  # Extract validation and casting into a single helper function
+  # The expected dimension for OpenAI embeddings is 1536
+  @embedding_dimension 1536
+
   def create_tables do
     # Create the tables at module load time
     ensure_table_exists()
@@ -336,7 +340,29 @@ defmodule StreamystatServer.BatchEmbedder do
     {:error, "Invalid embedding data format: not a list"}
   end
 
-  # This function processes a batch by sending texts together to the OpenAI API
+  # Extract validation and casting into a single helper function
+  defp validate_and_store_embedding(item, embedding_data) do
+    with true <- is_list(embedding_data) || {:error, "Not a list"},
+         true <- length(embedding_data) == @embedding_dimension || {:error, "Invalid dimension: expected #{@embedding_dimension}"},
+         true <- Enum.all?(embedding_data, &is_number/1) || {:error, "Contains non-numeric values"},
+         {:ok, vector} <- Pgvector.Ecto.Vector.cast(embedding_data) do
+      # Update the database with the valid vector
+      Repo.update_all(
+        from(i in Item, where: i.id == ^item.id),
+        set: [embedding: vector]
+      )
+      :ok
+    else
+      {:error, reason} ->
+        Logger.error("Invalid embedding for item #{item.id}: #{reason}")
+        :error
+      error ->
+        Logger.error("Failed to process embedding for item #{item.id}: #{inspect(error)}")
+        :error
+    end
+  end
+
+  # Update the batch processing function
   defp embed_batch_with_direct_api(items, token) do
     # Extract texts for all items in batch
     texts_with_items = Enum.map(items, fn item -> {build_text(item), item} end)
@@ -360,7 +386,7 @@ defmodule StreamystatServer.BatchEmbedder do
           # Process successful results
           Enum.zip(valid_items, embeddings)
           |> Enum.each(fn {item, embedding} ->
-            # Ensure embedding is a raw list before casting to vector
+            # Ensure embedding is a raw list before validation
             embedding_data = case embedding do
               {:ok, vector} -> vector # Handle case where it's already wrapped in {:ok, vector}
               _ when is_list(embedding) -> embedding # Regular list data
@@ -368,22 +394,7 @@ defmodule StreamystatServer.BatchEmbedder do
             end
 
             if embedding_data do
-              # Validate the embedding format first
-              case ensure_valid_vector_format(embedding_data) do
-                {:ok, valid_data} ->
-                  # Then attempt to cast to Pgvector format
-                  case Pgvector.Ecto.Vector.cast(valid_data) do
-                    {:ok, vector} ->
-                      Repo.update_all(
-                        from(i in Item, where: i.id == ^item.id),
-                        set: [embedding: vector]
-                      )
-                    _ ->
-                      Logger.error("Failed to cast embedding for item #{item.id} - invalid format")
-                  end
-                {:error, reason} ->
-                  Logger.error("Invalid embedding format for item #{item.id}: #{reason}")
-              end
+              validate_and_store_embedding(item, embedding_data)
             else
               Logger.error("Invalid embedding data for item #{item.id}")
             end
@@ -417,7 +428,7 @@ defmodule StreamystatServer.BatchEmbedder do
       try do
         case OpenAI.embed(text, token) do
           {:ok, embedding} ->
-            # Ensure embedding is a raw list before casting to vector
+            # Ensure embedding is a raw list before validation
             embedding_data = case embedding do
               {:ok, vector} -> vector # Handle case where it's already wrapped in {:ok, vector}
               _ when is_list(embedding) -> embedding # Regular list data
@@ -425,23 +436,8 @@ defmodule StreamystatServer.BatchEmbedder do
             end
 
             if embedding_data do
-              # Validate the embedding format first
-              case ensure_valid_vector_format(embedding_data) do
-                {:ok, valid_data} ->
-                  # Then attempt to cast to Pgvector format
-                  case Pgvector.Ecto.Vector.cast(valid_data) do
-                    {:ok, vector} ->
-                      Repo.update_all(
-                        from(i in Item, where: i.id == ^item.id),
-                        set: [embedding: vector]
-                      )
-                      Logger.info("Successfully embedded item #{item.id}")
-                    _ ->
-                      Logger.error("Failed to cast embedding for item #{item.id} - invalid format")
-                  end
-                {:error, reason} ->
-                  Logger.error("Invalid embedding format for item #{item.id}: #{reason}")
-              end
+              validate_and_store_embedding(item, embedding_data)
+              Logger.info("Successfully embedded item #{item.id}")
             else
               Logger.error("Invalid embedding data for item #{item.id}")
             end
@@ -451,7 +447,7 @@ defmodule StreamystatServer.BatchEmbedder do
         end
       rescue
         e ->
-          Logger.error("Exception when embedding item #{item.id}: #{inspect(e)}")
+          Logger.error("Error embedding item #{item.id}: #{Exception.message(e)}")
       end
     else
       Logger.warning("Skipping item #{item.id} - empty text")
