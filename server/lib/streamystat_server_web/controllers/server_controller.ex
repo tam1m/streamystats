@@ -1,6 +1,10 @@
 defmodule StreamystatServerWeb.ServerController do
   use StreamystatServerWeb, :controller
   alias StreamystatServer.Servers.Servers
+  alias StreamystatServer.Servers.Models.Server
+  alias StreamystatServer.BatchEmbedder
+  alias StreamystatServer.Repo
+  alias StreamystatServer.SessionAnalysis
 
   def index(conn, _params) do
     servers = Servers.list_servers()
@@ -37,6 +41,7 @@ defmodule StreamystatServerWeb.ServerController do
 
   def update_settings(conn, %{"id" => id} = params) do
     settings_params = Map.drop(params, ["id"])
+    openai_token_updated = Map.has_key?(settings_params, "open_ai_api_token")
 
     case Servers.get_server(id) do
       nil ->
@@ -48,6 +53,15 @@ defmodule StreamystatServerWeb.ServerController do
       server ->
         case Servers.update_server(server, settings_params) do
           {:ok, updated_server} ->
+            # If OpenAI token was updated, start embedding process
+            if openai_token_updated && updated_server.open_ai_api_token do
+              # Start embedding process using the new function
+              BatchEmbedder.start_embed_items_for_server(
+                updated_server.id,
+                updated_server.open_ai_api_token
+              )
+            end
+
             render(conn, :show, server: updated_server)
 
           {:error, changeset} ->
@@ -68,6 +82,91 @@ defmodule StreamystatServerWeb.ServerController do
         conn
         |> put_status(:unprocessable_entity)
         |> json(%{error: reason})
+    end
+  end
+
+  def embedding_progress(conn, %{"server_id" => server_id}) do
+    # Get embedding progress for the server
+    progress = BatchEmbedder.get_progress(String.to_integer(server_id))
+
+    # Calculate percentage if available
+    percentage = if progress.total > 0 do
+      Float.round(progress.processed / progress.total * 100, 1)
+    else
+      0.0
+    end
+
+    # Add percentage to the progress data
+    progress_with_percentage = Map.put(progress, :percentage, percentage)
+
+    conn
+    |> json(%{data: progress_with_percentage})
+  end
+
+  def start_embedding(conn, %{"server_id" => server_id}) do
+    server_id = String.to_integer(server_id)
+
+    # Get the server to ensure it exists and has a token
+    case Servers.get_server(server_id) do
+      nil ->
+        conn
+        |> put_status(:not_found)
+        |> json(%{error: "Server not found"})
+
+      server ->
+        if server.open_ai_api_token do
+          case BatchEmbedder.start_embed_items_for_server(server_id, server.open_ai_api_token) do
+            {:ok, message} ->
+              json(conn, %{message: message})
+
+            {:error, error} ->
+              conn
+              |> put_status(:bad_request)
+              |> json(%{error: error})
+          end
+        else
+          conn
+          |> put_status(:bad_request)
+          |> json(%{error: "No OpenAI API token configured for this server"})
+        end
+    end
+  end
+
+  def stop_embedding(conn, %{"server_id" => server_id}) do
+    server_id = String.to_integer(server_id)
+
+    case BatchEmbedder.stop_embed_items_for_server(server_id) do
+      {:ok, message} ->
+        json(conn, %{message: message})
+
+      {:error, error} ->
+        conn
+        |> put_status(:bad_request)
+        |> json(%{error: error})
+    end
+  end
+
+  def clear_embeddings(conn, %{"id" => id}) do
+    server = Repo.get(Server, id)
+
+    case server do
+      nil ->
+        conn
+        |> put_status(:not_found)
+        |> json(%{error: "Server not found"})
+
+      _ ->
+        case SessionAnalysis.remove_all_embeddings(server.id) do
+          {:ok, count} ->
+            # Reset the progress tracking after clearing embeddings
+            BatchEmbedder.update_progress(server.id, 0, 0, "idle")
+            json(conn, %{message: "Successfully cleared #{count} embeddings"})
+
+          {:error, reason} ->
+            conn
+            |> put_status(:internal_server_error)
+            |> json(%{error: reason})
+        end
     end
   end
 end

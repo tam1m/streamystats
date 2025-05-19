@@ -41,7 +41,9 @@ config :streamystat_server, StreamystatServerWeb.Endpoint,
   code_reloader: true,
   debug_errors: true,
   secret_key_base: "XEUqo2CvNzoDqPMea93ijjna7btWWMpRiOlAiuqEOzYWwBq10mhJ4E6J4i7LzDUb",
-  watchers: []
+  watchers: [],
+  # Set Phoenix request logging to debug level instead of info
+  log: :debug
 
 # ## SSL Support
 #
@@ -70,7 +72,9 @@ config :streamystat_server, StreamystatServerWeb.Endpoint,
 config :streamystat_server, dev_routes: true
 
 # Do not include metadata nor timestamps in development logs
-config :logger, :console, format: "[$level] $message\n"
+config :logger, :console,
+  format: "$time [$level] $message\n",
+  level: :info
 
 # Set a higher stacktrace during development. Avoid configuring such
 # in production as building large stacktraces may be expensive.

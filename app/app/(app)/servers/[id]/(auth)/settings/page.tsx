@@ -15,7 +15,14 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import DatabaseBackupRestore from "./DatabaseBackupRestore";
-import { OpenAIAPI } from "./OpenAIAPI";
+import { EmbeddingsManager } from "./EmbeddingsManager";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 export default async function Settings({
   params,
@@ -24,7 +31,6 @@ export default async function Settings({
 }) {
   const { id } = await params;
   const server = await getServer(id);
-
   if (!server) {
     redirect("/setup");
   }
@@ -33,10 +39,7 @@ export default async function Settings({
     <Container className="">
       <h1 className="text-3xl font-bold mb-8">Settings</h1>
       <Tasks server={server} />
-      <OpenAIAPI
-        serverId={server.id}
-        initialApiKey={server.open_ai_api_token}
-      />
+      <EmbeddingsManager server={server} />
       <Accordion type="single" collapsible className="mb-4">
         <AccordionItem value="jellystat-import">
           <AccordionTrigger className="text-2xl font-semibold">

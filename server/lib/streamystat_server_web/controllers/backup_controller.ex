@@ -55,14 +55,14 @@ defmodule StreamystatServerWeb.BackupController do
 
       # Start a transaction for better performance
       :ok = Exqlite.Sqlite3.execute(db, "BEGIN IMMEDIATE TRANSACTION")
-      
+
       case export_sessions(db, stmt, server_id) do
         {:ok, _} ->
           # Verify data was written
           {:ok, verify_stmt} = Exqlite.Sqlite3.prepare(db, "SELECT COUNT(*) FROM playback_sessions")
           {:row, [written_count]} = Exqlite.Sqlite3.step(db, verify_stmt)
           :ok = Exqlite.Sqlite3.release(db, verify_stmt)
-          
+
           Logger.info("Successfully wrote #{written_count} sessions to SQLite database")
 
           :ok = Exqlite.Sqlite3.execute(db, "COMMIT")
@@ -166,7 +166,7 @@ defmodule StreamystatServerWeb.BackupController do
         bind_session_to_statement(stmt, s)
         case Exqlite.Sqlite3.step(db, stmt) do
           :done -> :ok
-          {:error, reason} -> 
+          {:error, reason} ->
             Logger.error("Failed to write session #{s.id}: #{inspect(reason)}")
             raise "Failed to write session to SQLite"
         end
@@ -200,7 +200,7 @@ defmodule StreamystatServerWeb.BackupController do
       NaiveDateTime.to_iso8601(session.inserted_at),
       NaiveDateTime.to_iso8601(session.updated_at)
     ]
-    
+
     case Exqlite.Sqlite3.bind(stmt, values) do
       :ok -> :ok
       {:error, reason} ->
@@ -248,178 +248,128 @@ defmodule StreamystatServerWeb.BackupController do
   end
 
   defp find_playback_sessions_table(db) do
-    case Exqlite.Sqlite3.prepare(db, "SELECT name FROM sqlite_master WHERE type='table'") do
-      {:ok, stmt} ->
-        tables = Stream.unfold(stmt, fn stmt ->
-          case Exqlite.Sqlite3.step(db, stmt) do
-            {:row, row} -> {row, stmt}
-            :done -> nil
-          end
-        end)
-        |> Enum.to_list()
-
-        _ = Exqlite.Sqlite3.release(db, stmt)
-
-        case Enum.find(tables, fn [table_name] ->
-          String.downcase(table_name) == "playback_sessions"
-        end) do
-          [table_name] -> {:ok, table_name}
-          nil -> {:error, "Invalid backup file: missing playback_sessions table"}
-        end
-
-      {:error, reason} ->
-        {:error, "Failed to list database tables: #{reason}"}
+    case Exqlite.Sqlite3.execute(db, "SELECT name FROM sqlite_master WHERE type='table' AND name LIKE '%playback_sessions%'") do
+      {:ok, []} -> {:error, "No playback sessions table found in database"}
+      {:ok, [[table_name]]} -> {:ok, table_name}
+      error -> error
     end
   end
 
   defp fetch_all_rows(db, stmt) do
-    Stream.unfold(stmt, fn stmt ->
-      case Exqlite.Sqlite3.step(db, stmt) do
-        {:row, row} -> {row, stmt}
-        :done -> nil
-      end
-    end)
-    |> Enum.to_list()
+    rows = []
+    case Exqlite.Sqlite3.step(db, stmt) do
+      {:row, row} -> fetch_all_rows(db, stmt, [row | rows])
+      :done -> Enum.reverse(rows)
+      error -> error
+    end
+  end
+
+  defp fetch_all_rows(db, stmt, rows) do
+    case Exqlite.Sqlite3.step(db, stmt) do
+      {:row, row} -> fetch_all_rows(db, stmt, [row | rows])
+      :done -> Enum.reverse(rows)
+      error -> error
+    end
   end
 
   defp cleanup_db_resources(db, stmt) do
-    _ = Exqlite.Sqlite3.release(db, stmt)
-    _ = Exqlite.Sqlite3.close(db)
-    :ok
+    :ok = Exqlite.Sqlite3.release(db, stmt)
+    :ok = Exqlite.Sqlite3.close(db)
   end
 
   defp process_import_batches(rows, cols, server_id) do
-    col_atoms = Enum.map(cols, &String.to_existing_atom/1)
+    # Convert column names to atoms for easier access
+    col_atoms = Enum.map(cols, &String.to_atom/1)
 
-    # Preload all users for this server to avoid N+1 queries
-    users_map = Repo.all(from u in User, where: u.server_id == ^server_id)
-    |> Enum.map(fn user -> {user.jellyfin_id, user} end)
-    |> Map.new()
-
-    total_inserted = rows
+    # Process rows in batches
+    rows
     |> Enum.chunk_every(@batch_size)
-    |> Enum.reduce(0, fn batch, acc ->
-      entries = batch
-      |> Stream.map(fn row ->
-        attrs = col_atoms
-        |> Enum.zip(row)
-        |> Map.new()
-        |> Map.put(:server_id, server_id)
+    |> Enum.reduce_while({:ok, 0}, fn batch, {:ok, count} ->
+      case process_batch(batch, col_atoms, server_id) do
+        {:ok, batch_count} -> {:cont, {:ok, count + batch_count}}
+        {:error, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+  end
 
-        # Get the user from our preloaded map
-        user = Map.get(users_map, attrs[:user_jellyfin_id])
-
-        # Add the user_id if we found a matching user
-        attrs = if user do
-          Map.put(attrs, :user_id, user.id)
-        else
-          attrs
-        end
-
-        format_attrs(attrs)
-      end)
-      |> Enum.to_list()
-
-      {inserted_count, _} = Repo.insert_all(
-        PlaybackSession,
-        entries,
-        on_conflict: :nothing,
-        conflict_target: [:item_jellyfin_id, :user_jellyfin_id, :start_time, :server_id]
-      )
-
-      acc + inserted_count
+  defp process_batch(rows, col_atoms, server_id) do
+    # Convert rows to maps with atom keys
+    sessions = Enum.map(rows, fn row ->
+      Enum.zip(col_atoms, row) |> Map.new()
     end)
 
-    {:ok, total_inserted}
-  rescue
-    # Fix the error type references
-    e in Postgrex.Error ->
-      Logger.error("Database error during import: #{inspect(e)}")
-      {:error, "Database error during import: #{Exception.message(e)}"}
-
-    e in DBConnection.ConnectionError ->
-      Logger.error("Database connection error during import: #{inspect(e)}")
-      {:error, "Database connection error: #{Exception.message(e)}"}
-
-    e in Ecto.ChangeError ->
-      Logger.error("Ecto change error during import: #{inspect(e)}")
-      {:error, "Database change error: #{Exception.message(e)}"}
+    # Insert sessions in a transaction
+    case Repo.transaction(fn ->
+      Enum.reduce_while(sessions, {:ok, 0}, fn session, {:ok, count} ->
+        case create_session(session, server_id) do
+          {:ok, _} -> {:cont, {:ok, count + 1}}
+          {:error, reason} -> {:halt, {:error, reason}}
+        end
+      end)
+    end) do
+      {:ok, {:ok, count}} -> {:ok, count}
+      {:ok, {:error, reason}} -> {:error, reason}
+      {:error, reason} -> {:error, reason}
+    end
   end
+
+  defp create_session(session, server_id) do
+    # Convert string timestamps to DateTime
+    start_time = parse_datetime(session.start_time)
+    end_time = parse_datetime(session.end_time)
+    inserted_at = parse_datetime(session.inserted_at)
+    updated_at = parse_datetime(session.updated_at)
+
+    # Create session with converted timestamps
+    %PlaybackSession{}
+    |> PlaybackSession.changeset(%{
+      id: session.id,
+      user_jellyfin_id: session.user_jellyfin_id,
+      device_id: session.device_id,
+      device_name: session.device_name,
+      client_name: session.client_name,
+      item_jellyfin_id: session.item_jellyfin_id,
+      item_name: session.item_name,
+      series_jellyfin_id: session.series_jellyfin_id,
+      series_name: session.series_name,
+      season_jellyfin_id: session.season_jellyfin_id,
+      play_duration: session.play_duration,
+      play_method: session.play_method,
+      start_time: start_time,
+      end_time: end_time,
+      position_ticks: session.position_ticks,
+      runtime_ticks: session.runtime_ticks,
+      percent_complete: session.percent_complete,
+      completed: parse_bool(session.completed),
+      server_id: server_id,
+      inserted_at: inserted_at,
+      updated_at: updated_at
+    })
+    |> Repo.insert()
+  end
+
+  defp parse_datetime(nil), do: nil
+  defp parse_datetime(datetime_str) when is_binary(datetime_str) do
+    case DateTime.from_iso8601(datetime_str) do
+      {:ok, datetime, _} -> datetime
+      _ -> nil
+    end
+  end
+  defp parse_datetime(_), do: nil
+
+  defp parse_bool(val) when val in [true, 1, "1", "t", "true", "TRUE"], do: true
+  defp parse_bool(val) when val in [false, 0, "0", "f", "false", "FALSE"], do: false
+  defp parse_bool(_), do: false
 
   defp cleanup_resources(db, stmt, temp_path) do
-    if db, do: :ok = Exqlite.Sqlite3.release(db, stmt)
-    if db, do: :ok = Exqlite.Sqlite3.close(db)
-    if temp_path, do: File.rm(temp_path)
-  end
-
-  defp parse_bool(val) when val in [true, 1, "1", "t", "true", "TRUE"], do: true
-  defp parse_bool(val) when val in [false, 0, "0", "f", "false", "FALSE"], do: false
-  # Default to nil if unsure
-  defp parse_bool(_), do: nil
-
-  defp format_attrs(attrs) do
-    # Use Map.get for optional fields to avoid KeyError if column is missing in older backups
-    %{
-      user_id: Map.get(attrs, :user_id),
-      user_jellyfin_id: Map.get(attrs, :user_jellyfin_id),
-      device_id: Map.get(attrs, :device_id),
-      device_name: Map.get(attrs, :device_name),
-      client_name: Map.get(attrs, :client_name),
-      item_jellyfin_id: Map.get(attrs, :item_jellyfin_id),
-      item_name: Map.get(attrs, :item_name),
-      series_jellyfin_id: Map.get(attrs, :series_jellyfin_id),
-      series_name: Map.get(attrs, :series_name),
-      season_jellyfin_id: Map.get(attrs, :season_jellyfin_id),
-      play_duration: Map.get(attrs, :play_duration),
-      play_method: Map.get(attrs, :play_method),
-      # Expects DateTime or nil
-      start_time: parse_utc(Map.get(attrs, :start_time)),
-      # Expects DateTime or nil
-      end_time: parse_utc(Map.get(attrs, :end_time)),
-      position_ticks: Map.get(attrs, :position_ticks),
-      runtime_ticks: Map.get(attrs, :runtime_ticks),
-      percent_complete: Map.get(attrs, :percent_complete),
-      completed: parse_bool(Map.get(attrs, :completed)),
-      # Already set in process_import, but Map.get won't hurt
-      server_id: Map.get(attrs, :server_id),
-      # Generate new timestamps for the import, truncated to seconds
-      inserted_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second),
-      updated_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
-    }
-    # Drop the old ID from the backup file
-    |> Map.drop([:id])
-  end
-
-  defp parse_bool(val) when val in [true, 1, "1", "t", "true", "TRUE"], do: true
-  defp parse_bool(val) when val in [false, 0, "0", "f", "false", "FALSE"], do: false
-  defp parse_bool(_), do: nil
-
-  defp parse_utc(nil), do: nil
-
-  defp parse_utc(iso8601_string) when is_binary(iso8601_string) do
-    with {:ok, naive_dt} <- NaiveDateTime.from_iso8601(iso8601_string),
-         # Assume the string from SQLite is UTC, convert to DateTime
-         {:ok, datetime} <- DateTime.from_naive(naive_dt, "Etc/UTC") do
-      # Return the DateTime struct directly
-      datetime
-    else
-      # Handle errors from either from_iso8601 or from_naive
-      {:error, _reason} ->
-        Logger.warning("Failed to parse timestamp from backup: #{iso8601_string}")
-        nil
-
-      # Handle cases where the input wasn't a binary string (though guard should prevent)
-      _non_binary_or_error ->
-        Logger.warning("Unexpected input or error parsing timestamp: #{inspect(iso8601_string)}")
-        nil
+    if db do
+      :ok = Exqlite.Sqlite3.close(db)
     end
-  rescue
-    # Catch potential errors during conversion (e.g., invalid format)
-    e ->
-      Logger.error("Error parsing timestamp '#{iso8601_string}': #{inspect(e)}")
-      nil
+    if stmt do
+      :ok = Exqlite.Sqlite3.release(db, stmt)
+    end
+    if temp_path do
+      File.rm(temp_path)
+    end
   end
-
-  # Handle non-string inputs gracefully
-  defp parse_utc(_other), do: nil
 end

@@ -129,7 +129,7 @@ defmodule StreamystatServerWeb.RecommendationController do
 
   defp get_user_id(conn) do
     user_id = conn.assigns[:current_user_id]
-    
+
     # Return nil if user_id is missing, will be handled in the endpoints
     if is_nil(user_id) do
       raise "User not authenticated"

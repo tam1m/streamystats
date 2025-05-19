@@ -16,6 +16,7 @@ defmodule StreamystatServer.Servers.Models.Server do
           jellyfin_id: String.t() | nil,
           startup_wizard_completed: boolean() | nil,
           open_ai_api_token: String.t() | nil,
+          auto_generate_embeddings: boolean() | nil,
           inserted_at: NaiveDateTime.t() | nil,
           updated_at: NaiveDateTime.t() | nil
         }
@@ -32,6 +33,7 @@ defmodule StreamystatServer.Servers.Models.Server do
     field(:name, :string)
     field(:api_key, :string)
     field(:open_ai_api_token, :string)
+    field(:auto_generate_embeddings, :boolean, default: false)
     field(:last_synced_playback_id, :integer, default: 0)
     timestamps()
   end
@@ -50,6 +52,7 @@ defmodule StreamystatServer.Servers.Models.Server do
       :name,
       :api_key,
       :open_ai_api_token,
+      :auto_generate_embeddings,
       :last_synced_playback_id
     ])
     |> validate_required([:url, :api_key])

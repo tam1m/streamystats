@@ -4,6 +4,10 @@ Streamystats is a statistics service for Jellyfin, providing analytics and data 
 
 > ⚠️ This is a hobby project of mine. Don't expect fast development.
 
+## ⚠️ Important Note: Vector PG Version
+
+This project now uses a Vector-enabled Postgres version (`tensorchord/pgvecto-rs:pg16-v0.4.0`). If you're updating from a previous version, you'll need to modify your `docker-compose.yml` file to use this image. Check the compose file for specific configuration details.
+
 ## ✨ Features
 
 - 🖥️ Dashboard with overview statistics, live sessions and more!
