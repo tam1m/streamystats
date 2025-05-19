@@ -322,6 +322,20 @@ defmodule StreamystatServer.BatchEmbedder do
     end
   end
 
+  # Add this helper function to ensure embeddings are in the correct format
+  defp ensure_valid_vector_format(embedding_data) when is_list(embedding_data) do
+    # Ensure all elements are valid numbers
+    if Enum.all?(embedding_data, fn val -> is_number(val) end) do
+      {:ok, embedding_data}
+    else
+      {:error, "Invalid embedding data format: contains non-numeric values"}
+    end
+  end
+
+  defp ensure_valid_vector_format(_) do
+    {:error, "Invalid embedding data format: not a list"}
+  end
+
   # This function processes a batch by sending texts together to the OpenAI API
   defp embed_batch_with_direct_api(items, token) do
     # Extract texts for all items in batch
@@ -354,15 +368,21 @@ defmodule StreamystatServer.BatchEmbedder do
             end
 
             if embedding_data do
-              # Cast to Pgvector format safely
-              case Pgvector.Ecto.Vector.cast(embedding_data) do
-                {:ok, vector} ->
-                  Repo.update_all(
-                    from(i in Item, where: i.id == ^item.id),
-                    set: [embedding: vector]
-                  )
-                _ ->
-                  Logger.error("Failed to cast embedding for item #{item.id} - invalid format")
+              # Validate the embedding format first
+              case ensure_valid_vector_format(embedding_data) do
+                {:ok, valid_data} ->
+                  # Then attempt to cast to Pgvector format
+                  case Pgvector.Ecto.Vector.cast(valid_data) do
+                    {:ok, vector} ->
+                      Repo.update_all(
+                        from(i in Item, where: i.id == ^item.id),
+                        set: [embedding: vector]
+                      )
+                    _ ->
+                      Logger.error("Failed to cast embedding for item #{item.id} - invalid format")
+                  end
+                {:error, reason} ->
+                  Logger.error("Invalid embedding format for item #{item.id}: #{reason}")
               end
             else
               Logger.error("Invalid embedding data for item #{item.id}")
@@ -405,16 +425,22 @@ defmodule StreamystatServer.BatchEmbedder do
             end
 
             if embedding_data do
-              # Cast to Pgvector format safely
-              case Pgvector.Ecto.Vector.cast(embedding_data) do
-                {:ok, vector} ->
-                  Repo.update_all(
-                    from(i in Item, where: i.id == ^item.id),
-                    set: [embedding: vector]
-                  )
-                  Logger.info("Successfully embedded item #{item.id}")
-                _ ->
-                  Logger.error("Failed to cast embedding for item #{item.id} - invalid format")
+              # Validate the embedding format first
+              case ensure_valid_vector_format(embedding_data) do
+                {:ok, valid_data} ->
+                  # Then attempt to cast to Pgvector format
+                  case Pgvector.Ecto.Vector.cast(valid_data) do
+                    {:ok, vector} ->
+                      Repo.update_all(
+                        from(i in Item, where: i.id == ^item.id),
+                        set: [embedding: vector]
+                      )
+                      Logger.info("Successfully embedded item #{item.id}")
+                    _ ->
+                      Logger.error("Failed to cast embedding for item #{item.id} - invalid format")
+                  end
+                {:error, reason} ->
+                  Logger.error("Invalid embedding format for item #{item.id}: #{reason}")
               end
             else
               Logger.error("Invalid embedding data for item #{item.id}")
