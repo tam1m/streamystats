@@ -3,8 +3,10 @@ defmodule StreamystatServer.Workers.SyncTask do
   alias StreamystatServer.Jellyfin.Sync
   alias StreamystatServer.Servers.SyncLog
   alias StreamystatServer.Servers.Servers
+  alias StreamystatServer.Jellyfin.Models.Item
 
   alias StreamystatServer.Repo
+  import Ecto.Query
   require Logger
 
   @type server_id :: String.t()
@@ -264,7 +266,54 @@ defmodule StreamystatServer.Workers.SyncTask do
 
   defp try_embed_items do
     try do
-      StreamystatServer.BatchEmbedder.embed_all_items()
+      # Get servers with auto_generate_embeddings enabled and OpenAI API token
+      servers_with_tokens =
+        Repo.all(
+          from(s in StreamystatServer.Servers.Models.Server,
+            where: s.auto_generate_embeddings == true and not is_nil(s.open_ai_api_token),
+            select: {s.id, s.open_ai_api_token}
+          )
+        )
+
+      if Enum.empty?(servers_with_tokens) do
+        Logger.info("No servers with auto_generate_embeddings enabled. Skipping batch embeddings.")
+      else
+        Logger.info("Starting batch embedding for #{length(servers_with_tokens)} servers with auto_generate_embeddings enabled")
+
+        # Process each enabled server
+        Enum.each(servers_with_tokens, fn {server_id, token} ->
+          case StreamystatServer.BatchEmbedder.get_embedding_process(server_id) do
+            nil ->
+              # No process running, check if there are items that need embeddings
+              items_count =
+                Repo.one(
+                  from(i in Item,
+                    where: is_nil(i.embedding) and
+                          i.type == "Movie" and
+                          i.server_id == ^server_id,
+                    select: count()
+                  )
+                )
+
+              if items_count > 0 do
+                Logger.info("Starting batch embedding for server #{server_id} (#{items_count} items need embeddings)")
+                StreamystatServer.BatchEmbedder.start_embed_items_for_server(server_id, token)
+              else
+                Logger.info("No items need embeddings for server #{server_id}")
+              end
+
+            pid ->
+              # Process already running
+              if Process.alive?(pid) do
+                Logger.info("Embeddings already running for server #{server_id}")
+              else
+                # Process is dead but not unregistered, clean up
+                StreamystatServer.BatchEmbedder.unregister_embedding_process(server_id)
+              end
+          end
+        end)
+      end
+
       :ok
     rescue
       e ->

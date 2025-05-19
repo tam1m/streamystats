@@ -11,12 +11,16 @@ defmodule StreamystatServer.Application do
     # Use try/catch to handle potential issues with table creation
     try do
       :ets.new(:embedding_progress, [:set, :public, :named_table])
+      :ets.new(:embedding_process_registry, [:set, :public, :named_table])
       :ets.new(:recommendation_cache, [:set, :public, :named_table])
     catch
       :error, :badarg ->
         # Tables might already exist, which is fine
         :ok
     end
+
+    # Set up for clean shutdown
+    Process.flag(:trap_exit, true)
 
     children = [
       StreamystatServerWeb.Telemetry,
@@ -31,6 +35,7 @@ defmodule StreamystatServer.Application do
       StreamystatServer.Workers.TautulliImporter,
       StreamystatServer.Workers.JellystatsImporter,
       StreamystatServer.Workers.PlaybackReportingImporter,
+      StreamystatServer.Workers.AutoEmbedder,
       {Task, &start_full_sync/0}
     ]
 
@@ -43,6 +48,15 @@ defmodule StreamystatServer.Application do
   @impl true
   def config_change(changed, _new, removed) do
     StreamystatServerWeb.Endpoint.config_change(changed, removed)
+    :ok
+  end
+
+  @impl true
+  def stop(_state) do
+    # Clean up embedding processes on application shutdown
+    require Logger
+    Logger.info("Application stopping - cleaning up embedding processes")
+    StreamystatServer.BatchEmbedder.cleanup_all_processes()
     :ok
   end
 

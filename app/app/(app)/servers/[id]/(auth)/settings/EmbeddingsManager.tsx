@@ -20,6 +20,7 @@ import {
   EmbeddingProgress,
   startEmbedding,
   stopEmbedding,
+  toggleAutoEmbeddings,
 } from "@/lib/db/server";
 import { useQuery } from "@tanstack/react-query";
 import { Separator } from "@/components/ui/separator";
@@ -35,6 +36,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Loader, Play, Square } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 
 export function EmbeddingsManager({ server }: { server: Server }) {
   const [apiKey, setApiKey] = useState(server.open_ai_api_token || "");
@@ -43,6 +45,10 @@ export function EmbeddingsManager({ server }: { server: Server }) {
   const [isStopping, setIsStopping] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
   const [showClearDialog, setShowClearDialog] = useState(false);
+  const [autoEmbeddings, setAutoEmbeddings] = useState(
+    server.auto_generate_embeddings || false
+  );
+  const [isUpdatingAutoEmbed, setIsUpdatingAutoEmbed] = useState(false);
 
   const {
     data: progress,
@@ -119,6 +125,23 @@ export function EmbeddingsManager({ server }: { server: Server }) {
     } finally {
       setIsClearing(false);
       setShowClearDialog(false);
+    }
+  };
+
+  const handleToggleAutoEmbeddings = async (checked: boolean) => {
+    setIsUpdatingAutoEmbed(true);
+    try {
+      await toggleAutoEmbeddings(server.id, checked);
+      setAutoEmbeddings(checked);
+      toast.success(
+        `Auto-generate embeddings ${checked ? "enabled" : "disabled"}`
+      );
+    } catch (error) {
+      toast.error("Failed to update auto-embedding setting");
+      // Reset to previous state
+      setAutoEmbeddings(!checked);
+    } finally {
+      setIsUpdatingAutoEmbed(false);
     }
   };
 
@@ -233,6 +256,27 @@ export function EmbeddingsManager({ server }: { server: Server }) {
                 Error fetching progress. Retrying...
               </div>
             )}
+          </div>
+
+          <Separator />
+
+          <div className="space-y-4">
+            <h3 className="text-sm font-medium">Auto-Generate Embeddings</h3>
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <p className="text-sm text-muted-foreground">
+                  Automatically generate embeddings for new items every hour
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  This requires a valid OpenAI API key
+                </p>
+              </div>
+              <Switch
+                checked={autoEmbeddings}
+                onCheckedChange={handleToggleAutoEmbeddings}
+                disabled={isUpdatingAutoEmbed || !server.open_ai_api_token}
+              />
+            </div>
           </div>
 
           <Separator />

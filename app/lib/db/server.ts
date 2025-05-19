@@ -154,3 +154,28 @@ export async function clearEmbeddings(
 
   return response.json();
 }
+
+export const toggleAutoEmbeddings = async (
+  serverId: string | number,
+  enabled: boolean
+): Promise<void> => {
+  try {
+    const response = await fetch(
+      `${process.env.API_URL}/admin/servers/${serverId}/settings`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${await getToken()}`,
+        },
+        body: JSON.stringify({ auto_generate_embeddings: enabled }),
+      }
+    );
+    if (!response.ok) {
+      throw new Error("Failed to update auto-embedding setting");
+    }
+  } catch (error) {
+    console.error("Error updating auto-embedding setting:", error);
+    throw error;
+  }
+};

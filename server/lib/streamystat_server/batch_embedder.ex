@@ -163,7 +163,7 @@ defmodule StreamystatServer.BatchEmbedder do
   end
 
   # Unregister an embedding process for a server
-  defp unregister_embedding_process(server_id) do
+  def unregister_embedding_process(server_id) do
     ensure_table_exists()
     :ets.delete(:embedding_process_registry, server_id)
   rescue
@@ -470,5 +470,28 @@ defmodule StreamystatServer.BatchEmbedder do
     ]
     |> Enum.filter(&(&1 && &1 != ""))
     |> Enum.join(" ")
+  end
+
+  # Clean up all embedding processes - useful for application shutdown
+  def cleanup_all_processes do
+    ensure_table_exists()
+
+    try do
+      # Get all registered processes
+      all_processes = :ets.tab2list(:embedding_process_registry)
+
+      # Kill each process and mark status as stopped
+      Enum.each(all_processes, fn {server_id, pid} ->
+        if Process.alive?(pid) do
+          Process.exit(pid, :shutdown)
+          update_progress(server_id, get_progress(server_id).total, get_progress(server_id).processed, "stopped")
+        end
+        :ets.delete(:embedding_process_registry, server_id)
+      end)
+
+      Logger.info("All embedding processes cleaned up")
+    rescue
+      e -> Logger.error("Error while cleaning up embedding processes: #{inspect(e)}")
+    end
   end
 end
