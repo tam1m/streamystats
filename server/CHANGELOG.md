@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.7.3](https://github.com/fredrikburmester/streamystats/compare/v1.7.2...v1.7.3) (2025-05-20)
+
+
+### Bug Fixes
+
+* embedding count when server restarts ([abddfa6](https://github.com/fredrikburmester/streamystats/commit/abddfa63b14dcb687beabaab13cdcd017a52b6b5))
+* embedding count when server restarts ([60a36d6](https://github.com/fredrikburmester/streamystats/commit/60a36d61377fdbc77043dee040eff9f6eddc45f2))
+* missing import ([c1c23ba](https://github.com/fredrikburmester/streamystats/commit/c1c23baf3c2de4703166e5f9f556233857531aab))
+* streamystats db import in settings ([c1d9ac8](https://github.com/fredrikburmester/streamystats/commit/c1d9ac84da5b4ea5f2fc61903d55e3d5ad404a86))
+
 ## [1.7.2](https://github.com/fredrikburmester/streamystats/compare/v1.7.1...v1.7.2) (2025-05-19)
 
 
