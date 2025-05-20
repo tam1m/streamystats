@@ -74,7 +74,6 @@ defmodule StreamystatServer.Sessions.Models.PlaybackSession do
     field(:percent_complete, :float)
     field(:completed, :boolean)
 
-    # New PlayState fields
     field(:is_paused, :boolean)
     field(:is_muted, :boolean)
     field(:volume_level, :integer)
@@ -84,9 +83,7 @@ defmodule StreamystatServer.Sessions.Models.PlaybackSession do
     field(:repeat_mode, :string)
     field(:playback_order, :string)
 
-    # New Session fields
     field(:remote_end_point, :string)
-    # This maps to "Id" in the Session object
     field(:session_id, :string)
     field(:user_name, :string)
     field(:last_activity_date, :utc_datetime)
@@ -94,7 +91,6 @@ defmodule StreamystatServer.Sessions.Models.PlaybackSession do
     field(:application_version, :string)
     field(:is_active, :boolean)
 
-    # Transcoding info fields
     field(:transcoding_audio_codec, :string)
     field(:transcoding_video_codec, :string)
     field(:transcoding_container, :string)
@@ -136,7 +132,6 @@ defmodule StreamystatServer.Sessions.Models.PlaybackSession do
       :completed,
       :user_id,
       :server_id,
-      # New fields
       :is_paused,
       :is_muted,
       :volume_level,
