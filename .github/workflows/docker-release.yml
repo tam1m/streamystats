@@ -1,12 +1,19 @@
 name: Release – version + edge images
 on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version tag"
+        required: true
+  repository_dispatch:
+    types: [trigger-docker-build]
   release:
     types: [published]
 
 env:
   REGISTRY: docker.io
   IMAGE_NAMESPACE: ${{ secrets.DOCKER_USERNAME }}
-  VERSION: ${{ github.event.release.tag_name }}
+  VERSION: ${{ github.event.inputs.version || github.event.client_payload.version || github.event.release.tag_name }}
 
 jobs:
   release-build:

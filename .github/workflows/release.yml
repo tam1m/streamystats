@@ -9,6 +9,7 @@ jobs:
       contents: write
       pull-requests: write
       issues: write
+      actions: write
     runs-on: ubuntu-latest
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
@@ -35,3 +36,12 @@ jobs:
           tag: ${{ steps.release.outputs.tag_name }}
           name: Release ${{ steps.release.outputs.tag_name }}
           generateReleaseNotes: true
+
+      # Trigger Docker build workflow
+      - name: Trigger Docker build workflow
+        if: ${{ steps.release.outputs.release_created }}
+        uses: peter-evans/repository-dispatch@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          event-type: trigger-docker-build
+          client-payload: '{"version": "${{ steps.release.outputs.tag_name }}"}'
