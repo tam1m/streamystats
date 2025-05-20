@@ -53,7 +53,32 @@ defmodule StreamystatServer.BatchEmbedder do
 
     case :ets.lookup(:embedding_progress, server_id) do
       [{^server_id, progress}] -> progress
-      [] -> %{total: 0, processed: 0, status: "idle"}
+      [] ->
+        # When no progress is stored, query the actual database counts
+        # to show accurate embedded items count
+        try do
+          total_movies_count =
+            Repo.one(
+              from(i in Item,
+                where: i.type == "Movie" and i.server_id == ^server_id,
+                select: count()
+              )
+            ) || 0
+
+          already_embedded_count =
+            Repo.one(
+              from(i in Item,
+                where: not is_nil(i.embedding) and
+                      i.type == "Movie" and
+                      i.server_id == ^server_id,
+                select: count()
+              )
+            ) || 0
+
+          %{total: total_movies_count, processed: already_embedded_count, status: "idle"}
+        rescue
+          _ -> %{total: 0, processed: 0, status: "idle"}
+        end
     end
   rescue
     _ -> %{total: 0, processed: 0, status: "idle"}

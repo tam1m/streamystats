@@ -5,6 +5,7 @@ defmodule StreamystatServerWeb.ServerController do
   alias StreamystatServer.BatchEmbedder
   alias StreamystatServer.Repo
   alias StreamystatServer.SessionAnalysis
+  alias StreamystatServer.Items.Item
 
   def index(conn, _params) do
     servers = Servers.list_servers()
@@ -158,8 +159,17 @@ defmodule StreamystatServerWeb.ServerController do
       _ ->
         case SessionAnalysis.remove_all_embeddings(server.id) do
           {:ok, count} ->
-            # Reset the progress tracking after clearing embeddings
-            BatchEmbedder.update_progress(server.id, 0, 0, "idle")
+            # Get the updated counts after clearing
+            total_movies_count =
+              Repo.one(
+                from(i in Item,
+                  where: i.type == "Movie" and i.server_id == ^server.id,
+                  select: count()
+                )
+              ) || 0
+
+            # Movies with embeddings should be 0 after clearing
+            BatchEmbedder.update_progress(server.id, total_movies_count, 0, "idle")
             json(conn, %{message: "Successfully cleared #{count} embeddings"})
 
           {:error, reason} ->
