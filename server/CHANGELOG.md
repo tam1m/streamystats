@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.4](https://github.com/fredrikburmester/streamystats/compare/v1.7.3...v1.7.4) (2025-05-20)
+
+
+### Bug Fixes
+
+* jellystat importer ([01833da](https://github.com/fredrikburmester/streamystats/commit/01833dac65d5d334ee7397ac18eabe21973809e2))
+
 ## [1.7.3](https://github.com/fredrikburmester/streamystats/compare/v1.7.2...v1.7.3) (2025-05-20)
 
 
