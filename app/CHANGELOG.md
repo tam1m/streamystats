@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.2](https://github.com/fredrikburmester/streamystats/compare/streamystat-v1.7.1...streamystat-v1.7.2) (2025-05-19)
+
+
+### Bug Fixes
+
+* update dismiss saved not working ([2654155](https://github.com/fredrikburmester/streamystats/commit/2654155885f893c6da10e5b1ab252fd562f27de4))
+
 ## [1.7.1](https://github.com/fredrikburmester/streamystats/compare/streamystat-v1.7.0...streamystat-v1.7.1) (2025-05-19)
 
 
