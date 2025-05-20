@@ -1,5 +1,6 @@
 defmodule StreamystatServerWeb.ServerController do
   use StreamystatServerWeb, :controller
+  import Ecto.Query
   alias StreamystatServer.Servers.Servers
   alias StreamystatServer.Servers.Models.Server
   alias StreamystatServer.BatchEmbedder
