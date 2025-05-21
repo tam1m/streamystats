@@ -106,7 +106,10 @@ export default function PlaybackReportingImport({
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form action={formAction} className="space-y-4">
+        <form
+          action={formAction}
+          className="space-y-4 flex flex-col items-start"
+        >
           {/* Hidden input for server ID */}
           <input type="hidden" name="serverId" value={serverId} />
 
@@ -148,7 +151,7 @@ export default function PlaybackReportingImport({
             </Alert>
           )}
 
-          <div className="pt-2">
+          <div className="flex flex-col items-start justify-start">
             <SubmitButton hasFile={!!selectedFile} />
           </div>
         </form>
