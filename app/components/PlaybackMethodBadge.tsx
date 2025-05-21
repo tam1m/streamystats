@@ -1,4 +1,9 @@
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Cog, Zap, Video, Volume2 } from "lucide-react";
 import React from "react";
 
@@ -26,12 +31,22 @@ export function PlaybackMethodBadge({
   audioChannels,
 }: PlaybackMethodBadgeProps) {
   // Robust direct/transcode detection
-  const isExplicitDirect = playMethod === "DirectPlay";
+  const isExplicitDirect =
+    playMethod === "DirectPlay" || playMethod === "Direct";
   const isExplicitTranscode = playMethod === "Transcode";
-  const isVideoReallyDirect = isVideoDirect === true || isVideoDirect == null;
-  const isAudioReallyDirect = isAudioDirect === true || isAudioDirect == null;
-  const isReallyDirect = isExplicitDirect || (isVideoReallyDirect && isAudioReallyDirect && !isExplicitTranscode);
-  const isReallyTranscode = isExplicitTranscode || isVideoDirect === false || isAudioDirect === false;
+
+  // For video/audio direct status, only consider them not direct if explicitly false
+  const isVideoReallyDirect = isVideoDirect !== false;
+  const isAudioReallyDirect = isAudioDirect !== false;
+
+  // Consider it direct play if the play method is direct or both audio/video are direct
+  const isReallyDirect =
+    isExplicitDirect ||
+    (isVideoReallyDirect && isAudioReallyDirect && !isExplicitTranscode);
+
+  // Only consider it transcoding if explicitly set to transcode or if either video or audio is explicitly not direct
+  const isReallyTranscode =
+    isExplicitTranscode || isVideoDirect === false || isAudioDirect === false;
 
   // Label logic
   let label = "-";
@@ -57,10 +72,16 @@ export function PlaybackMethodBadge({
 
   // Details for tooltip
   const videoDetail = videoCodec
-    ? `${videoCodec.toUpperCase()}${(typeof width === "number" && typeof height === "number") ? ` (${width}x${height})` : ""}`
+    ? `${videoCodec.toUpperCase()}${
+        typeof width === "number" && typeof height === "number"
+          ? ` (${width}x${height})`
+          : ""
+      }`
     : null;
   const audioDetail = audioCodec
-    ? `${audioCodec.toUpperCase()}${typeof audioChannels === "number" ? ` (${audioChannels}ch)` : ""}`
+    ? `${audioCodec.toUpperCase()}${
+        typeof audioChannels === "number" ? ` (${audioChannels}ch)` : ""
+      }`
     : null;
 
   // Tooltip explanation for history
@@ -68,13 +89,17 @@ export function PlaybackMethodBadge({
   if (isReallyDirect) {
     explanation = "Direct play (no transcoding)";
   } else if (isVideoDirect === false && isAudioDirect === false) {
-    explanation = `Video transcoded to ${videoDetail || "?"}, audio transcoded to ${audioDetail || "?"}`;
+    explanation = `Video transcoded to ${
+      videoDetail || "?"
+    }, audio transcoded to ${audioDetail || "?"}`;
   } else if (isVideoDirect === false) {
     explanation = `Video transcoded to ${videoDetail || "?"}`;
   } else if (isAudioDirect === false) {
     explanation = `Audio transcoded to ${audioDetail || "?"}`;
   } else if (isExplicitTranscode) {
-    explanation = `Transcoded${videoDetail ? ` to ${videoDetail}` : ""}${audioDetail ? ` / ${audioDetail}` : ""}`;
+    explanation = `Transcoded${videoDetail ? ` to ${videoDetail}` : ""}${
+      audioDetail ? ` / ${audioDetail}` : ""
+    }`;
   } else {
     explanation = label;
   }
@@ -97,7 +122,9 @@ export function PlaybackMethodBadge({
             <span>{explanation}</span>
             {videoDetail && <span>Video: {videoDetail}</span>}
             {audioDetail && <span>Audio: {audioDetail}</span>}
-            {bitrate && <span>Bitrate: {(bitrate / 1000000).toFixed(1)} Mbps</span>}
+            {bitrate && (
+              <span>Bitrate: {(bitrate / 1000000).toFixed(1)} Mbps</span>
+            )}
           </div>
         </TooltipContent>
       </Tooltip>
