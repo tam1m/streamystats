@@ -1,28 +1,20 @@
 import { Container } from "@/components/Container";
 import { PageTitle } from "@/components/PageTitle";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  getServer,
-  Server,
-  Statistics,
-  MostWatchedItem,
-  getStatistics,
-} from "@/lib/db";
-import { isUserAdmin } from "@/lib/me";
+import { getServer, getStatistics, Server, Statistics } from "@/lib/db";
 import { addDays } from "date-fns";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import { ActiveSessions } from "./ActiveSessions";
-import { getSimilarStatistics } from "@/lib/db/similar-statistics";
-import { SimilarStatstics } from "./SimilarStatstics";
-import { MostWatchedItems } from "./MostWatchedItems";
-import { UserLeaderboard } from "./UserLeaderboard";
+import Graph from "../Graph";
+import TotalWatchTime from "../TotalWatchTime";
+import { WatchTimePerWeekDay } from "../WatchTimePerWeekDay";
+import { WatchTimePerHour } from "../WatchTimePerHour";
 
 interface ServerWithStats extends Server {
   statistics?: Statistics;
 }
 
-export default async function DashboardPage({
+export default async function WatchtimePage({
   params,
   searchParams,
 }: {
@@ -40,8 +32,6 @@ export default async function DashboardPage({
     redirect("/not-found");
   }
 
-  const isAdmin = await isUserAdmin();
-
   // Calculate default dates without redirecting
   const _startDate =
     startDate || addDays(new Date(), -30).toISOString().split("T")[0];
@@ -49,14 +39,9 @@ export default async function DashboardPage({
 
   return (
     <Container>
-      {isAdmin && (
-        <div className="mb-8">
-          <ActiveSessions server={server} />
-        </div>
-      )}
-      <PageTitle title="General Statistics" />
+      <PageTitle title="Watchtime Statistics" />
       <Suspense fallback={<Skeleton className="h-48 w-full" />}>
-        <GeneralStats
+        <WatchtimeStats
           server={server}
           startDate={_startDate}
           endDate={_endDate}
@@ -66,7 +51,7 @@ export default async function DashboardPage({
   );
 }
 
-async function GeneralStats({
+async function WatchtimeStats({
   server,
   startDate,
   endDate,
@@ -75,29 +60,30 @@ async function GeneralStats({
   startDate: string;
   endDate: string;
 }) {
-  const similarData = await getSimilarStatistics(server.id);
-  const isAdmin = await isUserAdmin();
   const data = await getStatistics(server.id, startDate, endDate);
-
-  const mostWatchedItems = {
-    Movie: [] as MostWatchedItem[],
-    Episode: [] as MostWatchedItem[],
-    Series: [] as MostWatchedItem[],
-  };
-
-  if (data?.most_watched_items) {
-    mostWatchedItems.Movie = data.most_watched_items.Movie || [];
-    mostWatchedItems.Episode = data.most_watched_items.Episode || [];
-    mostWatchedItems.Series = data.most_watched_items.Series || [];
-  }
 
   return (
     <div className="flex flex-col gap-6">
-      <SimilarStatstics data={similarData} server={server} />
+      <div className="flex md:flex-row flex-col gap-2">
+        <TotalWatchTime data={data?.total_watch_time || 0} />
+      </div>
       <Suspense fallback={<Skeleton className="h-48 w-full" />}>
-        <MostWatchedItems data={mostWatchedItems} server={server} />
+        <Graph server={server} startDate={startDate} endDate={endDate} />
       </Suspense>
-      {isAdmin ? <UserLeaderboard server={server} /> : null}
+      <Suspense fallback={<Skeleton className="h-48 w-full" />}>
+        <WatchTimePerWeekDay
+          data={data?.watchtime_per_week_day || []}
+          title="Watch Time Per Day of Week"
+          subtitle="Showing total watch time for each day of the week"
+        />
+      </Suspense>
+      <Suspense fallback={<Skeleton className="h-48 w-full" />}>
+        <WatchTimePerHour
+          data={data?.watchtime_per_hour || []}
+          title="Watch Time Per Hour"
+          subtitle="Showing total watch time for each hour of the day"
+        />
+      </Suspense>
     </div>
   );
 }

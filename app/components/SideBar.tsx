@@ -7,6 +7,7 @@ import {
   BookOpen,
   Bookmark,
   Calendar,
+  BarChart3,
   Home,
   Layers,
   Library,
@@ -14,6 +15,8 @@ import {
   TrendingUp,
   User as UserIcon,
   Users,
+  Clock,
+  Activity,
 } from "lucide-react";
 import { useParams } from "next/navigation";
 import React, { useEffect, useMemo, useState } from "react";
@@ -38,6 +41,24 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "./ui/collapsible";
+
+const dashboard_items = [
+  {
+    title: "General",
+    url: "/dashboard",
+    icon: BarChart3,
+  },
+  {
+    title: "Watchtime",
+    url: "/dashboard/watchtime",
+    icon: Clock,
+  },
+  {
+    title: "Transcoding",
+    url: "/dashboard/transcoding",
+    icon: Activity,
+  },
+];
 
 const admin_items = [
   {
@@ -110,11 +131,6 @@ export const SideBar: React.FC<Props> = ({
   const items = useMemo(() => {
     return [
       {
-        title: "Dashboard",
-        url: "/dashboard",
-        icon: TrendingUp,
-      },
-      {
         title: "Library",
         url: "/library",
         icon: Library,
@@ -140,6 +156,30 @@ export const SideBar: React.FC<Props> = ({
           <SidebarGroupLabel>Home</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
+              <Collapsible defaultOpen className="group/collapsible">
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton>
+                      <TrendingUp />
+                      <span>Dashboard</span>
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      {dashboard_items.map((item) => (
+                        <SidebarMenuSubItem key={item.title}>
+                          <SidebarMenuSubButton asChild>
+                            <a href={"/servers/" + id + item.url}>
+                              <item.icon className="h-4 w-4" />
+                              <span>{item.title}</span>
+                            </a>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
               {items.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>

@@ -551,6 +551,9 @@ export const getStatistics = async (
           Authorization: `Bearer ${await getToken()}`,
           "Content-Type": "application/json",
         },
+        next: {
+          revalidate: 60 * 1, // 1 minute
+        },
       }
     );
     if (!res.ok) {
