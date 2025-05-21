@@ -6,8 +6,9 @@ defmodule StreamystatServer.Activities.Models.Activity do
   alias StreamystatServer.Jellyfin.Models.User
   alias StreamystatServer.Servers.Models.Server
 
+  @primary_key {:jellyfin_id, :integer, []}
+  @primary_key_server_field :server_id
   schema "activities" do
-    field(:jellyfin_id, :integer)
     field(:name, :string)
     field(:short_overview, :string)
     field(:type, :string)
@@ -27,7 +28,7 @@ defmodule StreamystatServer.Activities.Models.Activity do
       references: :jellyfin_id,
       define_field: false)
 
-    belongs_to(:server, Server)
+    belongs_to(:server, Server, primary_key: true)
 
     timestamps()
   end
@@ -47,7 +48,7 @@ defmodule StreamystatServer.Activities.Models.Activity do
       :item_jellyfin_id
     ])
     |> validate_required([:jellyfin_id, :server_id, :date])
-    |> unique_constraint([:jellyfin_id, :server_id])
+    |> unique_constraint([:jellyfin_id, :server_id], name: "activities_pkey")
     |> foreign_key_constraint(:server_id)
     |> foreign_key_constraint(:item_jellyfin_id)
   end

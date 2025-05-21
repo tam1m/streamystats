@@ -28,7 +28,7 @@ defmodule StreamystatServerWeb.ActivityJSON do
            else: nil
 
     %{
-      id: activity.id,
+      id: activity.jellyfin_id,
       jellyfin_id: activity.jellyfin_id,
       name: activity.name,
       short_overview: activity.short_overview,
