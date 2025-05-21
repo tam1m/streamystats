@@ -1,7 +1,13 @@
 import { Container } from "@/components/Container";
 import { PageTitle } from "@/components/PageTitle";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getServer, Server, Statistics, MostWatchedItem } from "@/lib/db";
+import {
+  getServer,
+  Server,
+  Statistics,
+  MostWatchedItem,
+  getStatistics,
+} from "@/lib/db";
 import { isUserAdmin } from "@/lib/me";
 import { addDays } from "date-fns";
 import { redirect } from "next/navigation";
@@ -69,9 +75,9 @@ async function GeneralStats({
   startDate: string;
   endDate: string;
 }) {
-  const data = await getSimilarStatistics(server.id);
+  const similarData = await getSimilarStatistics(server.id);
   const isAdmin = await isUserAdmin();
-  const serverWithStats = (await getServer(server.id)) as ServerWithStats;
+  const data = await getStatistics(server.id, startDate, endDate);
 
   const mostWatchedItems = {
     Movie: [] as MostWatchedItem[],
@@ -79,18 +85,15 @@ async function GeneralStats({
     Series: [] as MostWatchedItem[],
   };
 
-  if (serverWithStats?.statistics?.most_watched_items) {
-    mostWatchedItems.Movie =
-      serverWithStats.statistics.most_watched_items.Movie || [];
-    mostWatchedItems.Episode =
-      serverWithStats.statistics.most_watched_items.Episode || [];
-    mostWatchedItems.Series =
-      serverWithStats.statistics.most_watched_items.Series || [];
+  if (data?.most_watched_items) {
+    mostWatchedItems.Movie = data.most_watched_items.Movie || [];
+    mostWatchedItems.Episode = data.most_watched_items.Episode || [];
+    mostWatchedItems.Series = data.most_watched_items.Series || [];
   }
 
   return (
     <div className="flex flex-col gap-6">
-      <SimilarStatstics data={data} server={server} />
+      <SimilarStatstics data={similarData} server={server} />
       <Suspense fallback={<Skeleton className="h-48 w-full" />}>
         <MostWatchedItems data={mostWatchedItems} server={server} />
       </Suspense>
