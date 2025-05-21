@@ -80,6 +80,7 @@ RUN apt-get update -y && \
   apt-get install -y --no-install-recommends libncurses5 && \
   apt-get install -y --no-install-recommends locales && \
   apt-get install -y --no-install-recommends postgresql-client && \
+  apt-get install -y --no-install-recommends tini && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
 
@@ -103,9 +104,5 @@ RUN chmod +x /server/entrypoint.sh
 
 USER nobody
 
-# If using an environment that doesn't automatically reap zombie processes, it is
-# advised to add an init process such as tini via `apt-get install`
-# above and adding an entrypoint. See https://github.com/krallin/tini for details
-# ENTRYPOINT ["/tini", "--"]
-
-ENTRYPOINT ["sh", "/server/entrypoint.sh"]
+# Using tini as the init process to reap zombie processes
+ENTRYPOINT ["/usr/bin/tini", "--", "/server/entrypoint.sh"]

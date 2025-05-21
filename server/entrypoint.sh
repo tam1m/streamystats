@@ -14,7 +14,7 @@ do
   sleep 2
 done
 
-# Check if the database exists, create it if it doesn’t
+# Check if the database exists, create it if it doesn't
 if ! PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -U $DB_USER -lqt | cut -d \| -f 1 | grep -qw $DB_NAME; then
   echo "Database $DB_NAME does not exist. Creating..."
   PGPASSWORD=$DB_PASSWORD createdb -h $DB_HOST -U $DB_USER $DB_NAME
@@ -23,4 +23,5 @@ fi
 
 /server/bin/streamystat_server eval "StreamystatServer.Release.migrate"
 
-exec /server/bin/server
+# Execute the server process as the main process (PID 1)
+exec /server/bin/streamystat_server start
