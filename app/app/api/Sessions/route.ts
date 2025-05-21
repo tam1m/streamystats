@@ -18,7 +18,7 @@ function formatTicks(ticks: number): string {
  * Maps a JellyfinSession to an ActiveSession
  */
 function mapJellyfinSessionToActiveSession(
-  session: JellyfinSession,
+  session: JellyfinSession
 ): ActiveSession | null {
   // Skip sessions without NowPlayingItem
   if (!session.NowPlayingItem) {
@@ -85,19 +85,22 @@ function mapJellyfinSessionToActiveSession(
     last_activity_date: session.LastActivityDate,
     is_paused: session.PlayState.IsPaused,
     play_method: session.PlayState.PlayMethod || null,
-    transcoding_info: session.TranscodingInfo ? {
-      video_codec: session.TranscodingInfo.VideoCodec,
-      audio_codec: session.TranscodingInfo.AudioCodec,
-      container: session.TranscodingInfo.Container,
-      is_video_direct: session.TranscodingInfo.IsVideoDirect,
-      is_audio_direct: session.TranscodingInfo.IsAudioDirect,
-      bitrate: session.TranscodingInfo.Bitrate,
-      width: session.TranscodingInfo.Width,
-      height: session.TranscodingInfo.Height,
-      audio_channels: session.TranscodingInfo.AudioChannels,
-      hardware_acceleration_type: session.TranscodingInfo.HardwareAccelerationType,
-      transcode_reasons: session.TranscodingInfo.TranscodeReasons,
-    } : undefined,
+    transcoding_info: session.TranscodingInfo
+      ? {
+          video_codec: session.TranscodingInfo.VideoCodec,
+          audio_codec: session.TranscodingInfo.AudioCodec,
+          container: session.TranscodingInfo.Container,
+          is_video_direct: session.TranscodingInfo.IsVideoDirect,
+          is_audio_direct: session.TranscodingInfo.IsAudioDirect,
+          bitrate: session.TranscodingInfo.Bitrate,
+          width: session.TranscodingInfo.Width,
+          height: session.TranscodingInfo.Height,
+          audio_channels: session.TranscodingInfo.AudioChannels,
+          hardware_acceleration_type:
+            session.TranscodingInfo.HardwareAccelerationType,
+          transcode_reasons: session.TranscodingInfo.TranscodeReasons,
+        }
+      : undefined,
     ip_address: session.RemoteEndPoint || undefined,
   };
 }
@@ -112,20 +115,78 @@ export async function GET(request: Request) {
 
   const server = await getServer(serverId);
 
+  if (!server) {
+    return new Response(
+      JSON.stringify({
+        error: "Server not found",
+      }),
+      {
+        status: 404,
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+  }
+
   try {
-    const response = await fetch(`${server?.url}/Sessions`, {
+    const response = await fetch(`${server.url}/Sessions`, {
       method: "GET",
       headers: {
-        "X-Emby-Token": server?.api_key || "",
+        "X-Emby-Token": server.api_key,
         "Content-Type": "application/json",
       },
     });
 
+    // Pass through the actual status code from Jellyfin for better error handling on the client
     if (!response.ok) {
-      throw new Error(`Jellyfin API returned ${response.status}`);
+      const status = response.status;
+      let errorMessage = `Jellyfin API returned ${status}`;
+
+      // For common server errors, provide more descriptive messages
+      if (status === 502) {
+        errorMessage = "Jellyfin server is currently unreachable (Bad Gateway)";
+      } else if (status === 503) {
+        errorMessage =
+          "Jellyfin server is temporarily unavailable (Service Unavailable)";
+      } else if (status === 504) {
+        errorMessage = "Jellyfin server request timed out (Gateway Timeout)";
+      } else if (status === 401) {
+        errorMessage =
+          "Unauthorized access to Jellyfin server (API key may be invalid)";
+      }
+
+      return new Response(
+        JSON.stringify({
+          error: errorMessage,
+          jellyfin_status: status,
+          server_connectivity_issue: status >= 500,
+        }),
+        {
+          status: status >= 500 ? 503 : status, // Use 503 for server errors to indicate temporary unavailability
+          headers: {
+            "Content-Type": "application/json",
+            "x-server-connectivity-error": status >= 500 ? "true" : "false",
+          },
+        }
+      );
     }
 
     const jellyfinSessions: JellyfinSession[] = await response.json();
+
+    // Ensure we have valid data - if not, return an empty array
+    if (!Array.isArray(jellyfinSessions)) {
+      console.error(
+        "Unexpected response format from Jellyfin:",
+        jellyfinSessions
+      );
+      return new Response(JSON.stringify([]), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+    }
 
     const activeSessions = jellyfinSessions
       .map(mapJellyfinSessionToActiveSession)
@@ -139,16 +200,21 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     console.error("Error fetching Jellyfin sessions:", error);
+
+    // Network errors (like connection refused) will end up here
     return new Response(
       JSON.stringify({
         error: "Failed to fetch sessions from Jellyfin server",
+        message: error instanceof Error ? error.message : "Unknown error",
+        server_connectivity_issue: true,
       }),
       {
-        status: 500,
+        status: 503, // Service Unavailable
         headers: {
           "Content-Type": "application/json",
+          "x-server-connectivity-error": "true",
         },
-      },
+      }
     );
   }
 }
@@ -226,48 +292,7 @@ export interface JellyfinSession {
     PrimaryImageAspectRatio: number;
     SeriesPrimaryImageTag?: string;
     SeasonName?: string;
-    MediaStreams: {
-      Codec: string;
-      Language?: string;
-      TimeBase: string;
-      VideoRange: string;
-      VideoRangeType: string;
-      AudioSpatialFormat: string;
-      LocalizedUndefined?: string;
-      LocalizedDefault?: string;
-      LocalizedForced?: string;
-      LocalizedExternal?: string;
-      LocalizedHearingImpaired?: string;
-      DisplayTitle: string;
-      IsInterlaced: boolean;
-      IsAVC: boolean;
-      BitRate?: number;
-      BitDepth?: number;
-      RefFrames?: number;
-      IsDefault: boolean;
-      IsForced: boolean;
-      IsHearingImpaired: boolean;
-      Height: number;
-      Width: number;
-      AverageFrameRate?: number;
-      RealFrameRate?: number;
-      ReferenceFrameRate?: number;
-      Profile?: string;
-      Type: string;
-      AspectRatio?: string;
-      Index: number;
-      IsExternal: boolean;
-      IsTextSubtitleStream: boolean;
-      SupportsExternalStream: boolean;
-      Path?: string;
-      PixelFormat?: string;
-      Level: number;
-      IsAnamorphic?: boolean;
-      Title?: string;
-      ChannelLayout?: string;
-      Channels?: number;
-      SampleRate?: number;
-    }[];
+    MediaStreams: any[]; // Simplified to save space
     VideoType: string;
     ImageTags: {
       Primary?: string;

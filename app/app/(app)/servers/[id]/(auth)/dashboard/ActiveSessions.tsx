@@ -33,11 +33,13 @@ import {
   Volume2,
   Video,
   Globe2,
+  AlertTriangle,
 } from "lucide-react";
 import LoadingSessions from "./LoadingSessions";
 import { Poster } from "./Poster";
 import JellyfinAvatar from "@/components/JellyfinAvatar";
 import Link from "next/link";
+import { toast } from "sonner";
 
 // Utility: show seconds ago if < 60s, else use formatDistanceToNow
 function formatDistanceWithSeconds(date: Date) {
@@ -53,25 +55,79 @@ function formatDistanceWithSeconds(date: Date) {
 }
 
 export function ActiveSessions({ server }: { server: Server }) {
-  const { data, isPending } = useQuery({
+  const { data, isPending, error } = useQuery({
     queryKey: ["activeSessions", server.id],
-    queryFn: async () =>
-      (await fetch(`/api/Sessions?serverId=${server.id}`).then((res) =>
-        res.json()
-      )) as ActiveSession[],
-    refetchInterval: 500,
+    queryFn: async () => {
+      try {
+        const response = await fetch(`/api/Sessions?serverId=${server.id}`);
+        if (!response.ok) {
+          // Handle non-200 responses
+          if (response.status >= 500) {
+            throw new Error("Server error - Jellyfin server may be down");
+          }
+          throw new Error(`Error fetching sessions: ${response.statusText}`);
+        }
+        const data = await response.json();
+        // Ensure data is an array
+        if (!Array.isArray(data)) {
+          console.error("Expected array but got:", data);
+          return [];
+        }
+        return data as ActiveSession[];
+      } catch (err) {
+        console.error("Failed to fetch active sessions:", err);
+        // Show toast notification for connectivity issues
+        toast.error("Jellyfin Connectivity Issue", {
+          id: "jellyfin-sessions-error",
+          description:
+            "Cannot retrieve active sessions from the Jellyfin server.",
+          duration: 5000,
+        });
+        // Return empty array to prevent rendering errors
+        return [];
+      }
+    },
+    refetchInterval: 5000, // Increased from 500ms to 5s to reduce load during connectivity issues
+    // Don't throw on error, handle it gracefully instead
+    retry: 1,
+    retryDelay: 3000,
   });
 
-  const sortedSessions =
-    data?.sort((a, b) => {
-      return b.position_ticks - a.position_ticks;
-    }) || [];
+  // Safely handle data sorting - ensure data is an array first
+  const sortedSessions = Array.isArray(data)
+    ? data.sort((a, b) => b.position_ticks - a.position_ticks)
+    : [];
 
   if (isPending) {
     return <LoadingSessions />;
   }
 
-  if (!data || data?.length === 0) {
+  // Show a special message when there's an error fetching sessions
+  if (error) {
+    return (
+      <Card className="border-0 p-0 m-0">
+        <CardHeader className="px-0 pt-0">
+          <CardTitle className="flex items-center gap-2">
+            <MonitorPlay className="h-5 w-5" />
+            <span>Active Sessions</span>
+          </CardTitle>
+          <CardDescription>
+            Currently playing content on your server
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="p-0 m-0">
+          <div className="flex items-center gap-2 text-amber-500">
+            <AlertTriangle className="h-5 w-5" />
+            <p>
+              Unable to retrieve active sessions - Jellyfin server may be down
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!sortedSessions || sortedSessions.length === 0) {
     return (
       <Card className="border-0 p-0 m-0">
         <CardHeader className="px-0 pt-0">
@@ -99,7 +155,7 @@ export function ActiveSessions({ server }: { server: Server }) {
           <MonitorPlay className="h-5 w-5" />
           <span>Active Sessions</span>
           <Badge variant="outline" className="ml-2">
-            {data.length}
+            {sortedSessions.length}
           </Badge>
         </CardTitle>
         <CardDescription>
@@ -248,56 +304,35 @@ export function ActiveSessions({ server }: { server: Server }) {
                             </span>
                           </TooltipTrigger>
                           <TooltipContent>
-                            Video method, codec, and bitrate
+                            Video playback method
+                            {session.transcoding_info?.transcode_reasons &&
+                              session.transcoding_info.transcode_reasons
+                                .length > 0 && (
+                                <div className="mt-1">
+                                  <div className="font-semibold">
+                                    Transcode reasons:
+                                  </div>
+                                  <ul className="list-disc list-inside">
+                                    {session.transcoding_info.transcode_reasons.map(
+                                      (reason, index) => (
+                                        <li key={index}>{reason}</li>
+                                      )
+                                    )}
+                                  </ul>
+                                </div>
+                              )}
                           </TooltipContent>
-                        </Tooltip>
-                        <span className="mx-1">•</span>
-                        {/* Audio */}
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="flex items-center gap-1">
-                              <Volume2 className="h-4 w-4 text-indigo-400" />
-                              <b>Audio:</b>{" "}
-                              {session.transcoding_info?.audio_codec ||
-                                "Unknown"}
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent>Audio codec</TooltipContent>
-                        </Tooltip>
-                        <span className="mx-1">•</span>
-                        {/* IP Address */}
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span className="flex items-center gap-1">
-                              <Globe2 className="h-4 w-4 text-cyan-400" />
-                              <b>IP:</b> {session.ip_address || "N/A"}
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent>IP Address</TooltipContent>
                         </Tooltip>
                       </div>
                     </TooltipProvider>
-                  </div>
-                </div>
-                {/* Progress and last activity (full width, inside card) */}
-                <div className="mt-auto pt-2">
-                  <div className="flex items-center gap-2 w-full">
-                    <Progress
-                      value={session.progress_percent}
-                      className="h-2 flex-1"
-                    />
-                    <span className="text-xs font-medium min-w-[2.5rem] text-right">
-                      {Math.round(session.progress_percent)}%
-                    </span>
-                  </div>
-                  {session.last_activity_date && (
-                    <div className="text-xs text-muted-foreground w-full mt-1">
-                      Last activity:{" "}
-                      {formatDistanceWithSeconds(
-                        new Date(session.last_activity_date)
-                      )}
+                    {/* Progress */}
+                    <div className="mt-auto pt-2">
+                      <Progress
+                        value={session.progress_percent || 0}
+                        className="h-2"
+                      />
                     </div>
-                  )}
+                  </div>
                 </div>
               </div>
             ))}
