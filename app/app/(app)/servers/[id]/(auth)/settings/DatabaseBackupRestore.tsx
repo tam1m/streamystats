@@ -83,16 +83,16 @@ export default function DatabaseBackupRestore({
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Database Backup & Restore</CardTitle>
+          <CardTitle>Streamystats Backup & Restore</CardTitle>
           <CardDescription>
-            Export or restore your playback session data
+            Export or restore your <b>playback session data</b>
           </CardDescription>
         </CardHeader>
 
         <CardContent className="space-y-6">
           {/* EXPORT */}
           <div className="space-y-2">
-            <h3 className="text-lg font-medium">Export Sessions</h3>
+            <h3 className="">Export Sessions</h3>
             {exportMutation.isError && (
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
@@ -110,13 +110,13 @@ export default function DatabaseBackupRestore({
               className="flex items-center gap-2"
             >
               <Download className="h-4 w-4" />
-              {exportMutation.isPending ? "Exporting..." : "Export Database"}
+              {exportMutation.isPending ? "Downloading..." : "Download"}
             </Button>
           </div>
 
           {/* IMPORT */}
           <div className="space-y-2">
-            <h3 className="text-lg font-medium">Import Sessions</h3>
+            <h3 className="">Import Sessions</h3>
             {importMutation.isError && (
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
@@ -142,7 +142,9 @@ export default function DatabaseBackupRestore({
                 className="flex items-center gap-2"
               >
                 <Upload className="h-4 w-4" />
-                {importMutation.isPending ? "Importing..." : "Import Database"}
+                {importMutation.isPending
+                  ? "Uploading..."
+                  : "Upload and Import"}
               </Button>
             </div>
           </div>

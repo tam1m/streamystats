@@ -26,8 +26,10 @@ import {
 
 export default async function Settings({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: { section?: string };
 }) {
   const { id } = await params;
   const server = await getServer(id);
@@ -35,40 +37,46 @@ export default async function Settings({
     redirect("/setup");
   }
 
+  const section = searchParams.section || "general";
+
   return (
     <Container className="">
       <h1 className="text-3xl font-bold mb-8">Settings</h1>
-      <Tasks server={server} />
-      <EmbeddingsManager server={server} />
-      <Accordion type="single" collapsible className="mb-4">
-        <AccordionItem value="jellystat-import">
-          <AccordionTrigger className="text-2xl font-semibold">
-            Jellystat Import
-          </AccordionTrigger>
-          <AccordionContent>
-            <JellystatsImport serverId={server.id} />
-          </AccordionContent>
-        </AccordionItem>
-        <AccordionItem value="playback-reporting-import">
-          <AccordionTrigger className="text-2xl font-semibold">
-            Playback Reporting Plugin Import
-          </AccordionTrigger>
-          <AccordionContent>
-            <PlaybackReportingImport serverId={server.id} />
-          </AccordionContent>
-        </AccordionItem>
-        <AccordionItem value="database-backup">
-          <AccordionTrigger className="text-2xl font-semibold">
-            Database Backup & Restore
-          </AccordionTrigger>
-          <AccordionContent>
-            <DatabaseBackupRestore serverId={server.id} />
-          </AccordionContent>
-        </AccordionItem>
-      </Accordion>
 
-      <VersionSection />
-      <DeleteServer server={server} />
+      {section === "general" && (
+        <div className="space-y-8">
+          <VersionSection />
+          <DeleteServer server={server} />
+        </div>
+      )}
+
+      {section === "sync" && (
+        <div className="space-y-8">
+          <Tasks server={server} />
+        </div>
+      )}
+
+      {section === "ai" && (
+        <div className="space-y-8">
+          <EmbeddingsManager server={server} />
+        </div>
+      )}
+
+      {section === "backup" && (
+        <div className="space-y-8">
+          <div>
+            <DatabaseBackupRestore serverId={server.id} />
+          </div>
+
+          <div>
+            <JellystatsImport serverId={server.id} />
+          </div>
+
+          <div>
+            <PlaybackReportingImport serverId={server.id} />
+          </div>
+        </div>
+      )}
     </Container>
   );
 }
