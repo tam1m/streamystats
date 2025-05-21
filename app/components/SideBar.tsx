@@ -32,7 +32,15 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
 } from "./ui/sidebar";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "./ui/collapsible";
 
 const dashboard_items = [
   {
@@ -68,10 +76,28 @@ const admin_items = [
     url: "/users",
     icon: Users,
   },
+];
+
+const settings_items = [
   {
-    title: "Settings",
-    url: "/settings",
+    title: "General",
+    url: "/settings?section=general",
     icon: Settings,
+  },
+  {
+    title: "Sync Tasks",
+    url: "/settings?section=sync",
+    icon: Layers,
+  },
+  {
+    title: "AI Recommendations",
+    url: "/settings?section=ai",
+    icon: TrendingUp,
+  },
+  {
+    title: "Backup & Import",
+    url: "/settings?section=backup",
+    icon: BookOpen,
   },
 ];
 
@@ -182,13 +208,41 @@ export const SideBar: React.FC<Props> = ({
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
+
+                <Collapsible defaultOpen className="group/collapsible">
+                  <SidebarMenuItem>
+                    <CollapsibleTrigger asChild>
+                      <SidebarMenuButton>
+                        <Settings />
+                        <span>Settings</span>
+                      </SidebarMenuButton>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <SidebarMenuSub>
+                        {settings_items.map((item) => (
+                          <SidebarMenuSubItem key={item.title}>
+                            <SidebarMenuSubButton asChild>
+                              <a href={"/servers/" + id + item.url}>
+                                <item.icon className="h-4 w-4" />
+                                <span>{item.title}</span>
+                              </a>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                        ))}
+                      </SidebarMenuSub>
+                    </CollapsibleContent>
+                  </SidebarMenuItem>
+                </Collapsible>
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
         )}
       </SidebarContent>
       <SidebarFooter>
-        <UserMenu me={fullUser || undefined} serverUrl={servers.find(s => s.id === parseInt(id))?.url} />
+        <UserMenu
+          me={fullUser || undefined}
+          serverUrl={servers.find((s) => s.id === parseInt(id))?.url}
+        />
       </SidebarFooter>
     </Sidebar>
   );
