@@ -183,7 +183,6 @@ defmodule StreamystatServer.Jellyfin.Sync.Activities do
       type: activity["Type"],
       date: Utils.parse_datetime_to_utc(activity["Date"]),
       user_jellyfin_id: user_info[:jellyfin_id],
-      user_server_id: server.id,
       server_id: server.id,
       severity: activity["Severity"],
       inserted_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second),

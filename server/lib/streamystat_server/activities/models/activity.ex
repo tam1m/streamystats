@@ -7,7 +7,6 @@ defmodule StreamystatServer.Activities.Models.Activity do
   alias StreamystatServer.Servers.Models.Server
 
   @primary_key {:jellyfin_id, :integer, []}
-  @primary_key_server_field :server_id
   schema "activities" do
     field(:name, :string)
     field(:short_overview, :string)
@@ -17,7 +16,6 @@ defmodule StreamystatServer.Activities.Models.Activity do
     field(:item_jellyfin_id, :string)
 
     field(:user_jellyfin_id, :string)
-    field(:user_server_id, :integer)
     belongs_to(:user, User,
       foreign_key: :user_jellyfin_id,
       references: :jellyfin_id,
@@ -42,7 +40,6 @@ defmodule StreamystatServer.Activities.Models.Activity do
       :type,
       :date,
       :user_jellyfin_id,
-      :user_server_id,
       :server_id,
       :severity,
       :item_jellyfin_id
