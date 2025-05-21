@@ -47,7 +47,7 @@ defmodule StreamystatServer.SessionAnalysis do
         watched_sessions =
           Repo.all(
             from(s in PlaybackSession,
-              where: s.user_id == ^user_id,
+              where: s.user_jellyfin_id == ^user_id,
               select: {s.item_jellyfin_id, s.percent_complete}
             )
           )
@@ -182,7 +182,7 @@ defmodule StreamystatServer.SessionAnalysis do
           Repo.all(
             from(s in PlaybackSession,
               where: s.item_jellyfin_id == ^item_jellyfin_id,
-              select: s.user_id,
+              select: s.user_jellyfin_id,
               distinct: true
             )
           )
@@ -191,7 +191,7 @@ defmodule StreamystatServer.SessionAnalysis do
         other_items =
           Repo.all(
             from(s in PlaybackSession,
-              where: s.user_id in ^users and s.item_jellyfin_id != ^item_jellyfin_id,
+              where: s.user_jellyfin_id in ^users and s.item_jellyfin_id != ^item_jellyfin_id,
               group_by: s.item_jellyfin_id,
               select: {s.item_jellyfin_id, count(s.id)},
               order_by: [desc: count(s.id)],

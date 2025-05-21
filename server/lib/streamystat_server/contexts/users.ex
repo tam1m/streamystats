@@ -101,12 +101,9 @@ defmodule StreamystatServer.Contexts.Users do
   end
 
   def get_user(server_id, user_id) do
-    Logger.debug("Getting user with ID: #{inspect(user_id)} for server: #{inspect(server_id)}")
-
     # First, try to find the user by jellyfin_id directly
     case Repo.get_by(User, jellyfin_id: user_id, server_id: server_id) do
       %User{} = user ->
-        Logger.debug("Found user by jellyfin_id: #{user.jellyfin_id}")
         user
 
       nil ->

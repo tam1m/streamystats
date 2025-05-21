@@ -495,7 +495,7 @@ defmodule StreamystatServer.Workers.SessionPoller do
   end
 
   defp save_playback_record(server, record) do
-    user =
+    _user =
       PlaybackSessions.get_user_by_jellyfin_id(
         record.user_jellyfin_id,
         server.id
