@@ -2,6 +2,9 @@
 defmodule StreamystatServer.Activities.Models.Activity do
   use Ecto.Schema
   import Ecto.Changeset
+  alias StreamystatServer.Jellyfin.Models.Item
+  alias StreamystatServer.Jellyfin.Models.User
+  alias StreamystatServer.Servers.Models.Server
 
   schema "activities" do
     field(:jellyfin_id, :integer)
@@ -10,15 +13,21 @@ defmodule StreamystatServer.Activities.Models.Activity do
     field(:type, :string)
     field(:date, :utc_datetime)
     field(:severity, :string)
+    field(:item_jellyfin_id, :string)
 
     field(:user_jellyfin_id, :string)
     field(:user_server_id, :integer)
-    belongs_to(:user, StreamystatServer.Jellyfin.Models.User,
+    belongs_to(:user, User,
       foreign_key: :user_jellyfin_id,
       references: :jellyfin_id,
       define_field: false)
 
-    belongs_to(:server, StreamystatServer.Servers.Models.Server)
+    belongs_to(:item, Item,
+      foreign_key: :item_jellyfin_id,
+      references: :jellyfin_id,
+      define_field: false)
+
+    belongs_to(:server, Server)
 
     timestamps()
   end
@@ -34,10 +43,12 @@ defmodule StreamystatServer.Activities.Models.Activity do
       :user_jellyfin_id,
       :user_server_id,
       :server_id,
-      :severity
+      :severity,
+      :item_jellyfin_id
     ])
     |> validate_required([:jellyfin_id, :server_id, :date])
     |> unique_constraint([:jellyfin_id, :server_id])
     |> foreign_key_constraint(:server_id)
+    |> foreign_key_constraint(:item_jellyfin_id)
   end
 end

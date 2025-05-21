@@ -11,6 +11,238 @@ defmodule StreamystatServerWeb.BackupController do
   # Minimum memory threshold in MB to use memory storage
   @memory_storage_threshold 256
 
+  # Import function to handle backup restoration
+  def import(conn, %{"server_id" => server_id_str}) do
+    server_id = String.to_integer(server_id_str)
+
+    # Verify the server exists
+    unless Repo.exists?(from s in Server, where: s.id == ^server_id) do
+      Logger.error("Import failed: Server ID #{server_id} not found")
+      conn |> put_status(:not_found) |> json(%{error: "Server not found"})
+    else
+      Logger.info("Starting backup import for server ID: #{server_id}")
+
+      # Process uploaded file
+      case conn.body_params do
+        %{"file" => %Plug.Upload{path: temp_path, filename: filename}} ->
+          if not String.ends_with?(filename, ".db") do
+            Logger.error("Import failed: Invalid file type (#{filename})")
+            conn |> put_status(:bad_request) |> json(%{error: "Invalid file type. Please upload a .db file."})
+          else
+            db = nil
+
+            try do
+              # Open the SQLite database
+              {:ok, db} = Exqlite.Sqlite3.open(temp_path)
+              :ok = configure_sqlite(db)
+
+              # Verify it has the expected table structure
+              {:ok, validate_stmt} = Exqlite.Sqlite3.prepare(db, "SELECT name FROM sqlite_master WHERE type='table' AND name='playback_sessions'")
+              table_exists = case Exqlite.Sqlite3.step(db, validate_stmt) do
+                {:row, _} -> true
+                :done -> false
+              end
+              :ok = Exqlite.Sqlite3.release(db, validate_stmt)
+
+              if not table_exists do
+                Logger.error("Import failed: Invalid database structure")
+                conn |> put_status(:bad_request) |> json(%{error: "Invalid backup file. Missing required table structure."})
+              else
+                # Begin a transaction for the import
+                Repo.transaction(fn ->
+                  # Read all sessions from the SQLite database
+                  {:ok, select_stmt} = Exqlite.Sqlite3.prepare(db, """
+                  SELECT
+                    user_jellyfin_id, device_id, device_name, client_name,
+                    item_jellyfin_id, item_name, series_jellyfin_id, series_name,
+                    season_jellyfin_id, play_duration, play_method, start_time,
+                    end_time, position_ticks, runtime_ticks, percent_complete,
+                    completed, is_paused, is_muted, volume_level,
+                    audio_stream_index, subtitle_stream_index, media_source_id,
+                    repeat_mode, playback_order, remote_end_point, session_id,
+                    user_name, last_activity_date, last_playback_check_in,
+                    application_version, is_active, transcoding_audio_codec,
+                    transcoding_video_codec, transcoding_container,
+                    transcoding_is_video_direct, transcoding_is_audio_direct,
+                    transcoding_bitrate, transcoding_completion_percentage,
+                    transcoding_width, transcoding_height, transcoding_audio_channels,
+                    transcoding_hardware_acceleration_type, transcoding_reasons,
+                    inserted_at, updated_at
+                  FROM playback_sessions
+                  """)
+
+                  # Process each row
+                  process_result = Stream.unfold({db, select_stmt}, fn
+                    {db, stmt} ->
+                      case Exqlite.Sqlite3.step(db, stmt) do
+                        {:row, row} -> {row, {db, stmt}}
+                        :done -> nil
+                        error ->
+                          Logger.error("Error reading from backup: #{inspect(error)}")
+                          nil
+                      end
+                  end)
+                  |> Stream.map(fn row ->
+                    # Extract values from the row
+                    [
+                      user_jellyfin_id, device_id, device_name, client_name,
+                      item_jellyfin_id, item_name, series_jellyfin_id, series_name,
+                      season_jellyfin_id, play_duration, play_method, start_time,
+                      end_time, position_ticks, runtime_ticks, percent_complete,
+                      completed, is_paused, is_muted, volume_level,
+                      audio_stream_index, subtitle_stream_index, media_source_id,
+                      repeat_mode, playback_order, remote_end_point, session_id,
+                      user_name, last_activity_date, last_playback_check_in,
+                      application_version, is_active, transcoding_audio_codec,
+                      transcoding_video_codec, transcoding_container,
+                      transcoding_is_video_direct, transcoding_is_audio_direct,
+                      transcoding_bitrate, transcoding_completion_percentage,
+                      transcoding_width, transcoding_height, transcoding_audio_channels,
+                      transcoding_hardware_acceleration_type, transcoding_reasons,
+                      inserted_at, updated_at
+                    ] = row
+
+                    # Ensure user_jellyfin_id and item_jellyfin_id are valid UUIDs
+                    # If they aren't valid UUIDs (e.g., they're old numeric IDs), we'll skip the record
+                    # or try to find the corresponding UUID in the database
+
+                    # Create a map of attributes for the new PlaybackSession
+                    attrs = %{
+                      user_jellyfin_id: user_jellyfin_id,
+                      device_id: device_id,
+                      device_name: device_name,
+                      client_name: client_name,
+                      item_jellyfin_id: item_jellyfin_id,
+                      item_name: item_name,
+                      series_jellyfin_id: series_jellyfin_id,
+                      series_name: series_name,
+                      season_jellyfin_id: season_jellyfin_id,
+                      play_duration: play_duration,
+                      play_method: play_method,
+                      start_time: if(start_time, do: parse_datetime(start_time), else: nil),
+                      end_time: if(end_time, do: parse_datetime(end_time), else: nil),
+                      position_ticks: position_ticks,
+                      runtime_ticks: runtime_ticks,
+                      percent_complete: percent_complete,
+                      completed: completed,
+                      server_id: server_id,
+                      is_paused: is_paused,
+                      is_muted: is_muted,
+                      volume_level: volume_level,
+                      audio_stream_index: audio_stream_index,
+                      subtitle_stream_index: subtitle_stream_index,
+                      media_source_id: media_source_id,
+                      repeat_mode: repeat_mode,
+                      playback_order: playback_order,
+                      remote_end_point: remote_end_point,
+                      session_id: session_id,
+                      user_name: user_name,
+                      last_activity_date: if(last_activity_date, do: parse_datetime(last_activity_date), else: nil),
+                      last_playback_check_in: if(last_playback_check_in, do: parse_datetime(last_playback_check_in), else: nil),
+                      application_version: application_version,
+                      is_active: is_active,
+                      transcoding_audio_codec: transcoding_audio_codec,
+                      transcoding_video_codec: transcoding_video_codec,
+                      transcoding_container: transcoding_container,
+                      transcoding_is_video_direct: transcoding_is_video_direct,
+                      transcoding_is_audio_direct: transcoding_is_audio_direct,
+                      transcoding_bitrate: transcoding_bitrate,
+                      transcoding_completion_percentage: transcoding_completion_percentage,
+                      transcoding_width: transcoding_width,
+                      transcoding_height: transcoding_height,
+                      transcoding_audio_channels: transcoding_audio_channels,
+                      transcoding_hardware_acceleration_type: transcoding_hardware_acceleration_type,
+                      transcoding_reasons: parse_transcoding_reasons(transcoding_reasons)
+                    }
+
+                    # Validate UUID format for user_jellyfin_id and item_jellyfin_id
+                    # This is important now that we've switched from IDs to UUIDs
+                    is_valid_uuid = fn str ->
+                      case str do
+                        nil -> false
+                        str when is_binary(str) ->
+                          # Simple regex for UUID format validation
+                          Regex.match?(~r/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, str)
+                        _ -> false
+                      end
+                    end
+
+                    # Only proceed with valid UUIDs for critical fields
+                    if is_valid_uuid.(attrs.user_jellyfin_id) and is_valid_uuid.(attrs.item_jellyfin_id) do
+                      # Create and insert the PlaybackSession
+                      changeset = PlaybackSession.changeset(%PlaybackSession{}, attrs)
+                      case Repo.insert(changeset, on_conflict: :nothing) do
+                        {:ok, _} -> 1
+                        {:error, error} ->
+                          Logger.warning("Failed to import session: #{inspect(error)}")
+                          0
+                      end
+                    else
+                      Logger.warning("Skipping import of session with invalid UUID format: user_jellyfin_id=#{attrs.user_jellyfin_id}, item_jellyfin_id=#{attrs.item_jellyfin_id}")
+                      0
+                    end
+                  end)
+                  |> Enum.sum()
+
+                  :ok = Exqlite.Sqlite3.release(db, select_stmt)
+                  process_result
+                end, timeout: 300_000)
+                |> case do
+                  {:ok, imported_count} ->
+                    Logger.info("Successfully imported #{imported_count} sessions from backup")
+                    conn |> put_status(:ok) |> json(%{
+                      message: "Backup imported successfully",
+                      imported_count: imported_count
+                    })
+
+                  {:error, reason} ->
+                    Logger.error("Import failed during database transaction: #{inspect(reason)}")
+                    conn |> put_status(:internal_server_error) |> json(%{error: "Failed to import backup"})
+                end
+              end
+
+            rescue
+              e ->
+                Logger.error("Import failed with error: #{inspect(e)}")
+                conn |> put_status(:internal_server_error) |> json(%{error: "Error processing backup file"})
+            after
+              # Close the SQLite database if it was opened
+              if db != nil do
+                case Exqlite.Sqlite3.close(db) do
+                  :ok -> :ok
+                  error -> Logger.error("Failed to close database: #{inspect(error)}")
+                end
+              end
+            end
+          end
+
+        _ ->
+          Logger.error("Import failed: No file uploaded")
+          conn |> put_status(:bad_request) |> json(%{error: "No file uploaded"})
+      end
+    end
+  end
+
+  # Helper functions for import
+
+  defp parse_datetime(datetime_str) when is_binary(datetime_str) do
+    case DateTime.from_iso8601(datetime_str) do
+      {:ok, datetime, _} -> datetime
+      _ -> nil
+    end
+  end
+
+  defp parse_datetime(_), do: nil
+
+  defp parse_transcoding_reasons(reasons_json) when is_binary(reasons_json) do
+    case Jason.decode(reasons_json) do
+      {:ok, reasons} when is_list(reasons) -> reasons
+      _ -> []
+    end
+  end
+
+  defp parse_transcoding_reasons(_), do: []
+
   defp configure_sqlite(db) do
     # Get system memory info using Erlang's built-in memory function
     total_memory = :erlang.memory(:total) / (1024 * 1024)  # Convert to MB
@@ -115,9 +347,8 @@ defmodule StreamystatServerWeb.BackupController do
   defp create_playback_sessions_table(db) do
     case Exqlite.Sqlite3.execute(db, """
     CREATE TABLE playback_sessions (
-      id INTEGER PRIMARY KEY,
+      id TEXT PRIMARY KEY,
       user_jellyfin_id TEXT,
-      user_server_id INTEGER,
       device_id TEXT,
       device_name TEXT,
       client_name TEXT,
@@ -175,7 +406,7 @@ defmodule StreamystatServerWeb.BackupController do
   defp prepare_insert_statement(db) do
     Exqlite.Sqlite3.prepare(db, """
     INSERT INTO playback_sessions (
-      id, user_jellyfin_id, user_server_id, device_id, device_name, client_name,
+      id, user_jellyfin_id, device_id, device_name, client_name,
       item_jellyfin_id, item_name, series_jellyfin_id, series_name,
       season_jellyfin_id, play_duration, play_method, start_time,
       end_time, position_ticks, runtime_ticks, percent_complete,
@@ -190,7 +421,7 @@ defmodule StreamystatServerWeb.BackupController do
       transcoding_width, transcoding_height, transcoding_audio_channels,
       transcoding_hardware_acceleration_type, transcoding_reasons,
       inserted_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """)
   end
 
@@ -250,7 +481,6 @@ defmodule StreamystatServerWeb.BackupController do
     values = [
       session.id,
       session.user_jellyfin_id,
-      session.user_server_id,
       session.device_id,
       session.device_name,
       session.client_name,

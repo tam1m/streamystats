@@ -129,7 +129,7 @@ defmodule StreamystatServer.Statistics.Statistics do
       from(i in Item,
         where: i.server_id == ^server_id and i.type == ^type,
         where: i.jellyfin_id not in subquery(watched_items_query),
-        select: count(i.id)
+        select: count(i.jellyfin_id)
       )
 
     total_items = Repo.one(total_items_query)
@@ -499,7 +499,6 @@ defmodule StreamystatServer.Statistics.Statistics do
         on: i.jellyfin_id == sw.series_id,
         where: i.server_id == ^server_id and i.type in ^content_types,
         group_by: [
-          i.id,
           i.jellyfin_id,
           i.name,
           i.type,
@@ -609,7 +608,7 @@ defmodule StreamystatServer.Statistics.Statistics do
     total_items_query =
       from(i in Item,
         where: i.server_id == ^server_id and i.type in ^content_types,
-        select: i.id
+        select: i.jellyfin_id
       )
 
     # Apply library filtering to total count query as well
@@ -636,7 +635,7 @@ defmodule StreamystatServer.Statistics.Statistics do
         total_items_query
       end
 
-    total_items = total_items_query |> Repo.aggregate(:count, :id)
+    total_items = total_items_query |> Repo.aggregate(:count, :jellyfin_id)
     total_pages = div(total_items + per_page - 1, per_page)
 
     %{
@@ -731,9 +730,8 @@ defmodule StreamystatServer.Statistics.Statistics do
           join: i in Item,
           on: ps.item_jellyfin_id == i.jellyfin_id and ps.server_id == i.server_id,
           where: i.type == ^item_type,
-          group_by: [i.id, i.jellyfin_id, i.name, i.type],
+          group_by: [i.jellyfin_id, i.name, i.type],
           select: %{
-            id: i.id,
             jellyfin_id: i.jellyfin_id,
             name: i.name,
             type: i.type,

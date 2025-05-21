@@ -1,6 +1,9 @@
 defmodule StreamystatServer.Sessions.Models.PlaybackSession do
   use Ecto.Schema
   import Ecto.Changeset
+  alias StreamystatServer.Jellyfin.Models.Item
+  alias StreamystatServer.Jellyfin.Models.User
+  alias StreamystatServer.Servers.Models.Server
 
   @derive {Jason.Encoder,
            only: [
@@ -104,13 +107,18 @@ defmodule StreamystatServer.Sessions.Models.PlaybackSession do
     field(:transcoding_hardware_acceleration_type, :string)
     field(:transcoding_reasons, {:array, :string})
 
-    belongs_to(:user, StreamystatServer.Jellyfin.Models.User,
+    belongs_to(:user, User,
       foreign_key: :user_jellyfin_id,
       references: :jellyfin_id,
       define_field: false)
     field(:user_server_id, :integer)
 
-    belongs_to(:server, StreamystatServer.Servers.Models.Server)
+    belongs_to(:item, Item,
+      foreign_key: :item_jellyfin_id,
+      references: :jellyfin_id,
+      define_field: false)
+
+    belongs_to(:server, Server)
 
     timestamps()
   end
@@ -174,5 +182,6 @@ defmodule StreamystatServer.Sessions.Models.PlaybackSession do
     ])
     |> foreign_key_constraint(:server_id)
     |> foreign_key_constraint(:user_jellyfin_id, name: "playback_sessions_user_jellyfin_id_fkey")
+    |> foreign_key_constraint(:item_jellyfin_id, name: "playback_sessions_item_jellyfin_id_fkey")
   end
 end

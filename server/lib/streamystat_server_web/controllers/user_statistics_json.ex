@@ -61,7 +61,6 @@ defmodule StreamystatServerWeb.UserStatisticsJSON do
     %{
       data: %{
         item: %{
-          id: item_stats.item.id,
           jellyfin_id: item_stats.item.jellyfin_id,
           name: item_stats.item.name,
           type: item_stats.item.type,
@@ -122,7 +121,6 @@ defmodule StreamystatServerWeb.UserStatisticsJSON do
     %{
       item_id: item.item_id,
       item: %{
-        id: item.item.id,
         jellyfin_id: item.item.jellyfin_id,
         name: item.item.name,
         type: item.item.type,

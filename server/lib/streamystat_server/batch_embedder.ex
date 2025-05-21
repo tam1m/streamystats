@@ -373,16 +373,16 @@ defmodule StreamystatServer.BatchEmbedder do
          {:ok, vector} <- Pgvector.Ecto.Vector.cast(embedding_data) do
       # Update the database with the valid vector
       Repo.update_all(
-        from(i in Item, where: i.id == ^item.id),
+        from(i in Item, where: i.jellyfin_id == ^item.jellyfin_id),
         set: [embedding: vector]
       )
       :ok
     else
       {:error, reason} ->
-        Logger.error("Invalid embedding for item #{item.id}: #{reason}")
+        Logger.error("Invalid embedding for item #{item.jellyfin_id}: #{reason}")
         :error
       error ->
-        Logger.error("Failed to process embedding for item #{item.id}: #{inspect(error)}")
+        Logger.error("Failed to process embedding for item #{item.jellyfin_id}: #{inspect(error)}")
         :error
     end
   end
@@ -421,7 +421,7 @@ defmodule StreamystatServer.BatchEmbedder do
             if embedding_data do
               validate_and_store_embedding(item, embedding_data)
             else
-              Logger.error("Invalid embedding data for item #{item.id}")
+              Logger.error("Invalid embedding data for item #{item.jellyfin_id}")
             end
           end)
 
@@ -462,20 +462,20 @@ defmodule StreamystatServer.BatchEmbedder do
 
             if embedding_data do
               validate_and_store_embedding(item, embedding_data)
-              Logger.info("Successfully embedded item #{item.id}")
+              Logger.info("Successfully embedded item #{item.jellyfin_id}")
             else
-              Logger.error("Invalid embedding data for item #{item.id}")
+              Logger.error("Invalid embedding data for item #{item.jellyfin_id}")
             end
 
           {:error, reason} ->
-            Logger.error("Failed to embed item #{item.id}: #{reason}")
+            Logger.error("Failed to embed item #{item.jellyfin_id}: #{reason}")
         end
       rescue
         e ->
-          Logger.error("Error embedding item #{item.id}: #{Exception.message(e)}")
+          Logger.error("Error embedding item #{item.jellyfin_id}: #{Exception.message(e)}")
       end
     else
-      Logger.warning("Skipping item #{item.id} - empty text")
+      Logger.warning("Skipping item #{item.jellyfin_id} - empty text")
     end
   end
 
