@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.7.3](https://github.com/fredrikburmester/streamystats/compare/streamystat-v1.7.2...streamystat-v1.7.3) (2025-05-21)
+
+
+### Bug Fixes
+
+* incorrect transcoding logo ([78f3a21](https://github.com/fredrikburmester/streamystats/commit/78f3a21782fc9d55fb805870598b879d98194c57))
+* incorrect transcoding logo when imported data from plugin ([4ddc567](https://github.com/fredrikburmester/streamystats/commit/4ddc56757e84d338ce09b924248df74dfd32aa9d))
+* refactor dashboard ([fd5b55a](https://github.com/fredrikburmester/streamystats/commit/fd5b55a71107f5443b06701d45cd2e2982120b33))
+* refactor settings page and sidebar ([ef1d080](https://github.com/fredrikburmester/streamystats/commit/ef1d080cd840b51a86f1014ae73835f791f163c3))
+* refactor settings page and sidebar ([8b3a141](https://github.com/fredrikburmester/streamystats/commit/8b3a141ce4b32483f2e65e64be2c5ba0d0f68904))
+
 ## [1.7.2](https://github.com/fredrikburmester/streamystats/compare/streamystat-v1.7.1...streamystat-v1.7.2) (2025-05-19)
 
 

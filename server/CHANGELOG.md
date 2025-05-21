@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.7.5](https://github.com/fredrikburmester/streamystats/compare/v1.7.4...v1.7.5) (2025-05-21)
+
+
+### Bug Fixes
+
+* incorrect transcoding logo when imported data from plugin ([4ddc567](https://github.com/fredrikburmester/streamystats/commit/4ddc56757e84d338ce09b924248df74dfd32aa9d))
+* use correct DirectPlay when importing data ([3781f1c](https://github.com/fredrikburmester/streamystats/commit/3781f1c2df76da3f889e17319d6750e4ea92a661))
+* zombie process ([9d262de](https://github.com/fredrikburmester/streamystats/commit/9d262de7751a4774daeb3106b971a1a48ad4e8d7))
+* zombie process ([98548f6](https://github.com/fredrikburmester/streamystats/commit/98548f63b13b42348ff21cba4beb66175cf4af94))
+
 ## [1.7.4](https://github.com/fredrikburmester/streamystats/compare/v1.7.3...v1.7.4) (2025-05-20)
 
 
