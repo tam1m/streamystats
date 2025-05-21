@@ -591,7 +591,7 @@ defmodule StreamystatServer.Workers.PlaybackReportingImporter do
   end
 
   # Helper to map Playback Reporting's PlaybackMethod to our format
-  defp map_playback_method("DirectPlay"), do: "Direct"
+  defp map_playback_method("DirectPlay"), do: "DirectPlay"
   defp map_playback_method("DirectStream"), do: "DirectStream"
 
   defp map_playback_method(method) when is_binary(method) do
