@@ -22,8 +22,8 @@ defmodule StreamystatServer.Sessions.Models.PlaybackSession do
              :runtime_ticks,
              :percent_complete,
              :completed,
-             :user_id,
              :server_id,
+             :user_server_id,
              :is_paused,
              :is_muted,
              :volume_level,
@@ -104,7 +104,12 @@ defmodule StreamystatServer.Sessions.Models.PlaybackSession do
     field(:transcoding_hardware_acceleration_type, :string)
     field(:transcoding_reasons, {:array, :string})
 
-    belongs_to(:user, StreamystatServer.Jellyfin.Models.User)
+    belongs_to(:user, StreamystatServer.Jellyfin.Models.User,
+      foreign_key: :user_jellyfin_id,
+      references: :jellyfin_id,
+      define_field: false)
+    field(:user_server_id, :integer)
+
     belongs_to(:server, StreamystatServer.Servers.Models.Server)
 
     timestamps()
@@ -130,7 +135,7 @@ defmodule StreamystatServer.Sessions.Models.PlaybackSession do
       :runtime_ticks,
       :percent_complete,
       :completed,
-      :user_id,
+      :user_server_id,
       :server_id,
       :is_paused,
       :is_muted,
@@ -167,7 +172,7 @@ defmodule StreamystatServer.Sessions.Models.PlaybackSession do
       :start_time,
       :server_id
     ])
-    |> foreign_key_constraint(:user_id)
     |> foreign_key_constraint(:server_id)
+    |> foreign_key_constraint(:user_jellyfin_id, name: "playback_sessions_user_jellyfin_id_fkey")
   end
 end

@@ -106,158 +106,173 @@ defmodule StreamystatServer.Contexts.Users do
     # First, try to find the user by jellyfin_id directly
     case Repo.get_by(User, jellyfin_id: user_id, server_id: server_id) do
       %User{} = user ->
-        Logger.debug("Found user by jellyfin_id: #{user.jellyfin_id}, id: #{user.id}")
+        Logger.debug("Found user by jellyfin_id: #{user.jellyfin_id}")
         user
 
       nil ->
-        # If not found by jellyfin_id, try to see if it's a database ID (integer)
-        case Integer.parse(user_id) do
-          {id, ""} ->
-            # It's a valid integer, try to find by id
-            user = Repo.get_by(User, id: id, server_id: server_id)
-
-            if user do
-              Logger.debug("Found user by database id: #{user.id}")
-              user
-            else
-              Logger.debug("No user found with database id: #{id}")
-              nil
-            end
-
-          _ ->
-            # Try to find by name as a last resort
-            Logger.debug("Trying to find user by name: #{inspect(user_id)}")
-            Repo.get_by(User, name: user_id, server_id: server_id)
-        end
+        # Try to find by name as a last resort
+        Logger.debug("Trying to find user by name: #{inspect(user_id)}")
+        Repo.get_by(User, name: user_id, server_id: server_id)
     end
   end
 
-  def get_user_watch_stats(server_id, user_id) do
-    # Get total watch time
-    total_watch_time =
-      from(ps in PlaybackSession,
-        where: ps.server_id == ^server_id and ps.user_id == ^user_id,
-        select: sum(ps.play_duration)
-      )
-      |> Repo.one() || 0
+  def get_user_watch_stats(server_id, user_jellyfin_id) do
+    # Get the user to verify it exists and get the user's jellyfin_id if passed by name
+    user = get_user(server_id, user_jellyfin_id)
+    user_jellyfin_id = user && user.jellyfin_id
 
-    # Get total distinct items watched
-    items_watched =
-      from(ps in PlaybackSession,
-        where: ps.server_id == ^server_id and ps.user_id == ^user_id,
-        select: count(ps.item_jellyfin_id, :distinct)
-      )
-      |> Repo.one() || 0
+    if user_jellyfin_id do
+      # Get total watch time
+      total_watch_time =
+        from(ps in PlaybackSession,
+          where: ps.server_id == ^server_id and ps.user_jellyfin_id == ^user_jellyfin_id,
+          select: sum(ps.play_duration)
+        )
+        |> Repo.one() || 0
 
-    # Get completed items
-    completed_items =
-      from(ps in PlaybackSession,
-        where: ps.server_id == ^server_id and ps.user_id == ^user_id and ps.completed == true,
-        select: count()
-      )
-      |> Repo.one() || 0
+      # Get total distinct items watched
+      items_watched =
+        from(ps in PlaybackSession,
+          where: ps.server_id == ^server_id and ps.user_jellyfin_id == ^user_jellyfin_id,
+          select: count(ps.item_jellyfin_id, :distinct)
+        )
+        |> Repo.one() || 0
 
-    # --- Calculate Average Watch Time Per Day using Subquery ---
-    daily_sums_query =
+      # Get completed items
+      completed_items =
+        from(ps in PlaybackSession,
+          where: ps.server_id == ^server_id and ps.user_jellyfin_id == ^user_jellyfin_id and ps.completed == true,
+          select: count()
+        )
+        |> Repo.one() || 0
+
+      # --- Calculate Average Watch Time Per Day using Subquery ---
+      daily_sums_query =
+        from(ps in PlaybackSession,
+          where: ps.server_id == ^server_id and ps.user_jellyfin_id == ^user_jellyfin_id,
+          group_by: fragment("date(?)", ps.start_time),
+          select: %{
+            daily_sum: sum(ps.play_duration)
+          },
+          having: count(ps.id) > 0
+        )
+
+      avg_watch_time_per_day =
+        from(ds in subquery(daily_sums_query),
+          select: avg(ds.daily_sum)
+        )
+        |> Repo.one() || Decimal.new(0)
+
+      avg_watch_time_per_day_int =
+        avg_watch_time_per_day
+        |> Decimal.to_float()
+        |> Float.round()
+        |> trunc()
+
+      # --- End Subquery Calculation ---
+
+      # +++ Calculate Total Plays (Number of Sessions) +++
+      total_plays =
+        from(ps in PlaybackSession,
+          where: ps.server_id == ^server_id and ps.user_jellyfin_id == ^user_jellyfin_id,
+          # Count all playback session rows for the user
+          select: count(ps.id)
+        )
+        |> Repo.one() || 0
+
+      # +++ End Total Plays Calculation +++
+
+      %{
+        total_watch_time: total_watch_time,
+        items_watched: items_watched,
+        completed_items: completed_items,
+        avg_watch_time_per_day: avg_watch_time_per_day_int,
+        total_plays: total_plays
+      }
+    else
+      # User not found, return empty stats
+      %{
+        total_watch_time: 0,
+        items_watched: 0,
+        completed_items: 0,
+        avg_watch_time_per_day: 0,
+        total_plays: 0
+      }
+    end
+  end
+
+  def get_user_watch_time_per_day(server_id, user_jellyfin_id) do
+    # Get the user to verify it exists and get the user's jellyfin_id if passed by name
+    user = get_user(server_id, user_jellyfin_id)
+    user_jellyfin_id = user && user.jellyfin_id
+
+    if user_jellyfin_id do
+      thirty_days_ago = Date.add(Date.utc_today(), -30)
+
       from(ps in PlaybackSession,
-        where: ps.server_id == ^server_id and ps.user_id == ^user_id,
+        where:
+          ps.server_id == ^server_id and ps.user_jellyfin_id == ^user_jellyfin_id and
+            fragment("date(?)", ps.start_time) >= ^thirty_days_ago,
         group_by: fragment("date(?)", ps.start_time),
         select: %{
-          daily_sum: sum(ps.play_duration)
+          date: fragment("date(?)", ps.start_time),
+          total_duration: sum(ps.play_duration)
         },
-        having: count(ps.id) > 0
+        order_by: fragment("date(?)", ps.start_time)
       )
+      |> Repo.all()
+      |> Enum.map(fn %{date: date, total_duration: duration} ->
+        %{
+          date: Date.to_iso8601(date),
+          total_duration: duration
+        }
+      end)
+    else
+      []
+    end
+  end
 
-    avg_watch_time_per_day =
-      from(ds in subquery(daily_sums_query),
-        select: avg(ds.daily_sum)
-      )
-      |> Repo.one() || Decimal.new(0)
+  def get_user_genre_watch_time(server_id, user_jellyfin_id) do
+    # Get the user to verify it exists and get the user's jellyfin_id if passed by name
+    user = get_user(server_id, user_jellyfin_id)
+    user_jellyfin_id = user && user.jellyfin_id
 
-    avg_watch_time_per_day_int =
-      avg_watch_time_per_day
-      |> Decimal.to_float()
-      |> Float.round()
-      |> trunc()
-
-    # --- End Subquery Calculation ---
-
-    # +++ Calculate Total Plays (Number of Sessions) +++
-    total_plays =
+    if user_jellyfin_id do
+      # Join with items to get genre info
       from(ps in PlaybackSession,
-        where: ps.server_id == ^server_id and ps.user_id == ^user_id,
-        # Count all playback session rows for the user
-        select: count(ps.id)
+        join: i in StreamystatServer.Jellyfin.Models.Item,
+        on: ps.item_jellyfin_id == i.jellyfin_id and ps.server_id == i.server_id,
+        where: ps.server_id == ^server_id and ps.user_jellyfin_id == ^user_jellyfin_id,
+        group_by: i.genres,
+        select: %{
+          genre: i.genres,
+          total_duration: sum(ps.play_duration)
+        },
+        order_by: [desc: sum(ps.play_duration)],
+        limit: 5
       )
-      |> Repo.one() || 0
-
-    # +++ End Total Plays Calculation +++
-
-    %{
-      total_watch_time: total_watch_time,
-      items_watched: items_watched,
-      completed_items: completed_items,
-      avg_watch_time_per_day: avg_watch_time_per_day_int,
-      total_plays: total_plays
-    }
+      |> Repo.all()
+      |> Enum.filter(fn %{genre: genre} -> genre && genre != [] end)
+      |> Enum.flat_map(fn %{genre: genres, total_duration: duration} ->
+        Enum.map(genres, fn genre -> %{genre: genre, total_duration: duration} end)
+      end)
+      |> Enum.group_by(fn %{genre: genre} -> genre end)
+      |> Enum.map(fn {genre, entries} ->
+        total = Enum.reduce(entries, 0, fn %{total_duration: duration}, acc -> acc + duration end)
+        %{genre: genre, watch_time: total}
+      end)
+      |> Enum.sort_by(fn %{watch_time: duration} -> duration end, :desc)
+      |> Enum.take(5)
+    else
+      []
+    end
   end
 
-  def get_user_watch_time_per_day(server_id, user_id) do
-    thirty_days_ago = Date.add(Date.utc_today(), -30)
-
-    from(ps in PlaybackSession,
-      where:
-        ps.server_id == ^server_id and ps.user_id == ^user_id and
-          fragment("date(?)", ps.start_time) >= ^thirty_days_ago,
-      group_by: fragment("date(?)", ps.start_time),
-      select: %{
-        date: fragment("date(?)", ps.start_time),
-        total_duration: sum(ps.play_duration)
-      },
-      order_by: fragment("date(?)", ps.start_time)
-    )
-    |> Repo.all()
-    |> Enum.map(fn %{date: date, total_duration: duration} ->
-      %{
-        date: Date.to_iso8601(date),
-        total_duration: duration
-      }
-    end)
-  end
-
-  def get_user_genre_watch_time(server_id, user_id) do
-    # Join with items to get genre info
-    from(ps in PlaybackSession,
-      join: i in StreamystatServer.Jellyfin.Models.Item,
-      on: ps.item_jellyfin_id == i.jellyfin_id and ps.server_id == i.server_id,
-      where: ps.server_id == ^server_id and ps.user_id == ^user_id,
-      group_by: i.genres,
-      select: %{
-        genre: i.genres,
-        total_duration: sum(ps.play_duration)
-      },
-      order_by: [desc: sum(ps.play_duration)],
-      limit: 5
-    )
-    |> Repo.all()
-    |> Enum.filter(fn %{genre: genre} -> genre && genre != [] end)
-    |> Enum.flat_map(fn %{genre: genres, total_duration: duration} ->
-      Enum.map(genres, fn genre -> %{genre: genre, total_duration: duration} end)
-    end)
-    |> Enum.group_by(fn %{genre: genre} -> genre end)
-    |> Enum.map(fn {genre, entries} ->
-      total = Enum.reduce(entries, 0, fn %{total_duration: duration}, acc -> acc + duration end)
-      %{genre: genre, watch_time: total}
-    end)
-    |> Enum.sort_by(fn %{watch_time: duration} -> duration end, :desc)
-    |> Enum.take(5)
-  end
-
-  def get_user_longest_streak(user_id) do
+  def get_user_longest_streak(user_jellyfin_id) do
     # Convert sessions to days watched
     days_watched =
       from(ps in PlaybackSession,
-        where: ps.user_id == ^user_id,
+        where: ps.user_jellyfin_id == ^user_jellyfin_id,
         distinct: fragment("date(?)", ps.start_time),
         select: fragment("date(?)", ps.start_time),
         order_by: fragment("date(?)", ps.start_time)
@@ -268,15 +283,15 @@ defmodule StreamystatServer.Contexts.Users do
     calculate_longest_streak(days_watched)
   end
 
-  def get_user_watch_history(server_id, user_id, params \\ %{}) do
+  def get_user_watch_history(server_id, user_jellyfin_id, params \\ %{}) do
     # Base query for a specific user
     base_query =
       from(ps in PlaybackSession,
         join: i in Item,
         on: ps.item_jellyfin_id == i.jellyfin_id,
         join: u in User,
-        on: ps.user_id == u.id,
-        where: ps.server_id == ^server_id and ps.user_id == ^user_id,
+        on: ps.user_jellyfin_id == u.jellyfin_id,
+        where: ps.server_id == ^server_id and ps.user_jellyfin_id == ^user_jellyfin_id,
         order_by: [desc: ps.start_time],
         select: %{
           id: ps.id,
@@ -304,9 +319,8 @@ defmodule StreamystatServer.Contexts.Users do
           series_primary_image_tag: i.series_primary_image_tag,
           primary_image_thumb_tag: i.primary_image_thumb_tag,
           primary_image_logo_tag: i.primary_image_logo_tag,
-          user_id: u.id,
+          user_jellyfin_id: u.jellyfin_id,
           user_name: u.name,
-          jellyfin_user_id: u.jellyfin_id,
           transcoding_audio_codec: ps.transcoding_audio_codec,
           transcoding_video_codec: ps.transcoding_video_codec,
           transcoding_container: ps.transcoding_container,
@@ -326,7 +340,7 @@ defmodule StreamystatServer.Contexts.Users do
     # Count total items for pagination metadata
     total_items_query =
       from(ps in PlaybackSession,
-        where: ps.server_id == ^server_id and ps.user_id == ^user_id,
+        where: ps.server_id == ^server_id and ps.user_jellyfin_id == ^user_jellyfin_id,
         select: count(ps.id)
       )
 

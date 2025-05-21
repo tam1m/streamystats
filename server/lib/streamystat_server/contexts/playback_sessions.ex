@@ -17,7 +17,8 @@ defmodule StreamystatServer.Contexts.PlaybackSessions do
 
     query =
       if user_id do
-        from(p in query, where: p.user_id == ^user_id)
+        # Direct lookup by jellyfin_id
+        from(p in query, where: p.user_jellyfin_id == ^user_id and p.server_id == ^server.id)
       else
         query
       end
@@ -49,7 +50,8 @@ defmodule StreamystatServer.Contexts.PlaybackSessions do
     # Add user filter if specified
     query =
       if user_id do
-        from(p in query, where: p.user_id == ^user_id)
+        # Direct lookup by jellyfin_id
+        from(p in query, where: p.user_jellyfin_id == ^user_id and p.server_id == ^server_id)
       else
         query
       end

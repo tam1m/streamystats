@@ -16,7 +16,18 @@ defmodule StreamystatServer.Statistics.Statistics do
   defp apply_user_scope(query, nil), do: query
 
   defp apply_user_scope(query, user_id) when is_integer(user_id) do
-    query |> where([ps], ps.user_id == ^user_id)
+    # Find the user to get their jellyfin_id
+    case Repo.get(User, user_id) do
+      %User{jellyfin_id: jellyfin_id, server_id: server_id} ->
+        query |> where([ps], ps.user_jellyfin_id == ^jellyfin_id and ps.user_server_id == ^server_id)
+      _ ->
+        # If user not found, return an empty query (always false condition)
+        query |> where([ps], false)
+    end
+  end
+
+  defp apply_user_scope(query, {jellyfin_id, server_id}) when is_binary(jellyfin_id) and is_integer(server_id) do
+    query |> where([ps], ps.user_jellyfin_id == ^jellyfin_id and ps.user_server_id == ^server_id)
   end
 
   defp apply_user_scope(query, user_jellyfin_id) when is_binary(user_jellyfin_id) do
@@ -254,10 +265,9 @@ defmodule StreamystatServer.Statistics.Statistics do
           # Admin can see all users
           from(ps in subquery(base_playback_query),
             join: u in User,
-            on: ps.user_id == u.id,
-            group_by: u.id,
+            on: ps.user_jellyfin_id == u.jellyfin_id and ps.user_server_id == u.server_id,
+            group_by: [u.jellyfin_id, u.server_id, u.name],
             select: %{
-              user_id: u.id,
               jellyfin_user_id: u.jellyfin_id,
               user_name: u.name,
               view_count: count(ps.id),
@@ -266,21 +276,38 @@ defmodule StreamystatServer.Statistics.Statistics do
             }
           )
         else
-          # Non-admin can only see themselves
-          from(ps in subquery(base_playback_query),
-            join: u in User,
-            on: ps.user_id == u.id,
-            where: u.id == ^user_id or u.jellyfin_id == ^user_id,
-            group_by: u.id,
-            select: %{
-              user_id: u.id,
-              jellyfin_user_id: u.jellyfin_id,
-              user_name: u.name,
-              view_count: count(ps.id),
-              total_watch_time: sum(ps.play_duration),
-              last_watched: max(ps.start_time)
-            }
-          )
+          # For non-admin, find the jellyfin_id from the user_id
+          case Repo.get(User, user_id) do
+            %User{jellyfin_id: jellyfin_id, server_id: server_id} ->
+              from(ps in subquery(base_playback_query),
+                join: u in User,
+                on: ps.user_jellyfin_id == u.jellyfin_id and ps.user_server_id == u.server_id,
+                where: u.jellyfin_id == ^jellyfin_id and u.server_id == ^server_id,
+                group_by: [u.jellyfin_id, u.server_id, u.name],
+                select: %{
+                  jellyfin_user_id: u.jellyfin_id,
+                  user_name: u.name,
+                  view_count: count(ps.id),
+                  total_watch_time: sum(ps.play_duration),
+                  last_watched: max(ps.start_time)
+                }
+              )
+            nil ->
+              # Fallback to an empty query if user not found
+              from(ps in subquery(base_playback_query),
+                join: u in User,
+                on: ps.user_jellyfin_id == u.jellyfin_id and ps.user_server_id == u.server_id,
+                where: false,
+                group_by: [u.jellyfin_id, u.server_id, u.name],
+                select: %{
+                  jellyfin_user_id: u.jellyfin_id,
+                  user_name: u.name,
+                  view_count: count(ps.id),
+                  total_watch_time: sum(ps.play_duration),
+                  last_watched: max(ps.start_time)
+                }
+              )
+          end
         end
 
       users_watched = Repo.all(users_watched_query)
@@ -291,11 +318,10 @@ defmodule StreamystatServer.Statistics.Statistics do
           # Admin can see all history
           from(ps in subquery(base_playback_query),
             join: u in User,
-            on: ps.user_id == u.id,
+            on: ps.user_jellyfin_id == u.jellyfin_id and ps.user_server_id == u.server_id,
             order_by: [desc: ps.start_time],
             select: %{
               id: ps.id,
-              user_id: u.id,
               user_name: u.name,
               start_time: ps.start_time,
               play_duration: ps.play_duration,
@@ -310,28 +336,52 @@ defmodule StreamystatServer.Statistics.Statistics do
             }
           )
         else
-          # Non-admin can only see their own history
-          from(ps in subquery(base_playback_query),
-            join: u in User,
-            on: ps.user_id == u.id,
-            where: u.id == ^user_id or u.jellyfin_id == ^user_id,
-            order_by: [desc: ps.start_time],
-            select: %{
-              id: ps.id,
-              user_id: u.id,
-              user_name: u.name,
-              start_time: ps.start_time,
-              play_duration: ps.play_duration,
-              percent_complete: ps.percent_complete,
-              completed: ps.completed,
-              client_name: ps.client_name,
-              device_name: ps.device_name,
-              jellyfin_user_id: u.jellyfin_id,
-              jellyfin_item_id: ps.item_jellyfin_id,
-              jellyfin_series_id: ps.series_jellyfin_id,
-              jellyfin_season_id: ps.season_jellyfin_id
-            }
-          )
+          # For non-admin, find the jellyfin_id from the user_id
+          case Repo.get(User, user_id) do
+            %User{jellyfin_id: jellyfin_id, server_id: server_id} ->
+              from(ps in subquery(base_playback_query),
+                join: u in User,
+                on: ps.user_jellyfin_id == u.jellyfin_id and ps.user_server_id == u.server_id,
+                where: u.jellyfin_id == ^jellyfin_id and u.server_id == ^server_id,
+                order_by: [desc: ps.start_time],
+                select: %{
+                  id: ps.id,
+                  user_name: u.name,
+                  start_time: ps.start_time,
+                  play_duration: ps.play_duration,
+                  percent_complete: ps.percent_complete,
+                  completed: ps.completed,
+                  client_name: ps.client_name,
+                  device_name: ps.device_name,
+                  jellyfin_user_id: u.jellyfin_id,
+                  jellyfin_item_id: ps.item_jellyfin_id,
+                  jellyfin_series_id: ps.series_jellyfin_id,
+                  jellyfin_season_id: ps.season_jellyfin_id
+                }
+              )
+            nil ->
+              # Fallback to an empty query if user not found
+              from(ps in subquery(base_playback_query),
+                join: u in User,
+                on: ps.user_jellyfin_id == u.jellyfin_id and ps.user_server_id == u.server_id,
+                where: false,
+                order_by: [desc: ps.start_time],
+                select: %{
+                  id: ps.id,
+                  user_name: u.name,
+                  start_time: ps.start_time,
+                  play_duration: ps.play_duration,
+                  percent_complete: ps.percent_complete,
+                  completed: ps.completed,
+                  client_name: ps.client_name,
+                  device_name: ps.device_name,
+                  jellyfin_user_id: u.jellyfin_id,
+                  jellyfin_item_id: ps.item_jellyfin_id,
+                  jellyfin_series_id: ps.series_jellyfin_id,
+                  jellyfin_season_id: ps.season_jellyfin_id
+                }
+              )
+          end
         end
 
       watch_history = Repo.all(watch_history_query)

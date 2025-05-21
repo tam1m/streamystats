@@ -31,7 +31,21 @@ defmodule StreamystatServer.Jellyfin.Sync.Users do
             Repo.insert_all(
               User,
               users_data,
-              on_conflict: {:replace, [:name]},
+              on_conflict: {:replace,
+                [
+                 :name, :has_password, :has_configured_password, :has_configured_easy_password,
+                 :enable_auto_login, :last_login_date, :last_activity_date, :is_administrator,
+                 :is_hidden, :is_disabled, :enable_user_preference_access,
+                 :enable_remote_control_of_other_users, :enable_shared_device_control,
+                 :enable_remote_access, :enable_live_tv_management, :enable_live_tv_access,
+                 :enable_media_playback, :enable_audio_playback_transcoding, :enable_video_playback_transcoding,
+                 :enable_playback_remuxing, :enable_content_deletion, :enable_content_downloading,
+                 :enable_sync_transcoding, :enable_media_conversion, :enable_all_devices,
+                 :enable_all_channels, :enable_all_folders, :enable_public_sharing,
+                 :invalid_login_attempt_count, :login_attempts_before_lockout, :max_active_sessions,
+                 :remote_client_bitrate_limit, :authentication_provider_id, :password_reset_provider_id,
+                 :sync_play_access, :updated_at
+                ]},
               conflict_target: [:jellyfin_id, :server_id]
             )
 

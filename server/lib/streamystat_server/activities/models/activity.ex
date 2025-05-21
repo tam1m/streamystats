@@ -11,8 +11,14 @@ defmodule StreamystatServer.Activities.Models.Activity do
     field(:date, :utc_datetime)
     field(:severity, :string)
 
-    belongs_to(:user, StreamystatServer.Jellyfin.Models.User)
-    belongs_to(:server, StreamystatServer.Jellyfin.Models.User)
+    field(:user_jellyfin_id, :string)
+    field(:user_server_id, :integer)
+    belongs_to(:user, StreamystatServer.Jellyfin.Models.User,
+      foreign_key: :user_jellyfin_id,
+      references: :jellyfin_id,
+      define_field: false)
+
+    belongs_to(:server, StreamystatServer.Servers.Models.Server)
 
     timestamps()
   end
@@ -25,11 +31,13 @@ defmodule StreamystatServer.Activities.Models.Activity do
       :short_overview,
       :type,
       :date,
-      :user_id,
+      :user_jellyfin_id,
+      :user_server_id,
       :server_id,
       :severity
     ])
     |> validate_required([:jellyfin_id, :server_id, :date])
     |> unique_constraint([:jellyfin_id, :server_id])
+    |> foreign_key_constraint(:server_id)
   end
 end
