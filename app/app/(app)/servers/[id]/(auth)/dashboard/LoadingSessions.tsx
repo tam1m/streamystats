@@ -12,8 +12,8 @@ import { MonitorPlay } from "lucide-react";
 
 export default function LoadingSessions() {
   return (
-    <Card>
-      <CardHeader>
+    <Card className="border-0 p-0 m-0">
+      <CardHeader className="px-0 pt-0">
         <CardTitle className="flex items-center gap-2">
           <MonitorPlay className="h-5 w-5" />
           <span>Active Sessions</span>
@@ -22,7 +22,7 @@ export default function LoadingSessions() {
           Currently playing content on your server
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-0 m-0">
         <div className="space-y-4">
           {[1, 2].map((i) => (
             <div key={i} className="flex flex-col space-y-3">
