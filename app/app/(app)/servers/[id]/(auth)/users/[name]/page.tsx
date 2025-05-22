@@ -25,7 +25,7 @@ export default async function User({
   }
 
   const user = await getUser(name, server.id, page);
-
+  console.log(user);
   if (!user) {
     redirect("/");
   }
@@ -56,7 +56,7 @@ export default async function User({
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
         <GenreStatsGraph data={user.genre_stats} />
-        <WatchTimePerDay data={user.watch_time_per_day} />
+        <WatchTimePerDay data={user.watch_time_per_weekday} />
       </div>
       <HistoryTable
         server={server}
