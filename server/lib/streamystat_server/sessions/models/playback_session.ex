@@ -182,6 +182,5 @@ defmodule StreamystatServer.Sessions.Models.PlaybackSession do
     ])
     |> foreign_key_constraint(:server_id)
     |> foreign_key_constraint(:user_jellyfin_id, name: "playback_sessions_user_jellyfin_id_fkey")
-    |> foreign_key_constraint(:item_jellyfin_id, name: "playback_sessions_item_jellyfin_id_fkey")
   end
 end

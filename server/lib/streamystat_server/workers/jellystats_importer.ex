@@ -227,7 +227,12 @@ defmodule StreamystatServer.Workers.JellystatsImporter do
 
   defp create_attrs_from_activity(activity, server_id) do
     # Extract key fields
-    item_id = activity["NowPlayingItemId"] || activity["ItemId"] || activity["EpisodeId"]
+    # Prioritize EpisodeId when present for episode content
+    item_id = if Map.has_key?(activity, "EpisodeId") and activity["EpisodeId"] != nil and activity["EpisodeId"] != "" do
+      activity["EpisodeId"]
+    else
+      activity["NowPlayingItemId"] || activity["ItemId"] || "Unknown"
+    end
     item_name = activity["NowPlayingItemName"] || activity["ItemName"] || "Unknown Item"
     user_id = activity["UserId"]
     user_name = activity["UserName"] || "Unknown User"

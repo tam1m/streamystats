@@ -12,7 +12,7 @@ defmodule StreamystatServerWeb.BackupController do
   @memory_storage_threshold 256
 
   # Import function to handle backup restoration
-  def import(conn, %{"server_id" => server_id_str}) do
+  def import(conn, %{"server_id" => server_id_str} = params) do
     server_id = String.to_integer(server_id_str)
 
     # Verify the server exists
@@ -48,157 +48,106 @@ defmodule StreamystatServerWeb.BackupController do
                 Logger.error("Import failed: Invalid database structure")
                 conn |> put_status(:bad_request) |> json(%{error: "Invalid backup file. Missing required table structure."})
               else
-                # Begin a transaction for the import
-                Repo.transaction(fn ->
-                  # Read all sessions from the SQLite database
-                  {:ok, select_stmt} = Exqlite.Sqlite3.prepare(db, """
-                  SELECT
-                    user_jellyfin_id, device_id, device_name, client_name,
-                    item_jellyfin_id, item_name, series_jellyfin_id, series_name,
-                    season_jellyfin_id, play_duration, play_method, start_time,
-                    end_time, position_ticks, runtime_ticks, percent_complete,
-                    completed, is_paused, is_muted, volume_level,
-                    audio_stream_index, subtitle_stream_index, media_source_id,
-                    repeat_mode, playback_order, remote_end_point, session_id,
-                    user_name, last_activity_date, last_playback_check_in,
-                    application_version, is_active, transcoding_audio_codec,
-                    transcoding_video_codec, transcoding_container,
-                    transcoding_is_video_direct, transcoding_is_audio_direct,
-                    transcoding_bitrate, transcoding_completion_percentage,
-                    transcoding_width, transcoding_height, transcoding_audio_channels,
-                    transcoding_hardware_acceleration_type, transcoding_reasons,
-                    inserted_at, updated_at
-                  FROM playback_sessions
-                  """)
+                # Check the table schema to determine available columns
+                {:ok, schema_stmt} = Exqlite.Sqlite3.prepare(db, "PRAGMA table_info(playback_sessions)")
+                columns = Stream.unfold(db, fn db ->
+                  case Exqlite.Sqlite3.step(db, schema_stmt) do
+                    {:row, row} ->
+                      # Column name is the second element in the row
+                      {Enum.at(row, 1), db}
+                    :done -> nil
+                    error ->
+                      Logger.error("Error reading schema: #{inspect(error)}")
+                      nil
+                  end
+                end)
+                |> Enum.to_list()
 
-                  # Process each row
-                  process_result = Stream.unfold({db, select_stmt}, fn
-                    {db, stmt} ->
-                      case Exqlite.Sqlite3.step(db, stmt) do
-                        {:row, row} -> {row, {db, stmt}}
-                        :done -> nil
-                        error ->
-                          Logger.error("Error reading from backup: #{inspect(error)}")
-                          nil
-                      end
-                  end)
-                  |> Stream.map(fn row ->
-                    # Extract values from the row
-                    [
-                      user_jellyfin_id, device_id, device_name, client_name,
-                      item_jellyfin_id, item_name, series_jellyfin_id, series_name,
-                      season_jellyfin_id, play_duration, play_method, start_time,
-                      end_time, position_ticks, runtime_ticks, percent_complete,
-                      completed, is_paused, is_muted, volume_level,
-                      audio_stream_index, subtitle_stream_index, media_source_id,
-                      repeat_mode, playback_order, remote_end_point, session_id,
-                      user_name, last_activity_date, last_playback_check_in,
-                      application_version, is_active, transcoding_audio_codec,
-                      transcoding_video_codec, transcoding_container,
-                      transcoding_is_video_direct, transcoding_is_audio_direct,
-                      transcoding_bitrate, transcoding_completion_percentage,
-                      transcoding_width, transcoding_height, transcoding_audio_channels,
-                      transcoding_hardware_acceleration_type, transcoding_reasons,
-                      inserted_at, updated_at
-                    ] = row
+                :ok = Exqlite.Sqlite3.release(db, schema_stmt)
 
-                    # Ensure user_jellyfin_id and item_jellyfin_id are valid UUIDs
-                    # If they aren't valid UUIDs (e.g., they're old numeric IDs), we'll skip the record
-                    # or try to find the corresponding UUID in the database
+                Logger.info("Available columns in imported database: #{inspect(columns)}")
 
-                    # Create a map of attributes for the new PlaybackSession
-                    attrs = %{
-                      user_jellyfin_id: user_jellyfin_id,
-                      device_id: device_id,
-                      device_name: device_name,
-                      client_name: client_name,
-                      item_jellyfin_id: item_jellyfin_id,
-                      item_name: item_name,
-                      series_jellyfin_id: series_jellyfin_id,
-                      series_name: series_name,
-                      season_jellyfin_id: season_jellyfin_id,
-                      play_duration: play_duration,
-                      play_method: play_method,
-                      start_time: if(start_time, do: parse_datetime(start_time), else: nil),
-                      end_time: if(end_time, do: parse_datetime(end_time), else: nil),
-                      position_ticks: position_ticks,
-                      runtime_ticks: runtime_ticks,
-                      percent_complete: percent_complete,
-                      completed: completed,
-                      server_id: server_id,
-                      is_paused: is_paused,
-                      is_muted: is_muted,
-                      volume_level: volume_level,
-                      audio_stream_index: audio_stream_index,
-                      subtitle_stream_index: subtitle_stream_index,
-                      media_source_id: media_source_id,
-                      repeat_mode: repeat_mode,
-                      playback_order: playback_order,
-                      remote_end_point: remote_end_point,
-                      session_id: session_id,
-                      user_name: user_name,
-                      last_activity_date: if(last_activity_date, do: parse_datetime(last_activity_date), else: nil),
-                      last_playback_check_in: if(last_playback_check_in, do: parse_datetime(last_playback_check_in), else: nil),
-                      application_version: application_version,
-                      is_active: is_active,
-                      transcoding_audio_codec: transcoding_audio_codec,
-                      transcoding_video_codec: transcoding_video_codec,
-                      transcoding_container: transcoding_container,
-                      transcoding_is_video_direct: transcoding_is_video_direct,
-                      transcoding_is_audio_direct: transcoding_is_audio_direct,
-                      transcoding_bitrate: transcoding_bitrate,
-                      transcoding_completion_percentage: transcoding_completion_percentage,
-                      transcoding_width: transcoding_width,
-                      transcoding_height: transcoding_height,
-                      transcoding_audio_channels: transcoding_audio_channels,
-                      transcoding_hardware_acceleration_type: transcoding_hardware_acceleration_type,
-                      transcoding_reasons: parse_transcoding_reasons(transcoding_reasons)
-                    }
+                # Build a SQL query based on available columns
+                base_columns = [
+                  "user_jellyfin_id", "device_id", "device_name", "client_name",
+                  "item_jellyfin_id", "item_name", "series_jellyfin_id", "series_name",
+                  "season_jellyfin_id", "play_duration", "play_method", "start_time",
+                  "end_time", "position_ticks", "runtime_ticks", "percent_complete",
+                  "completed"
+                ]
 
-                    # Validate UUID format for user_jellyfin_id and item_jellyfin_id
-                    # This is important now that we've switched from IDs to UUIDs
-                    is_valid_uuid = fn str ->
-                      case str do
-                        nil -> false
-                        str when is_binary(str) ->
-                          # Simple regex for UUID format validation
-                          Regex.match?(~r/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, str)
-                        _ -> false
+                # Optional columns that might not exist in older backups
+                optional_columns = [
+                  "is_paused", "is_muted", "volume_level",
+                  "audio_stream_index", "subtitle_stream_index", "media_source_id",
+                  "repeat_mode", "playback_order", "remote_end_point", "session_id",
+                  "user_name", "last_activity_date", "last_playback_check_in",
+                  "application_version", "is_active", "transcoding_audio_codec",
+                  "transcoding_video_codec", "transcoding_container",
+                  "transcoding_is_video_direct", "transcoding_is_audio_direct",
+                  "transcoding_bitrate", "transcoding_completion_percentage",
+                  "transcoding_width", "transcoding_height", "transcoding_audio_channels",
+                  "transcoding_hardware_acceleration_type", "transcoding_reasons",
+                  "inserted_at", "updated_at"
+                ]
+
+                # Filter optional columns to only include those that exist in the DB
+                available_optional_columns = Enum.filter(optional_columns, fn col -> col in columns end)
+
+                # Combine base and available optional columns
+                select_columns = base_columns ++ available_optional_columns
+                select_sql = "SELECT #{Enum.join(select_columns, ", ")} FROM playback_sessions"
+
+                Logger.info("Using SQL query: #{select_sql}")
+
+                # Process records one by one instead of in a large transaction
+                {:ok, select_stmt} = Exqlite.Sqlite3.prepare(db, select_sql)
+
+                # Read all sessions from the SQLite database and process them one by one
+                session_count = 0
+                imported_count = 0
+                # Create counters with size 1 (not 0-based but 1-based in Erlang)
+                session_count_ref = :counters.new(1, [])
+                imported_count_ref = :counters.new(1, [])
+
+                # Create a copy of the database path for the background process
+                temp_path_copy = Path.dirname(temp_path) <> "/" <> Path.basename(temp_path) <> ".copy"
+                File.cp!(temp_path, temp_path_copy)
+
+                # Start a background process to handle the import
+                Task.start(fn ->
+                  try do
+                    # Process each row using recursion to avoid transaction issues
+                    process_rows(db, select_stmt, select_columns, server_id, session_count_ref, imported_count_ref)
+
+                    # Release statement
+                    :ok = Exqlite.Sqlite3.release(db, select_stmt)
+
+                    # Log the completion
+                    total = :counters.get(session_count_ref, 1)
+                    imported = :counters.get(imported_count_ref, 1)
+                    Logger.info("Successfully imported #{imported} of #{total} sessions from backup")
+                  rescue
+                    e ->
+                      Logger.error("Import process failed with error: #{inspect(e)}")
+                  after
+                    # Close the SQLite database
+                    if db != nil do
+                      case Exqlite.Sqlite3.close(db) do
+                        :ok -> :ok
+                        error -> Logger.error("Failed to close database: #{inspect(error)}")
                       end
                     end
+                    # Clean up the temporary file copy
+                    File.rm(temp_path_copy)
+                  end
+                end)
 
-                    # Only proceed with valid UUIDs for critical fields
-                    if is_valid_uuid.(attrs.user_jellyfin_id) and is_valid_uuid.(attrs.item_jellyfin_id) do
-                      # Create and insert the PlaybackSession
-                      changeset = PlaybackSession.changeset(%PlaybackSession{}, attrs)
-                      case Repo.insert(changeset, on_conflict: :nothing) do
-                        {:ok, _} -> 1
-                        {:error, error} ->
-                          Logger.warning("Failed to import session: #{inspect(error)}")
-                          0
-                      end
-                    else
-                      Logger.warning("Skipping import of session with invalid UUID format: user_jellyfin_id=#{attrs.user_jellyfin_id}, item_jellyfin_id=#{attrs.item_jellyfin_id}")
-                      0
-                    end
-                  end)
-                  |> Enum.sum()
-
-                  :ok = Exqlite.Sqlite3.release(db, select_stmt)
-                  process_result
-                end, timeout: 300_000)
-                |> case do
-                  {:ok, imported_count} ->
-                    Logger.info("Successfully imported #{imported_count} sessions from backup")
-                    conn |> put_status(:ok) |> json(%{
-                      message: "Backup imported successfully",
-                      imported_count: imported_count
-                    })
-
-                  {:error, reason} ->
-                    Logger.error("Import failed during database transaction: #{inspect(reason)}")
-                    conn |> put_status(:internal_server_error) |> json(%{error: "Failed to import backup"})
-                end
+                # Immediately return a success response instead of waiting
+                conn |> put_status(:accepted) |> json(%{
+                  message: "Import started successfully. Sessions are being processed in the background.",
+                  status: "processing"
+                })
               end
 
             rescue
@@ -206,13 +155,8 @@ defmodule StreamystatServerWeb.BackupController do
                 Logger.error("Import failed with error: #{inspect(e)}")
                 conn |> put_status(:internal_server_error) |> json(%{error: "Error processing backup file"})
             after
-              # Close the SQLite database if it was opened
-              if db != nil do
-                case Exqlite.Sqlite3.close(db) do
-                  :ok -> :ok
-                  error -> Logger.error("Failed to close database: #{inspect(error)}")
-                end
-              end
+              # Don't close the DB here since it's being used in the background process
+              # We'll close it in the background task
             end
           end
 
@@ -534,6 +478,114 @@ defmodule StreamystatServerWeb.BackupController do
       {:error, reason} ->
         Logger.error("Failed to bind session #{session.id}: #{inspect(reason)}")
         raise "Failed to bind session to SQLite statement"
+    end
+  end
+
+  defp process_rows(db, stmt, columns, server_id, session_count_ref, imported_count_ref) do
+    case Exqlite.Sqlite3.step(db, stmt) do
+      {:row, row} ->
+        # Create a map of column names to values
+        values_map = Enum.zip(columns, row) |> Map.new()
+
+        # Create a map of attributes for the new PlaybackSession with default values for missing columns
+        attrs = %{
+          user_jellyfin_id: Map.get(values_map, "user_jellyfin_id"),
+          device_id: Map.get(values_map, "device_id"),
+          device_name: Map.get(values_map, "device_name"),
+          client_name: Map.get(values_map, "client_name"),
+          item_jellyfin_id: Map.get(values_map, "item_jellyfin_id"),
+          item_name: Map.get(values_map, "item_name"),
+          series_jellyfin_id: Map.get(values_map, "series_jellyfin_id"),
+          series_name: Map.get(values_map, "series_name"),
+          season_jellyfin_id: Map.get(values_map, "season_jellyfin_id"),
+          play_duration: Map.get(values_map, "play_duration"),
+          play_method: Map.get(values_map, "play_method"),
+          start_time: if(Map.get(values_map, "start_time"), do: parse_datetime(Map.get(values_map, "start_time")), else: nil),
+          end_time: if(Map.get(values_map, "end_time"), do: parse_datetime(Map.get(values_map, "end_time")), else: nil),
+          position_ticks: Map.get(values_map, "position_ticks"),
+          runtime_ticks: Map.get(values_map, "runtime_ticks"),
+          percent_complete: Map.get(values_map, "percent_complete"),
+          completed: Map.get(values_map, "completed"),
+          server_id: server_id,
+          is_paused: Map.get(values_map, "is_paused"),
+          is_muted: Map.get(values_map, "is_muted"),
+          volume_level: Map.get(values_map, "volume_level"),
+          audio_stream_index: Map.get(values_map, "audio_stream_index"),
+          subtitle_stream_index: Map.get(values_map, "subtitle_stream_index"),
+          media_source_id: Map.get(values_map, "media_source_id"),
+          repeat_mode: Map.get(values_map, "repeat_mode"),
+          playback_order: Map.get(values_map, "playback_order"),
+          remote_end_point: Map.get(values_map, "remote_end_point"),
+          session_id: Map.get(values_map, "session_id"),
+          user_name: Map.get(values_map, "user_name"),
+          last_activity_date: if(Map.get(values_map, "last_activity_date"), do: parse_datetime(Map.get(values_map, "last_activity_date")), else: nil),
+          last_playback_check_in: if(Map.get(values_map, "last_playback_check_in"), do: parse_datetime(Map.get(values_map, "last_playback_check_in")), else: nil),
+          application_version: Map.get(values_map, "application_version"),
+          is_active: Map.get(values_map, "is_active"),
+          transcoding_audio_codec: Map.get(values_map, "transcoding_audio_codec"),
+          transcoding_video_codec: Map.get(values_map, "transcoding_video_codec"),
+          transcoding_container: Map.get(values_map, "transcoding_container"),
+          transcoding_is_video_direct: Map.get(values_map, "transcoding_is_video_direct"),
+          transcoding_is_audio_direct: Map.get(values_map, "transcoding_is_audio_direct"),
+          transcoding_bitrate: Map.get(values_map, "transcoding_bitrate"),
+          transcoding_completion_percentage: Map.get(values_map, "transcoding_completion_percentage"),
+          transcoding_width: Map.get(values_map, "transcoding_width"),
+          transcoding_height: Map.get(values_map, "transcoding_height"),
+          transcoding_audio_channels: Map.get(values_map, "transcoding_audio_channels"),
+          transcoding_hardware_acceleration_type: Map.get(values_map, "transcoding_hardware_acceleration_type"),
+          transcoding_reasons: parse_transcoding_reasons(Map.get(values_map, "transcoding_reasons"))
+        }
+
+        # Validate UUID format for user_jellyfin_id and item_jellyfin_id
+        # This is important now that we've switched from IDs to UUIDs
+        is_valid_uuid = fn str ->
+          case str do
+            nil -> false
+            str when is_binary(str) ->
+              # Only accept format without hyphens (32 hex characters)
+              Regex.match?(~r/^[0-9a-f]{32}$/i, str)
+            _ -> false
+          end
+        end
+
+        # Try to import each session, catching any errors to prevent transaction abortion
+        try do
+          # Only proceed with valid UUIDs for critical fields
+          if is_valid_uuid.(attrs.user_jellyfin_id) and is_valid_uuid.(attrs.item_jellyfin_id) do
+            # Create and insert the PlaybackSession
+            changeset = PlaybackSession.changeset(%PlaybackSession{}, attrs)
+
+            # Insert using the changeset
+            case Repo.insert(changeset, on_conflict: :nothing) do
+              {:ok, session} ->
+                :counters.add(imported_count_ref, 1, 1)
+                1
+              {:error, error} ->
+                Logger.warning("Failed to import session: #{inspect(error)}")
+                0
+            end
+          else
+            Logger.warning("Skipping import of session with invalid UUID format: user_jellyfin_id=#{attrs.user_jellyfin_id}, item_jellyfin_id=#{attrs.item_jellyfin_id}")
+            0
+          end
+        rescue
+          e ->
+            Logger.warning("Error processing session: #{inspect(e)}")
+            0
+        end
+
+        # Increment counters
+        :counters.add(session_count_ref, 1, 1)
+
+        # Process next row recursively
+        process_rows(db, stmt, columns, server_id, session_count_ref, imported_count_ref)
+
+      :done ->
+        :ok
+
+      error ->
+        Logger.error("Error processing row: #{inspect(error)}")
+        :ok
     end
   end
 end

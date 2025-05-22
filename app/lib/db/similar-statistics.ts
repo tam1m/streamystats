@@ -10,7 +10,6 @@ export const getSimilarStatistics = async (
     const res = await fetch(
       `${process.env.API_URL}/servers/${serverId}/statistics/recommendations/me`,
       {
-        cache: "no-store",
         headers: {
           Authorization: `Bearer ${await getToken()}`,
           "Content-Type": "application/json",

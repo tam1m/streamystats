@@ -31,7 +31,9 @@ export const UserLeaderboardTable = ({ users, server }: Props) => {
   );
 
   const sortedUsers = useMemo(() => {
-    if (loading) return [];
+    if (loading) {
+      return [];
+    }
     return users
       .filter((user) => !hiddenUsers.includes(user.id))
       .filter((user) => user.watch_stats?.total_watch_time > 0)
@@ -50,6 +52,7 @@ export const UserLeaderboardTable = ({ users, server }: Props) => {
             User Leaderboard
           </CardTitle>
           <UserLeaderboardFilter
+            key="user-leaderboard-filter"
             users={users}
             hiddenUsers={hiddenUsers}
             setHiddenUsers={setHiddenUsers}
@@ -63,7 +66,7 @@ export const UserLeaderboardTable = ({ users, server }: Props) => {
       <CardContent>
         <Table>
           <TableHeader>
-            <TableRow>
+            <TableRow key="header-row">
               <TableHead className="w-12">Rank</TableHead>
               <TableHead>User</TableHead>
               <TableHead className="text-right">Watch Time</TableHead>
@@ -72,7 +75,10 @@ export const UserLeaderboardTable = ({ users, server }: Props) => {
           <TableBody>
             {sortedUsers.length > 0 ? (
               sortedUsers.map((user, index) => (
-                <TableRow key={user.id} className="transition-colors duration-200 hover:bg-accent/60 group">
+                <TableRow
+                  key={`${index}-${user.id}`}
+                  className="transition-colors duration-200 hover:bg-accent/60 group"
+                >
                   <TableCell className="font-medium">
                     {index === 0 ? (
                       <span className="text-yellow-500 font-bold">🥇 1</span>
@@ -89,8 +95,14 @@ export const UserLeaderboardTable = ({ users, server }: Props) => {
                       href={`/servers/${server.id}/users/${user.id}`}
                       className="flex items-center gap-2 group"
                     >
-                      <JellyfinAvatar user={user} serverUrl={server.url} className="h-6 w-6 transition-transform duration-200 group-hover:scale-110" />
-                      <span className="transition-colors duration-200 group-hover:text-primary">{user.name}</span>
+                      <JellyfinAvatar
+                        user={user}
+                        serverUrl={server.url}
+                        className="h-6 w-6 transition-transform duration-200 group-hover:scale-110"
+                      />
+                      <span className="transition-colors duration-200 group-hover:text-primary">
+                        {user.name}
+                      </span>
                     </Link>
                   </TableCell>
                   <TableCell className="text-right flex items-center justify-end gap-1">
@@ -102,7 +114,7 @@ export const UserLeaderboardTable = ({ users, server }: Props) => {
                 </TableRow>
               ))
             ) : (
-              <TableRow>
+              <TableRow key="empty-row">
                 <TableCell
                   colSpan={3}
                   className="text-center py-6 text-muted-foreground"
