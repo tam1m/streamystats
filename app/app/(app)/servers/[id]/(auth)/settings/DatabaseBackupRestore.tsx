@@ -11,7 +11,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { AlertCircle, Download, Upload } from "lucide-react";
+import {
+  AlertCircle,
+  CheckCircle2,
+  Download,
+  Loader2,
+  Upload,
+} from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "sonner";
 
@@ -21,6 +27,11 @@ export default function DatabaseBackupRestore({
   serverId: number;
 }) {
   const [file, setFile] = useState<File | null>(null);
+  const [importSuccess, setImportSuccess] = useState<{
+    message: string;
+    imported_count?: number;
+    total_count?: number;
+  } | null>(null);
 
   const exportMutation = useMutation({
     mutationFn: async () => {
@@ -71,10 +82,22 @@ export default function DatabaseBackupRestore({
       return payload;
     },
     onSuccess: (data) => {
-      toast.success(data.message || "Import succeeded");
+      // Handle both immediate success and background processing responses
+      if (data.status === "processing") {
+        toast.success(data.message || "Import started successfully");
+        setImportSuccess(null);
+      } else {
+        setImportSuccess({
+          message: data.message || "Import succeeded",
+          imported_count: data.imported_count,
+          total_count: data.total_count,
+        });
+        toast.success(data.message || "Import succeeded");
+      }
       setFile(null);
     },
     onError: (e) => {
+      setImportSuccess(null);
       toast.error(e instanceof Error ? e.message : "Import failed");
     },
   });
@@ -128,23 +151,50 @@ export default function DatabaseBackupRestore({
                 </AlertDescription>
               </Alert>
             )}
+            {importSuccess && (
+              <Alert variant="default" className="bg-green-50 border-green-200">
+                <CheckCircle2 className="h-4 w-4 text-green-500" />
+                <AlertTitle className="text-green-700">Success</AlertTitle>
+                <AlertDescription className="text-green-600">
+                  {importSuccess.message}
+                  {importSuccess.imported_count &&
+                    importSuccess.total_count && (
+                      <p>
+                        Successfully imported {importSuccess.imported_count} of{" "}
+                        {importSuccess.total_count} sessions.
+                      </p>
+                    )}
+                </AlertDescription>
+              </Alert>
+            )}
             <div className="flex flex-col items-start gap-4">
-              <div>
+              <div className="w-full">
                 <Input
                   type="file"
                   accept=".db"
-                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                  onChange={(e) => {
+                    setFile(e.target.files?.[0] ?? null);
+                    setImportSuccess(null);
+                  }}
                 />
               </div>
+
               <Button
                 onClick={() => importMutation.mutate()}
                 disabled={importMutation.isPending || !file}
                 className="flex items-center gap-2"
               >
-                <Upload className="h-4 w-4" />
-                {importMutation.isPending
-                  ? "Uploading..."
-                  : "Upload and Import"}
+                {importMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-4 w-4" />
+                    Upload and Import
+                  </>
+                )}
               </Button>
             </div>
           </div>

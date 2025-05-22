@@ -52,14 +52,14 @@ defmodule StreamystatServer.Auth do
             # User not found in database, create them
             case StreamystatServer.Contexts.Users.create_initial_user(server.id, parsed_body) do
               {:ok, user} ->
-                {:ok, user.id}
+                {:ok, user.jellyfin_id}
 
               {:error, _reason} ->
                 {:error, "Failed to create user in the database"}
             end
 
           user ->
-            {:ok, user.id}
+            {:ok, user.jellyfin_id}
         end
 
       {:ok, %{status_code: 401}} ->
@@ -73,8 +73,8 @@ defmodule StreamystatServer.Auth do
     end
   end
 
-  def get_user_info(%Server{} = server, user_id) do
-    user = Repo.get_by(User, id: user_id)
+  def get_user_info(%Server{} = server, jellyfin_user_id) do
+    user = Repo.get_by(User, jellyfin_id: jellyfin_user_id)
     url = "#{server.url}/Users/#{user.jellyfin_id}"
 
     headers = [

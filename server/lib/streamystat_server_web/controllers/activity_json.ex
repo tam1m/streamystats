@@ -22,17 +22,20 @@ defmodule StreamystatServerWeb.ActivityJSON do
   end
 
   def data(%Activity{} = activity) do
-    user = if activity.user_id, do: User |> Repo.get(activity.user_id), else: nil
+    # Look up user directly by jellyfin_id and server_id
+    user = if activity.user_jellyfin_id,
+           do: User |> Repo.get_by([jellyfin_id: activity.user_jellyfin_id, server_id: activity.server_id]),
+           else: nil
 
     %{
-      id: activity.id,
+      id: activity.jellyfin_id,
       jellyfin_id: activity.jellyfin_id,
       name: activity.name,
       short_overview: activity.short_overview,
       type: activity.type,
       date: activity.date,
-      user_id: activity.user_id,
-      jellyfin_user_id: user && user.jellyfin_id,
+      user_jellyfin_id: activity.user_jellyfin_id,
+      user_name: user && user.name,
       server_id: activity.server_id,
       severity: activity.severity
     }

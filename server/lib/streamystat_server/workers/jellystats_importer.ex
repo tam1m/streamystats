@@ -226,8 +226,28 @@ defmodule StreamystatServer.Workers.JellystatsImporter do
   end
 
   defp create_attrs_from_activity(activity, server_id) do
-    # Extract key fields
-    item_id = activity["NowPlayingItemId"] || activity["ItemId"] || activity["EpisodeId"]
+    # Handle item and series IDs correctly based on content type
+    # For TV shows (with season ID), NowPlayingItemId is actually the series ID
+    has_season = Map.has_key?(activity, "SeasonId") and activity["SeasonId"] != nil and activity["SeasonId"] != ""
+
+    # For TV episodes, use EpisodeId as item_jellyfin_id
+    # For movies and other content, use NowPlayingItemId or ItemId
+    item_id = cond do
+      Map.has_key?(activity, "EpisodeId") and activity["EpisodeId"] != nil and activity["EpisodeId"] != "" ->
+        activity["EpisodeId"]
+      true ->
+        activity["NowPlayingItemId"] || activity["ItemId"] || "Unknown"
+    end
+
+    # Extract series ID for TV shows
+    series_id = if has_season do
+      # For TV shows, NowPlayingItemId is the series ID
+      activity["NowPlayingItemId"]
+    else
+      # Try to extract from other fields
+      extract_series_id(activity)
+    end
+
     item_name = activity["NowPlayingItemName"] || activity["ItemName"] || "Unknown Item"
     user_id = activity["UserId"]
     user_name = activity["UserName"] || "Unknown User"
@@ -246,7 +266,24 @@ defmodule StreamystatServer.Workers.JellystatsImporter do
     # Current timestamp for database fields
     now = NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
 
-    # Create attributes map
+    # Calculate end_time if not provided but we have start_time and play_duration
+    start_time = parse_datetime(activity["ActivityDateInserted"] || activity["PlayStartTime"])
+    end_time =
+      case {parse_datetime(activity["PlayEndTime"]), start_time, play_duration} do
+        {nil, start_dt, duration} when not is_nil(start_dt) and duration > 0 ->
+          DateTime.add(start_dt, duration, :second)
+        {end_dt, _, _} ->
+          end_dt
+      end
+
+    # Extract transcoding info if available
+    transcoding_info = activity["TranscodingInfo"] || %{}
+    play_state = activity["PlayState"] || %{}
+
+    # Extract media_streams data if available
+    media_streams = activity["MediaStreams"] || []
+
+    # Create attributes map with all available fields
     %{
       id: new_id,
       user_jellyfin_id: user_id,
@@ -254,13 +291,47 @@ defmodule StreamystatServer.Workers.JellystatsImporter do
       item_name: item_name,
       user_name: user_name,
       device_name: activity["DeviceName"],
+      device_id: activity["DeviceId"],
       client_name: activity["Client"],
       play_method: activity["PlayMethod"] || "Unknown",
-      start_time: parse_datetime(activity["ActivityDateInserted"] || activity["PlayStartTime"]),
-      end_time: parse_datetime(activity["PlayEndTime"]),
+      start_time: start_time,
+      end_time: end_time,
       play_duration: play_duration,
       completed: play_duration > 0,
       series_name: activity["SeriesName"],
+      series_jellyfin_id: series_id,
+      season_jellyfin_id: activity["SeasonId"],
+      position_ticks: get_in(play_state, ["PositionTicks"]),
+      runtime_ticks: get_in(play_state, ["RunTimeTicks"]),
+      percent_complete: calculate_percent_complete(play_state),
+      is_paused: activity["IsPaused"],
+      is_muted: get_in(play_state, ["IsMuted"]),
+      volume_level: get_in(play_state, ["VolumeLevel"]),
+      audio_stream_index: get_in(play_state, ["AudioStreamIndex"]),
+      subtitle_stream_index: get_in(play_state, ["SubtitleStreamIndex"]),
+      media_source_id: get_in(play_state, ["MediaSourceId"]),
+      repeat_mode: get_in(play_state, ["RepeatMode"]),
+      playback_order: get_in(play_state, ["PlaybackOrder"]),
+      remote_end_point: activity["RemoteEndPoint"],
+      session_id: activity["Id"],
+      application_version: activity["ApplicationVersion"],
+      is_active: true,
+      transcoding_audio_codec: get_in(transcoding_info, ["AudioCodec"]),
+      transcoding_video_codec: get_in(transcoding_info, ["VideoCodec"]),
+      transcoding_container: get_in(transcoding_info, ["Container"]),
+      transcoding_is_video_direct: get_in(transcoding_info, ["IsVideoDirect"]),
+      transcoding_is_audio_direct: get_in(transcoding_info, ["IsAudioDirect"]),
+      transcoding_bitrate: get_in(transcoding_info, ["Bitrate"]),
+      transcoding_completion_percentage: case get_in(transcoding_info, ["CompletionPercentage"]) do
+        nil -> nil
+        value when is_integer(value) -> value / 1
+        value -> value
+      end,
+      transcoding_width: get_in(transcoding_info, ["Width"]),
+      transcoding_height: get_in(transcoding_info, ["Height"]),
+      transcoding_audio_channels: get_in(transcoding_info, ["AudioChannels"]),
+      transcoding_hardware_acceleration_type: get_in(transcoding_info, ["HardwareAccelerationType"]),
+      transcoding_reasons: extract_transcoding_reasons(transcoding_info),
       server_id: server_id,
       inserted_at: now,
       updated_at: now
@@ -381,5 +452,52 @@ defmodule StreamystatServer.Workers.JellystatsImporter do
         _ -> false
       end
     end)
+  end
+
+  # Helper function to extract series ID from activity data
+  defp extract_series_id(activity) do
+    # Try to get series ID from different possible sources
+    cond do
+      activity["SeriesId"] != nil -> activity["SeriesId"]
+      # Sometimes JellyStat stores series ID in other fields
+      activity["ParentId"] != nil -> activity["ParentId"]
+      # In case we need to extract from composite field
+      activity["EpisodeId"] != nil and activity["SeasonId"] != nil ->
+        # Try to extract series ID from EpisodeId if possible
+        episode_without_season = String.replace(activity["EpisodeId"], activity["SeasonId"], "")
+        if String.length(episode_without_season) != String.length(activity["EpisodeId"]) do
+          remaining = String.replace(activity["EpisodeId"], episode_without_season <> activity["SeasonId"], "")
+          if String.length(remaining) >= 32, do: remaining, else: nil
+        else
+          nil
+        end
+      true -> nil
+    end
+  end
+
+  # Helper function to calculate percent complete
+  defp calculate_percent_complete(play_state) do
+    position = get_in(play_state, ["PositionTicks"])
+    runtime = get_in(play_state, ["RunTimeTicks"])
+
+    cond do
+      is_nil(position) or is_nil(runtime) or runtime <= 0 -> nil
+      true -> position / runtime * 100
+    end
+  end
+
+  # Helper function to extract transcoding reasons
+  defp extract_transcoding_reasons(transcoding_info) do
+    case get_in(transcoding_info, ["TranscodingReasons"]) do
+      nil -> nil
+      reasons when is_list(reasons) -> reasons
+      reasons when is_binary(reasons) ->
+        # Try to parse JSON string
+        case Jason.decode(reasons) do
+          {:ok, parsed_reasons} when is_list(parsed_reasons) -> parsed_reasons
+          _ -> [reasons] # If not valid JSON, wrap single reason in list
+        end
+      reason -> [to_string(reason)] # Handle any other type by converting to string and wrapping
+    end
   end
 end

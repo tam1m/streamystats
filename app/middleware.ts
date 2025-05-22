@@ -8,6 +8,7 @@ import { UserMe } from "./lib/me";
 enum ResultType {
   Success = "SUCCESS",
   Error = "ERROR",
+  ServerConnectivityError = "SERVER_CONNECTIVITY_ERROR",
 }
 
 type Result<T> =
@@ -17,6 +18,10 @@ type Result<T> =
     }
   | {
       type: ResultType.Error;
+      error: string;
+    }
+  | {
+      type: ResultType.ServerConnectivityError;
       error: string;
     };
 
@@ -79,11 +84,16 @@ const getMe = async (request: NextRequest): Promise<Result<UserMe>> => {
   try {
     const me = userStr?.value ? JSON.parse(userStr.value) : undefined;
     if (me?.name && me.serverId) {
-      const isValid = await validateUserAuth(request, me);
-      if (isValid) {
+      const authResult = await validateUserAuth(request, me);
+      if (authResult.type === ResultType.Success) {
         return {
           type: ResultType.Success,
           data: me,
+        };
+      } else if (authResult.type === ResultType.ServerConnectivityError) {
+        return {
+          type: ResultType.ServerConnectivityError,
+          error: authResult.error,
         };
       }
       return {
@@ -109,10 +119,10 @@ const getMe = async (request: NextRequest): Promise<Result<UserMe>> => {
 const isUserAdmin = async (
   request: NextRequest,
   me: UserMe
-): Promise<boolean> => {
+): Promise<Result<boolean>> => {
   const c = request.cookies;
   try {
-    const user: User = await fetch(
+    const response = await fetch(
       `${process.env.API_URL}/servers/${me.serverId}/users/${me.id}`,
       {
         cache: "no-store",
@@ -121,15 +131,48 @@ const isUserAdmin = async (
           "Content-Type": "application/json",
         },
       }
-    )
-      .then((res) => res.json())
-      .then((res) => res.data);
+    );
+
+    if (
+      response.status === 502 ||
+      response.status === 503 ||
+      response.status === 504
+    ) {
+      return {
+        type: ResultType.ServerConnectivityError,
+        error: `Server connectivity issue: ${response.status}`,
+      };
+    }
+
+    if (!response.ok) {
+      return {
+        type: ResultType.Error,
+        error: `Unexpected status: ${response.status}`,
+      };
+    }
+
+    const res = await response.json();
+    const user: User = res.data;
 
     // Return true if user has admin role/privileges
-    return user && user.is_administrator === true;
+    return {
+      type: ResultType.Success,
+      data: user && user.is_administrator === true,
+    };
   } catch (e) {
     console.error("Failed to check if user is admin", e);
-    return false;
+    // Assume network error means connectivity issue
+    if (e instanceof TypeError && e.message.includes("fetch")) {
+      return {
+        type: ResultType.ServerConnectivityError,
+        error: "Network connectivity issue",
+      };
+    }
+
+    return {
+      type: ResultType.Error,
+      error: "Failed to verify admin status",
+    };
   }
 };
 
@@ -137,10 +180,13 @@ const isUserAdmin = async (
  * @param me The user object from the cookie
  * Validates that the user stored in the cokkie is valid and has access to the server.
  */
-const validateUserAuth = async (request: NextRequest, me: UserMe) => {
+const validateUserAuth = async (
+  request: NextRequest,
+  me: UserMe
+): Promise<Result<boolean>> => {
   const c = request.cookies;
   try {
-    const user: User = await fetch(
+    const response = await fetch(
       `${process.env.API_URL}/servers/${me.serverId}/users/${me.id}`,
       {
         cache: "no-store",
@@ -149,17 +195,51 @@ const validateUserAuth = async (request: NextRequest, me: UserMe) => {
           "Content-Type": "application/json",
         },
       }
-    )
-      .then((res) => res.json())
-      .then((res) => res.data);
+    );
 
-    if (user) return true;
+    if (
+      response.status === 502 ||
+      response.status === 503 ||
+      response.status === 504
+    ) {
+      return {
+        type: ResultType.ServerConnectivityError,
+        error: `Server connectivity issue: ${response.status}`,
+      };
+    }
+
+    if (!response.ok) {
+      return {
+        type: ResultType.Error,
+        error: `Unexpected status: ${response.status}`,
+      };
+    }
+
+    const res = await response.json();
+    const user: User = res.data;
+
+    if (user) return { type: ResultType.Success, data: true };
+
+    return {
+      type: ResultType.Error,
+      error: "User not found in server",
+    };
   } catch (e) {
     console.error("Failed to validate user auth", e);
-  }
 
-  console.warn("User not found in server", me.serverId, "for user", me.name);
-  return false;
+    // Assume network error means connectivity issue
+    if (e instanceof TypeError && e.message.includes("fetch")) {
+      return {
+        type: ResultType.ServerConnectivityError,
+        error: "Network connectivity issue",
+      };
+    }
+
+    return {
+      type: ResultType.Error,
+      error: "Failed to verify user authentication",
+    };
+  }
 };
 
 export async function middleware(request: NextRequest) {
@@ -188,6 +268,14 @@ export async function middleware(request: NextRequest) {
   // Get user from cookies if exists
   const meResult = await getMe(request);
 
+  // Handle server connectivity error
+  if (meResult.type === ResultType.ServerConnectivityError) {
+    console.warn("Server connectivity issue detected.", meResult.error);
+    // Add a header to indicate server connectivity issues - will be used by the client to show a toast
+    response.headers.set("x-server-connectivity-error", "true");
+    return response;
+  }
+
   // If the user is not logged in
   if (meResult.type === ResultType.Error) {
     console.error("User is not logged in, removing cookies.", meResult.error);
@@ -214,7 +302,18 @@ export async function middleware(request: NextRequest) {
       );
     }
 
-    const isAdmin = await isUserAdmin(request, meResult.data);
+    const adminResult = await isUserAdmin(request, meResult.data);
+
+    // Handle server connectivity error when checking admin status
+    if (adminResult.type === ResultType.ServerConnectivityError) {
+      console.warn("Server connectivity issue detected.", adminResult.error);
+      // Add a header to indicate server connectivity issues
+      response.headers.set("x-server-connectivity-error", "true");
+      return response;
+    }
+
+    const isAdmin =
+      adminResult.type === ResultType.Success ? adminResult.data : false;
 
     // Check if user is trying to access another users page (/servers/{x}/users/[name])
     if (name) {

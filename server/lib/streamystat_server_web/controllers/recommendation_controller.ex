@@ -72,7 +72,7 @@ defmodule StreamystatServerWeb.RecommendationController do
       session_exists =
         Repo.exists?(
           from(s in PlaybackSession,
-            where: s.id == ^session_id and s.user_id == ^user_id
+            where: s.id == ^session_id and s.user_jellyfin_id == ^user_id
           )
         )
 
@@ -168,7 +168,7 @@ defmodule StreamystatServerWeb.RecommendationController do
     has_watched =
       Repo.exists?(
         from(s in PlaybackSession,
-          where: s.user_id == ^user_id and s.item_jellyfin_id == ^item_jellyfin_id
+          where: s.user_jellyfin_id == ^user_id and s.item_jellyfin_id == ^item_jellyfin_id
         )
       )
 

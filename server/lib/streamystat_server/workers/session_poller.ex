@@ -495,16 +495,14 @@ defmodule StreamystatServer.Workers.SessionPoller do
   end
 
   defp save_playback_record(server, record) do
-    user =
+    _user =
       PlaybackSessions.get_user_by_jellyfin_id(
         record.user_jellyfin_id,
         server.id
       )
 
-    # Add user_id if the user was found
-    record_with_user = Map.put(record, :user_id, user && user.id)
-
-    case PlaybackSessions.create_playback_session(record_with_user) do
+    # We don't need to add user_id anymore since we use jellyfin_id as the primary key
+    case PlaybackSessions.create_playback_session(record) do
       {:ok, _session} ->
         Logger.info("Successfully saved playback session for server #{server.id}")
 

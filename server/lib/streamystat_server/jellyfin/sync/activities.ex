@@ -174,13 +174,15 @@ defmodule StreamystatServer.Jellyfin.Sync.Activities do
   Maps a Jellyfin activity JSON object to a map suitable for database insertion.
   """
   def map_activity(activity, server) do
+    user_info = get_user_info(server, activity["UserId"])
+
     %{
       jellyfin_id: activity["Id"],
       name: activity["Name"],
       short_overview: activity["ShortOverview"],
       type: activity["Type"],
       date: Utils.parse_datetime_to_utc(activity["Date"]),
-      user_id: get_user_id(server, activity["UserId"]),
+      user_jellyfin_id: user_info[:jellyfin_id],
       server_id: server.id,
       severity: activity["Severity"],
       inserted_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second),
@@ -189,21 +191,21 @@ defmodule StreamystatServer.Jellyfin.Sync.Activities do
   end
 
   @doc """
-  Resolves a Jellyfin user ID to our database user ID.
-  Returns nil if not found or for special system user IDs.
+  Resolves a Jellyfin user ID to a map with jellyfin_id.
+  Returns %{jellyfin_id: nil} if not found or for special system user IDs.
   """
-  def get_user_id(server, jellyfin_user_id) do
+  def get_user_info(server, jellyfin_user_id) do
     case jellyfin_user_id do
       "00000000000000000000000000000000" ->
-        nil
+        %{jellyfin_id: nil}
 
       nil ->
-        nil
+        %{jellyfin_id: nil}
 
       id ->
         case Repo.get_by(User, jellyfin_id: id, server_id: server.id) do
-          nil -> nil
-          user -> user.id
+          nil -> %{jellyfin_id: nil}
+          user -> %{jellyfin_id: user.jellyfin_id}
         end
     end
   end

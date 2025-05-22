@@ -5,9 +5,9 @@ defmodule StreamystatServer.Jellyfin.Models.Item do
   alias StreamystatServer.Jellyfin.Models.Library
   alias StreamystatServer.Jellyfin.Servers.Models.Server
 
+  @primary_key {:jellyfin_id, :string, autogenerate: false}
   @derive {Jason.Encoder,
            only: [
-             :id,
              :jellyfin_id,
              :name,
              :type,
@@ -61,7 +61,6 @@ defmodule StreamystatServer.Jellyfin.Models.Item do
            ]}
 
   schema "jellyfin_items" do
-    field(:jellyfin_id, :string)
     field(:name, :string)
     field(:type, :string)
     field(:original_title, :string)
@@ -107,8 +106,8 @@ defmodule StreamystatServer.Jellyfin.Models.Item do
     field(:people, {:array, :map})
     field(:embedding, Pgvector.Ecto.Vector)
     field(:removed_at, :utc_datetime)
-    belongs_to(:library, Library)
-    belongs_to(:server, Server)
+    belongs_to(:library, Library, foreign_key: :library_id)
+    belongs_to(:server, Server, foreign_key: :server_id)
 
     timestamps()
   end

@@ -31,8 +31,8 @@ defmodule StreamystatServerWeb.UserJSON do
 
   defp base_data(%{user: %User{} = user}) do
     %{
-      id: user.id,
       jellyfin_id: user.jellyfin_id,
+      server_id: user.server_id,
       name: user.name,
       is_administrator: user.is_administrator
     }

@@ -93,7 +93,6 @@ defmodule StreamystatServer.Contexts.ActiveSessions do
 
   defp format_user(user) do
     %{
-      id: user.id,
       name: user.name,
       jellyfin_id: user.jellyfin_id
     }
@@ -104,7 +103,6 @@ defmodule StreamystatServer.Contexts.ActiveSessions do
 
   defp format_item(item) do
     %{
-      id: item.id,
       jellyfin_id: item.jellyfin_id,
       name: item.name,
       type: item.type,

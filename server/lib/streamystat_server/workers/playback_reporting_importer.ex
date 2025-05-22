@@ -8,6 +8,9 @@ defmodule StreamystatServer.Workers.PlaybackReportingImporter do
   alias StreamystatServer.Sessions.Models.PlaybackSession
   import Ecto.Query
 
+  # Add Timex for better date parsing
+  use Timex
+
   # Batch size for database operations
   @batch_size 50
   # Timeout for DB operations
@@ -21,6 +24,25 @@ defmodule StreamystatServer.Workers.PlaybackReportingImporter do
 
   # Update to accept file_type parameter
   def import_data(server_id, data, file_type \\ "json") do
+    # Log data size before import
+    data_size = if is_binary(data), do: String.length(data), else: 0
+
+    # Get a rough activity count for logging
+    activity_count =
+      cond do
+        is_list(data) -> length(data)
+        is_binary(data) && file_type == "json" ->
+          case Jason.decode(data) do
+            {:ok, list} when is_list(list) -> length(list)
+            _ -> 0
+          end
+        is_binary(data) && file_type == "tsv" ->
+          data |> String.split("\n") |> length()
+        true -> 0
+      end
+
+    Logger.info("Starting import of #{activity_count} activities from #{file_type} file (#{data_size} bytes)")
+
     GenServer.cast(__MODULE__, {:import, server_id, data, file_type})
   end
 
@@ -69,8 +91,9 @@ defmodule StreamystatServer.Workers.PlaybackReportingImporter do
 
   @impl true
   def handle_cast({:import_complete, result}, state) do
+    server_id = state.current_server_id || "unknown"
     Logger.info(
-      "Playback Reporting import completed for server_id: #{state.current_server_id}, result: #{inspect(result)}"
+      "Playback Reporting import completed for server_id: #{server_id}, result: #{inspect(result)}"
     )
 
     {:noreply, %{state | importing: false, current_server_id: nil}}
@@ -86,8 +109,14 @@ defmodule StreamystatServer.Workers.PlaybackReportingImporter do
 
   @impl true
   def handle_info({:DOWN, _ref, :process, _pid, reason}, state) do
-    Logger.error("Import task crashed: #{inspect(reason)}")
-    {:noreply, %{state | importing: false, current_server_id: nil}}
+    case reason do
+      :normal ->
+        # This is normal termination, no need to log an error
+        {:noreply, %{state | importing: false, current_server_id: nil}}
+      other_reason ->
+        Logger.error("Import task crashed: #{inspect(other_reason)}")
+        {:noreply, %{state | importing: false, current_server_id: nil}}
+    end
   end
 
   # Update do_import to handle different file types
@@ -167,7 +196,7 @@ defmodule StreamystatServer.Workers.PlaybackReportingImporter do
         fields = String.split(line, "\t")
         Logger.debug("Line has #{length(fields)} fields: #{inspect(fields)}")
 
-        # Check if we have enough fields - adjust based on your TSV format
+        # Parse TSV format with exactly 9 fields
         case fields do
           [
             date,
@@ -178,7 +207,7 @@ defmodule StreamystatServer.Workers.PlaybackReportingImporter do
             playback_method,
             client_name,
             device_name,
-            play_duration | _rest
+            play_duration
           ] ->
             %{
               "DateCreated" => date,
@@ -292,18 +321,24 @@ defmodule StreamystatServer.Workers.PlaybackReportingImporter do
                 select: {i.jellyfin_id, i}
               )
 
-            Repo.all(items_query, timeout: @db_timeout)
+            items = Repo.all(items_query, timeout: @db_timeout)
+            items
           end,
           timeout: @db_timeout
         )
 
       case items_map do
-        {:ok, results} -> {:ok, Map.new(results)}
-        error -> error
+        {:ok, results} ->
+          map = Map.new(results)
+          {:ok, map}
+        error ->
+          Logger.error("Error in items transaction: #{inspect(error)}")
+          error
       end
     rescue
       e ->
         Logger.error("Error loading items: #{inspect(e)}")
+        Logger.error(Exception.format_stacktrace())
         {:error, e}
     end
   end
@@ -356,6 +391,11 @@ defmodule StreamystatServer.Workers.PlaybackReportingImporter do
   end
 
   defp process_playback_batch(server, activities, users_map, items_map) do
+    # Create a case-insensitive version of the items map for fallback
+    normalized_items_map = Enum.reduce(items_map, %{}, fn {id, item}, acc ->
+      Map.put(acc, String.downcase(id), item)
+    end)
+
     # Get the item and user ids directly
     item_ids =
       Enum.map(activities, fn activity ->
@@ -405,7 +445,7 @@ defmodule StreamystatServer.Workers.PlaybackReportingImporter do
           case query_result do
             {:ok, existing_sessions_list} ->
               # Convert to map for easier lookup
-              Enum.reduce(existing_sessions_list, %{}, fn
+              session_map = Enum.reduce(existing_sessions_list, %{}, fn
                 {item_id, user_id, start_time, session}, acc when is_binary(user_id) ->
                   Map.put(acc, {item_id, user_id, start_time}, session)
 
@@ -413,12 +453,17 @@ defmodule StreamystatServer.Workers.PlaybackReportingImporter do
                   Map.put(acc, {item_id, start_time}, session)
               end)
 
-            _ ->
+              Logger.debug("Found #{map_size(session_map)} existing sessions")
+              session_map
+
+            {:error, reason} ->
+              Logger.error("Error querying existing sessions: #{inspect(reason)}")
               %{}
           end
         rescue
           e ->
             Logger.error("Error querying existing sessions: #{inspect(e)}")
+            Logger.error(Exception.format_stacktrace())
             %{}
         end
       end
@@ -426,6 +471,8 @@ defmodule StreamystatServer.Workers.PlaybackReportingImporter do
     # Process each activity using smaller transactions
     Enum.reduce(activities, %{created: 0, updated: 0, skipped: 0, errors: 0}, fn activity, acc ->
       try do
+        activity_id = activity["ItemId"] || "unknown"
+
         result =
           Repo.transaction(
             fn ->
@@ -434,20 +481,32 @@ defmodule StreamystatServer.Workers.PlaybackReportingImporter do
                 activity,
                 users_map,
                 items_map,
-                existing_sessions
+                existing_sessions,
+                normalized_items_map
               )
             end,
             timeout: @db_timeout
           )
 
         case result do
-          {:ok, {:ok, :created, _}} -> Map.update!(acc, :created, &(&1 + 1))
-          {:ok, {:ok, :updated, _}} -> Map.update!(acc, :updated, &(&1 + 1))
-          {:ok, {:skip, _}} -> Map.update!(acc, :skipped, &(&1 + 1))
-          _ -> Map.update!(acc, :errors, &(&1 + 1))
+          {:ok, {:ok, :created, _}} ->
+            Map.update!(acc, :created, &(&1 + 1))
+          {:ok, {:ok, :updated, _}} ->
+            Map.update!(acc, :updated, &(&1 + 1))
+          {:ok, {:skip, _reason}} ->
+            Map.update!(acc, :skipped, &(&1 + 1))
+          {:ok, {:error, reason}} ->
+            Logger.error("Error processing activity for item: #{activity_id}, reason: #{inspect(reason)}")
+            Map.update!(acc, :errors, &(&1 + 1))
+          {:error, reason} ->
+            Logger.error("Transaction error for item: #{activity_id}, reason: #{inspect(reason)}")
+            Map.update!(acc, :errors, &(&1 + 1))
         end
       rescue
-        _ -> Map.update!(acc, :errors, &(&1 + 1))
+        e ->
+          Logger.error("Exception processing activity: #{inspect(e)}")
+          Logger.error(Exception.format_stacktrace())
+          Map.update!(acc, :errors, &(&1 + 1))
       end
     end)
   end
@@ -457,7 +516,8 @@ defmodule StreamystatServer.Workers.PlaybackReportingImporter do
          activity,
          users_map,
          items_map,
-         existing_sessions
+         existing_sessions,
+         normalized_items_map \\ %{}
        ) do
     try do
       user_jellyfin_id = activity["UserId"]
@@ -471,122 +531,167 @@ defmodule StreamystatServer.Workers.PlaybackReportingImporter do
 
       activity_date = parse_date(activity["DateCreated"])
 
-      play_duration =
-        case activity["PlayDuration"] do
-          duration when is_binary(duration) -> String.to_integer(duration)
-          duration when is_integer(duration) -> duration
-          _ -> 0
-        end
-
-      item_jellyfin_id = activity["ItemId"]
-      item_name = activity["ItemName"]
-      item_type = activity["ItemType"]
-
-      # Extract series name and episode details if available
-      {series_name, item_name} = extract_series_info(item_name, item_type)
-
-      item = Map.get(items_map, item_jellyfin_id)
-
-      runtime_ticks =
-        case item do
-          %Item{runtime_ticks: ticks} when not is_nil(ticks) -> ticks
-          _ -> 0
-        end
-
-      percent_complete =
-        if runtime_ticks > 0 do
-          # Convert play_duration from seconds to ticks for comparison
-          play_duration_ticks = play_duration * 10_000
-          # Calculate percentage
-          play_duration_ticks / runtime_ticks * 100.0
-        else
-          # Default to 0 if we can't calculate
-          0.0
-        end
-
-      # Session is considered completed if progress is > 90%
-      completed = percent_complete > 90.0
-
-      end_time =
-        if activity_date && play_duration && play_duration > 0 do
-          DateTime.add(activity_date, play_duration, :second)
-        else
-          nil
-        end
-
-      # Map PlaybackMethod to play_method format
-      play_method = map_playback_method(activity["PlaybackMethod"])
-
-      attrs = %{
-        user_id: user && user.id,
-        user_jellyfin_id: if(user_jellyfin_id == "", do: nil, else: user_jellyfin_id),
-        # Not provided in Playback Reporting
-        device_id: nil,
-        device_name: activity["DeviceName"] || "",
-        client_name: activity["ClientName"],
-        item_jellyfin_id: item_jellyfin_id,
-        item_name: item_name,
-        series_jellyfin_id: item && item.series_id,
-        series_name: series_name,
-        season_jellyfin_id: item && item.season_id,
-        play_duration: play_duration,
-        play_method: play_method,
-        start_time: activity_date,
-        end_time: end_time,
-        # Not provided in Playback Reporting
-        position_ticks: nil,
-        runtime_ticks: runtime_ticks,
-        percent_complete: percent_complete,
-        completed: completed,
-        server_id: server.id
-      }
-
-      # Check if this session already exists in our lookup map
-      existing_key =
-        if user_jellyfin_id && user_jellyfin_id != "" do
-          {item_jellyfin_id, user_jellyfin_id, activity_date}
-        else
-          {item_jellyfin_id, activity_date}
-        end
-
-      existing_session = Map.get(existing_sessions, existing_key)
-
-      if is_nil(existing_session) do
-        result =
-          %PlaybackSession{}
-          |> PlaybackSession.changeset(attrs)
-          |> Repo.insert(timeout: @db_timeout)
-
-        case result do
-          {:ok, session} ->
-            {:ok, :created, session}
-
-          {:error, changeset} ->
-            Logger.error("Failed to create playback session: #{inspect(changeset.errors)}")
-            {:error, changeset}
-        end
+      if is_nil(activity_date) do
+        Logger.error("Could not parse date from activity: #{inspect(activity["DateCreated"])}")
+        {:error, "Invalid date format"}
       else
-        # Only update if the new data has more information
-        if should_update_session?(existing_session, attrs) do
+        play_duration =
+          case activity["PlayDuration"] do
+            duration when is_binary(duration) -> String.to_integer(duration)
+            duration when is_integer(duration) -> duration
+            _ -> 0
+          end
+
+        item_jellyfin_id = activity["ItemId"]
+        item_name = activity["ItemName"]
+        item_type = activity["ItemType"]
+
+        # Try exact match first, then case-insensitive fallback
+        item = Map.get(items_map, item_jellyfin_id)
+
+        case_insensitive_item = nil
+        if is_nil(item) && !is_nil(item_jellyfin_id) do
+          # Try case insensitive lookup as fallback
+          normalized_id = String.downcase(item_jellyfin_id)
+          case_insensitive_item = Map.get(normalized_items_map, normalized_id)
+
+          if is_nil(case_insensitive_item) do
+            Logger.debug("Item not found in database: #{item_jellyfin_id}, name: #{item_name}")
+          end
+        end
+
+        # Use the case-insensitive match if we have one
+        item = item || case_insensitive_item
+
+        # Extract series name from item_name since we need it regardless of whether we have the item
+        {series_name, episode_name} = extract_series_info(item_name, item_type)
+
+        # For episodes, use the series name from extraction if item doesn't have it
+        series_name =
+          if item_type == "Episode" do
+            (item && item.series_name) || series_name
+          else
+            nil
+          end
+
+        # Use the actual item name or the extracted episode name for episodes
+        actual_item_name =
+          if item_type == "Episode" do
+            episode_name || item_name
+          else
+            item_name
+          end
+
+        runtime_ticks =
+          case item do
+            %Item{runtime_ticks: ticks} when not is_nil(ticks) -> ticks
+            _ -> 0
+          end
+
+        percent_complete =
+          if runtime_ticks > 0 do
+            # Convert play_duration from seconds to ticks for comparison
+            play_duration_ticks = play_duration * 10_000
+            # Calculate percentage
+            play_duration_ticks / runtime_ticks * 100.0
+          else
+            # If we don't have runtime_ticks, we can't calculate percentage
+            # but we'll still create the session
+            0.0
+          end
+
+        # Session is considered completed if progress is > 90%
+        completed = percent_complete > 90.0
+
+        end_time =
+          if activity_date && play_duration && play_duration > 0 do
+            DateTime.add(activity_date, play_duration, :second)
+          else
+            nil
+          end
+
+        # Map PlaybackMethod to play_method format
+        play_method = map_playback_method(activity["PlaybackMethod"])
+
+        attrs = %{
+          user_id: user && user.jellyfin_id,
+          user_jellyfin_id: if(user_jellyfin_id == "", do: nil, else: user_jellyfin_id),
+          # Not provided in Playback Reporting
+          device_id: nil,
+          device_name: activity["DeviceName"] || "",
+          client_name: activity["ClientName"],
+          item_jellyfin_id: item_jellyfin_id,
+          item_name: actual_item_name,
+          series_jellyfin_id: item && item.series_id,
+          series_name: series_name,
+          season_jellyfin_id: item && item.season_id,
+          play_duration: play_duration,
+          play_method: play_method,
+          start_time: activity_date,
+          end_time: end_time,
+          # Not provided in Playback Reporting
+          position_ticks: nil,
+          runtime_ticks: runtime_ticks,
+          percent_complete: percent_complete,
+          completed: completed,
+          server_id: server.id
+        }
+
+        # Check if this session already exists in our lookup map
+        existing_key =
+          if user_jellyfin_id && user_jellyfin_id != "" do
+            {item_jellyfin_id, user_jellyfin_id, activity_date}
+          else
+            {item_jellyfin_id, activity_date}
+          end
+
+        existing_session = Map.get(existing_sessions, existing_key)
+
+        if is_nil(existing_session) do
           result =
-            existing_session
+            %PlaybackSession{}
             |> PlaybackSession.changeset(attrs)
-            |> Repo.update(timeout: @db_timeout)
+            |> Repo.insert(timeout: @db_timeout)
 
           case result do
             {:ok, session} ->
-              {:ok, :updated, session}
+              {:ok, :created, session}
 
             {:error, changeset} ->
-              Logger.error("Failed to update playback session: #{inspect(changeset.errors)}")
+              Logger.error("Failed to create playback session: #{inspect(changeset.errors)}")
               {:error, changeset}
           end
         else
-          {:skip, "Existing session has better data"}
+          # Only update if the new data has more information
+          if should_update_session?(existing_session, attrs) do
+            result =
+              existing_session
+              |> PlaybackSession.changeset(attrs)
+              |> Repo.update(timeout: @db_timeout)
+
+            case result do
+              {:ok, session} ->
+                {:ok, :updated, session}
+
+              {:error, changeset} ->
+                Logger.error("Failed to update playback session: #{inspect(changeset.errors)}")
+                {:error, changeset}
+            end
+          else
+            {:skip, "Existing session has better data"}
+          end
         end
       end
+    rescue
+      e ->
+        Logger.error("Error in create_playback_session_from_report: #{inspect(e)}")
+        Logger.error(Exception.format_stacktrace())
+        {:error, "Error: #{inspect(e)}"}
     catch
-      _ -> {:error, "Unexpected error occurred"}
+      kind, reason ->
+        Logger.error("Caught #{kind} in create_playback_session_from_report: #{inspect(reason)}")
+        Logger.error(Exception.format_stacktrace())
+        {:error, "Caught #{kind}: #{inspect(reason)}"}
     end
   end
 
@@ -627,36 +732,93 @@ defmodule StreamystatServer.Workers.PlaybackReportingImporter do
   defp parse_date(nil), do: nil
 
   defp parse_date(date) when is_binary(date) do
-    # Try ISO8601 format first
-    case DateTime.from_iso8601(date) do
-      {:ok, dt, _} ->
-        dt
+    # Try SQL Server datetime format first since it's the most common in our data
+    cond do
+      # SQL Server datetime format with 7-digit microseconds (as in the example)
+      String.match?(date, ~r/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{7}$/) ->
+        [year, month, day, hour, minute, second, ms] =
+          Regex.run(~r/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})\.(\d{7})$/, date)
+          |> tl()
 
+        # Truncate microseconds to 6 digits for ISO compatibility
+        ms_truncated = String.slice(ms, 0, 6)
+        iso_string = "#{year}-#{month}-#{day}T#{hour}:#{minute}:#{second}.#{ms_truncated}Z"
+
+        case DateTime.from_iso8601(iso_string) do
+          {:ok, dt, _} -> dt
+          {:error, _} -> fallback_date_parsing(date)
+        end
+
+      # SQL Server datetime format with milliseconds or microseconds
+      String.match?(date, ~r/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+$/) ->
+        [year, month, day, hour, minute, second, ms] =
+          Regex.run(~r/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})\.(\d+)$/, date)
+          |> tl()
+
+        # Ensure ms is 6 digits or less for ISO compatibility
+        ms_formatted = String.slice(ms, 0, 6)
+        iso_string = "#{year}-#{month}-#{day}T#{hour}:#{minute}:#{second}.#{ms_formatted}Z"
+
+        case DateTime.from_iso8601(iso_string) do
+          {:ok, dt, _} -> dt
+          {:error, _} -> fallback_date_parsing(date)
+        end
+
+      # SQL Server datetime format without milliseconds
+      String.match?(date, ~r/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/) ->
+        [year, month, day, hour, minute, second] =
+          Regex.run(~r/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/, date)
+          |> tl()
+
+        iso_string = "#{year}-#{month}-#{day}T#{hour}:#{minute}:#{second}Z"
+
+        case DateTime.from_iso8601(iso_string) do
+          {:ok, dt, _} -> dt
+          {:error, _} -> fallback_date_parsing(date)
+        end
+
+      # Try other formats if the common ones don't match
+      true -> fallback_date_parsing(date)
+    end
+  end
+
+  # Fallback function for other date formats
+  defp fallback_date_parsing(date) do
+    Logger.debug("Attempting fallback date parsing for: #{date}")
+
+    # Try ISO8601 format
+    case DateTime.from_iso8601(date) do
+      {:ok, dt, _} -> dt
       {:error, _} ->
-        # Try SQL Server datetime format
+        # Try naive datetime
         case NaiveDateTime.from_iso8601(date) do
           {:ok, ndt} ->
             case DateTime.from_naive(ndt, "Etc/UTC") do
               {:ok, dt} -> dt
-              _ -> nil
+              {:error, _} -> nil
             end
 
-          _ ->
-            # Try SQL Server datetime format with milliseconds
-            date_pattern = ~r/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})\.(\d+)$/
+          {:error, _} ->
+            # Try JavaScript Date.toString() format
+            js_date_pattern = ~r/^\w{3}\s+\w{3}\s+\d{1,2}\s+\d{4}\s+\d{2}:\d{2}:\d{2}\s+GMT[-+]\d{4}$/
 
-            case Regex.run(date_pattern, date) do
-              [_, year, month, day, hour, minute, second, ms] ->
-                # Build the datetime string
-                iso_string = "#{year}-#{month}-#{day}T#{hour}:#{minute}:#{second}.#{ms}Z"
-
-                case DateTime.from_iso8601(iso_string) do
-                  {:ok, dt, _} -> dt
-                  _ -> nil
-                end
-
-              _ ->
-                nil
+            if Regex.match?(js_date_pattern, date) do
+              try do
+                {:ok, dt} = Timex.parse(date, "{WDshort} {Mshort} {D} {YYYY} {h24}:{m}:{s} {Zname}")
+                dt
+              rescue
+                _ -> nil
+              end
+            else
+              # Try Unix timestamp
+              case Integer.parse(date) do
+                {timestamp, ""} ->
+                  timestamp_sec = if timestamp > 100_000_000_000, do: div(timestamp, 1000), else: timestamp
+                  DateTime.from_unix!(timestamp_sec)
+                _ ->
+                  Logger.error("Date format not recognized: #{date}")
+                  nil
+              end
             end
         end
     end

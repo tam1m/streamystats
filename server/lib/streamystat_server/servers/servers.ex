@@ -109,4 +109,12 @@ defmodule StreamystatServer.Servers.Servers do
     delete_query = from(record in Item, where: record.server_id == ^server_id)
     Repo.delete_all(delete_query)
   end
+
+  @doc """
+  Deletes all users for a server.
+  """
+  def delete_all_users(server_id) do
+    delete_query = from(record in User, where: record.server_id == ^server_id)
+    Repo.delete_all(delete_query)
+  end
 end

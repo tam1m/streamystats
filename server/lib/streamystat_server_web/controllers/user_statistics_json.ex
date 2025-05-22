@@ -37,9 +37,8 @@ defmodule StreamystatServerWeb.UserStatisticsJSON do
             series_primary_image_tag: activity.series_primary_image_tag,
             primary_image_thumb_tag: activity.primary_image_thumb_tag,
             primary_image_logo_tag: activity.primary_image_logo_tag,
-            user_id: activity.user_id,
+            user_jellyfin_id: activity.user_jellyfin_id,
             user_name: activity.user_name,
-            jellyfin_user_id: activity.jellyfin_user_id,
             transcoding_audio_codec: activity.transcoding_audio_codec,
             transcoding_video_codec: activity.transcoding_video_codec,
             transcoding_container: activity.transcoding_container,
@@ -62,7 +61,6 @@ defmodule StreamystatServerWeb.UserStatisticsJSON do
     %{
       data: %{
         item: %{
-          id: item_stats.item.id,
           jellyfin_id: item_stats.item.jellyfin_id,
           name: item_stats.item.name,
           type: item_stats.item.type,
@@ -123,7 +121,6 @@ defmodule StreamystatServerWeb.UserStatisticsJSON do
     %{
       item_id: item.item_id,
       item: %{
-        id: item.item.id,
         jellyfin_id: item.item.jellyfin_id,
         name: item.item.name,
         type: item.item.type,

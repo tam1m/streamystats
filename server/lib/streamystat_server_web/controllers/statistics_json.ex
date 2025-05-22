@@ -17,7 +17,6 @@ defmodule StreamystatServerWeb.StatisticsJSON do
 
   defp unwatched_item_data(item) do
     %{
-      id: item.id,
       jellyfin_id: item.jellyfin_id,
       name: item.name,
       type: item.type,

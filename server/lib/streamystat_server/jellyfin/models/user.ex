@@ -2,8 +2,8 @@ defmodule StreamystatServer.Jellyfin.Models.User do
   use Ecto.Schema
   import Ecto.Changeset
 
+  @primary_key {:jellyfin_id, :string, autogenerate: false}
   schema "jellyfin_users" do
-    field(:jellyfin_id, :string)
     field(:name, :string)
     field(:has_password, :boolean)
     field(:has_configured_password, :boolean)
@@ -40,8 +40,7 @@ defmodule StreamystatServer.Jellyfin.Models.User do
     field(:password_reset_provider_id, :string)
     field(:sync_play_access, :string)
 
-    # Fix: Change this to reference the correct server model
-    belongs_to(:server, StreamystatServer.Jellyfin.Models.Server)
+    belongs_to(:server, StreamystatServer.Servers.Models.Server, primary_key: true, type: :integer)
 
     timestamps()
   end
@@ -51,7 +50,6 @@ defmodule StreamystatServer.Jellyfin.Models.User do
     |> cast(attrs, [
       :jellyfin_id,
       :name,
-      # Add server_id to the allowed fields list
       :server_id,
       :has_password,
       :has_configured_password,
@@ -89,7 +87,6 @@ defmodule StreamystatServer.Jellyfin.Models.User do
       :sync_play_access
     ])
     |> validate_required([:jellyfin_id, :name, :server_id])
-    |> unique_constraint([:jellyfin_id, :server_id])
     |> foreign_key_constraint(:server_id)
   end
 end

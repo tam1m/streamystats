@@ -546,7 +546,6 @@ export const getStatistics = async (
     const res = await fetch(
       `${process.env.API_URL}/servers/${serverId}/statistics?${queryParams}`,
       {
-        cache: "no-store",
         headers: {
           Authorization: `Bearer ${await getToken()}`,
           "Content-Type": "application/json",
