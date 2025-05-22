@@ -9,6 +9,10 @@ defmodule StreamystatServer.Jellyfin.Client do
     [{"X-Emby-Token", api_key} | headers]
   end
 
+  # Default timeout values (in milliseconds)
+  @default_timeout 60_000     # 60 seconds
+  @default_recv_timeout 60_000 # 60 seconds
+
   @default_image_types "Primary,Backdrop,Banner,Thumb"
   @default_item_fields [
     "DateCreated",
@@ -56,7 +60,12 @@ defmodule StreamystatServer.Jellyfin.Client do
     url = "#{server.url}/Users"
     headers = process_request_headers([], server.api_key)
 
-    case get(url, headers) do
+    http_options = [
+      timeout: @default_timeout,
+      recv_timeout: @default_recv_timeout
+    ]
+
+    case get(url, headers, hackney: http_options) do
       {:ok, %{status_code: 200, body: body}} ->
         case Jason.decode(body, keys: :strings) do
           {:ok, users} -> {:ok, users}
@@ -75,7 +84,12 @@ defmodule StreamystatServer.Jellyfin.Client do
     url = "#{server.url}/Library/MediaFolders"
     headers = process_request_headers([], server.api_key)
 
-    case get(url, headers) do
+    http_options = [
+      timeout: @default_timeout,
+      recv_timeout: @default_recv_timeout
+    ]
+
+    case get(url, headers, hackney: http_options) do
       {:ok, %{status_code: 200, body: body}} ->
         case Jason.decode(body) do
           {:ok, decoded_body} ->
@@ -109,7 +123,12 @@ defmodule StreamystatServer.Jellyfin.Client do
       EnableImageTypes: @default_image_types
     }
 
-    case get(url, headers, params: params) do
+    http_options = [
+      timeout: @default_timeout,
+      recv_timeout: @default_recv_timeout
+    ]
+
+    case get(url, headers, params: params, hackney: http_options) do
       {:ok, %{status_code: 200, body: body}} ->
         case Jason.decode(body) do
           {:ok, item} -> {:ok, item}
@@ -147,7 +166,12 @@ defmodule StreamystatServer.Jellyfin.Client do
     headers = process_request_headers([], server.api_key)
     params = %{Fields: "ParentId", ids: item_id}
 
-    case get(url, headers, params: params) do
+    http_options = [
+      timeout: @default_timeout,
+      recv_timeout: @default_recv_timeout
+    ]
+
+    case get(url, headers, params: params, hackney: http_options) do
       {:ok, %{status_code: 200, body: body}} ->
         case Jason.decode(body) do
           {:ok, %{"Items" => [item | _]}} ->
@@ -208,7 +232,12 @@ defmodule StreamystatServer.Jellyfin.Client do
     url = "#{server.url}/Items"
     headers = process_request_headers([], server.api_key)
 
-    case get(url, headers, params: params) do
+    http_options = [
+      timeout: @default_timeout,
+      recv_timeout: @default_recv_timeout
+    ]
+
+    case get(url, headers, params: params, hackney: http_options) do
       {:ok, %{status_code: 200, body: body}} ->
         case Jason.decode(body) do
           {:ok, %{"Items" => items}} ->
@@ -243,7 +272,12 @@ defmodule StreamystatServer.Jellyfin.Client do
     url = "#{server.url}/Items"
     headers = process_request_headers([], server.api_key)
 
-    case get(url, headers, params: params) do
+    http_options = [
+      timeout: @default_timeout,
+      recv_timeout: @default_recv_timeout
+    ]
+
+    case get(url, headers, params: params, hackney: http_options) do
       {:ok, %{status_code: 200, body: body}} ->
         case Jason.decode(body) do
           {:ok, %{"Items" => items}} ->
@@ -290,7 +324,13 @@ defmodule StreamystatServer.Jellyfin.Client do
         params
       end
 
-    case get(url, headers, params: params) do
+    # Add increased timeout options for large libraries
+    http_options = [
+      timeout: @default_timeout,
+      recv_timeout: @default_recv_timeout
+    ]
+
+    case get(url, headers, params: params, hackney: http_options) do
       {:ok, %{status_code: 200, body: body}} ->
         case Jason.decode(body) do
           {:ok, decoded_body} ->
@@ -323,7 +363,12 @@ defmodule StreamystatServer.Jellyfin.Client do
     url = "#{server.url}/Plugins"
     headers = process_request_headers([], server.api_key)
 
-    case get(url, headers) do
+    http_options = [
+      timeout: @default_timeout,
+      recv_timeout: @default_recv_timeout
+    ]
+
+    case get(url, headers, hackney: http_options) do
       {:ok, %{status_code: 200, body: body}} ->
         case Jason.decode(body) do
           {:ok, plugins} -> {:ok, plugins}
@@ -342,7 +387,12 @@ defmodule StreamystatServer.Jellyfin.Client do
     url = "#{server.url}/Users/#{user_id}"
     headers = process_request_headers([], server.api_key)
 
-    case get(url, headers) do
+    http_options = [
+      timeout: @default_timeout,
+      recv_timeout: @default_recv_timeout
+    ]
+
+    case get(url, headers, hackney: http_options) do
       {:ok, %{status_code: 200, body: body}} ->
         case Jason.decode(body) do
           {:ok, user} -> {:ok, user}
@@ -362,7 +412,12 @@ defmodule StreamystatServer.Jellyfin.Client do
     headers = process_request_headers([], server.api_key)
     params = [startIndex: start_index, limit: limit]
 
-    case get(url, headers, params: params) do
+    http_options = [
+      timeout: @default_timeout,
+      recv_timeout: @default_recv_timeout
+    ]
+
+    case get(url, headers, params: params, hackney: http_options) do
       {:ok, %{status_code: 200, body: body}} ->
         case Jason.decode(body) do
           {:ok, %{"Items" => items}} -> {:ok, items}

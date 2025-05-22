@@ -54,12 +54,12 @@ defmodule StreamystatServer.Jellyfin.Sync.Items.Core do
 
   defp default_options do
     %{
-      max_library_concurrency: 2,
+      max_library_concurrency: 1,
       db_batch_size: @db_batch_size,
-      api_request_delay_ms: 100,
-      item_page_size: @item_page_size,
-      max_retries: 3,
-      retry_initial_delay_ms: 1000,
+      api_request_delay_ms: 250,
+      item_page_size: 250,
+      max_retries: 5,
+      retry_initial_delay_ms: 2000,
       adaptive_throttling: true
     }
   end
@@ -107,27 +107,27 @@ defmodule StreamystatServer.Jellyfin.Sync.Items.Core do
     total_errors = Enum.flat_map(results, fn {_, _, errors} -> errors end)
     total_count = Enum.sum(Enum.map(results, fn {_, count, _} -> count end))
 
+    # Check if there were any timeout errors specifically
+    has_timeout_errors =
+      Enum.any?(total_errors, fn error ->
+        is_binary(error) and String.contains?(error, "timeout")
+      end)
+
     # Only mark items as removed if there were no errors during sync
     # This prevents marking thousands of items as removed when a sync fails
-    if Enum.empty?(total_errors) do
-      # Mark items as removed if they weren't found in the sync
-      removed_items = MapSet.difference(existing_item_ids, found_item_ids)
-      removed_list = MapSet.to_list(removed_items)
+    cond do
+      Enum.empty?(total_errors) ->
+        # No errors - safe to mark items as removed
+        process_removed_items(existing_item_ids, found_item_ids, server.id)
 
-      if MapSet.size(removed_items) > 0 do
-        Logger.info("Marking #{MapSet.size(removed_items)} items as removed: #{inspect(removed_list)}")
-        now = NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
-        {count, _} =
-          Repo.update_all(
-            from(i in Item,
-              where: i.jellyfin_id in ^removed_list and i.server_id == ^server.id
-            ),
-            set: [removed_at: now]
-          )
-        Logger.info("Successfully marked #{count} items as removed")
-      end
-    else
-      Logger.warning("Skipping removal of missing items due to sync errors")
+      has_timeout_errors ->
+        # If there were timeout errors, don't mark anything as removed
+        # as it could lead to large numbers of items incorrectly marked
+        Logger.warning("Skipping removal of missing items due to timeout errors during sync")
+
+      true ->
+        # Other errors - use caution
+        Logger.warning("Skipping removal of missing items due to sync errors")
     end
 
     Metrics.update(metrics_agent, %{items_processed: total_count, errors: total_errors})
@@ -202,12 +202,19 @@ defmodule StreamystatServer.Jellyfin.Sync.Items.Core do
       fn {start_idx, fetched, errs} ->
         Metrics.update(metrics_agent, %{api_requests: 1})
 
-        case Client.get_items_page(server, library_id, start_idx, batch_size) do
+        # Add retry logic for handling timeouts
+        result = fetch_with_retry(server, library_id, start_idx, batch_size, 0, 3)
+
+        case result do
           {:ok, {[], _total}} ->
             {:halt, {fetched, errs}}
 
           {:ok, {items, _total}} ->
             Metrics.update(metrics_agent, %{items_processed: length(items)})
+
+            # Add a small delay between requests to reduce server load
+            Process.sleep(100)
+
             {[items], {start_idx + batch_size, fetched + length(items), errs}}
 
           {:error, reason} ->
@@ -219,6 +226,28 @@ defmodule StreamystatServer.Jellyfin.Sync.Items.Core do
       fn _ -> :ok end
     )
     |> Stream.flat_map(& &1)
+  end
+
+  # Helper function to retry failed requests
+  defp fetch_with_retry(_server, _library_id, _start_idx, _batch_size, retry_count, max_retries) when retry_count > max_retries do
+    {:error, "Max retries exceeded"}
+  end
+
+  defp fetch_with_retry(server, library_id, start_idx, batch_size, retry_count, max_retries) do
+    case Client.get_items_page(server, library_id, start_idx, batch_size) do
+      {:ok, result} ->
+        {:ok, result}
+
+      {:error, "HTTP request failed: timeout"} when retry_count < max_retries ->
+        # Exponential backoff for retries
+        backoff = :math.pow(2, retry_count) * 1000 |> round()
+        Logger.warning("Timeout occurred fetching items. Retrying in #{backoff}ms (attempt #{retry_count + 1}/#{max_retries})")
+        Process.sleep(backoff)
+        fetch_with_retry(server, library_id, start_idx, batch_size, retry_count + 1, max_retries)
+
+      {:error, reason} ->
+        {:error, reason}
+    end
   end
 
   defp process_items(items_stream, library_id, server_id, db_batch_size, metrics_agent) do
@@ -319,5 +348,31 @@ defmodule StreamystatServer.Jellyfin.Sync.Items.Core do
     Logger.error(
       "Failed to sync items for Jellyfin library #{jellyfin_library_id}: #{inspect(reason)}"
     )
+  end
+
+  # Helper function to process items that should be marked as removed
+  defp process_removed_items(existing_item_ids, found_item_ids, server_id) do
+    removed_items = MapSet.difference(existing_item_ids, found_item_ids)
+    removed_list = MapSet.to_list(removed_items)
+
+    if MapSet.size(removed_items) > 0 do
+      # Log how many items are being marked as removed
+      Logger.info("Marking #{MapSet.size(removed_items)} items as removed")
+
+      # If we're removing more than 100 items, log a warning as this could be suspicious
+      if MapSet.size(removed_items) > 100 do
+        Logger.warning("Large number of items (#{MapSet.size(removed_items)}) being marked as removed. This could indicate sync issues.")
+      end
+
+      now = NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+      {count, _} =
+        Repo.update_all(
+          from(i in Item,
+            where: i.jellyfin_id in ^removed_list and i.server_id == ^server_id
+          ),
+          set: [removed_at: now]
+        )
+      Logger.info("Successfully marked #{count} items as removed")
+    end
   end
 end
