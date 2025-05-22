@@ -322,7 +322,11 @@ defmodule StreamystatServer.Workers.JellystatsImporter do
       transcoding_is_video_direct: get_in(transcoding_info, ["IsVideoDirect"]),
       transcoding_is_audio_direct: get_in(transcoding_info, ["IsAudioDirect"]),
       transcoding_bitrate: get_in(transcoding_info, ["Bitrate"]),
-      transcoding_completion_percentage: get_in(transcoding_info, ["CompletionPercentage"]),
+      transcoding_completion_percentage: case get_in(transcoding_info, ["CompletionPercentage"]) do
+        nil -> nil
+        value when is_integer(value) -> value / 1
+        value -> value
+      end,
       transcoding_width: get_in(transcoding_info, ["Width"]),
       transcoding_height: get_in(transcoding_info, ["Height"]),
       transcoding_audio_channels: get_in(transcoding_info, ["AudioChannels"]),
