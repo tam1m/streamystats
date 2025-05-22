@@ -109,8 +109,14 @@ defmodule StreamystatServer.Workers.PlaybackReportingImporter do
 
   @impl true
   def handle_info({:DOWN, _ref, :process, _pid, reason}, state) do
-    Logger.error("Import task crashed: #{inspect(reason)}")
-    {:noreply, %{state | importing: false, current_server_id: nil}}
+    case reason do
+      :normal ->
+        # This is normal termination, no need to log an error
+        {:noreply, %{state | importing: false, current_server_id: nil}}
+      other_reason ->
+        Logger.error("Import task crashed: #{inspect(other_reason)}")
+        {:noreply, %{state | importing: false, current_server_id: nil}}
+    end
   end
 
   # Update do_import to handle different file types
@@ -190,7 +196,7 @@ defmodule StreamystatServer.Workers.PlaybackReportingImporter do
         fields = String.split(line, "\t")
         Logger.debug("Line has #{length(fields)} fields: #{inspect(fields)}")
 
-        # Check if we have enough fields - adjust based on your TSV format
+        # Parse TSV format with exactly 9 fields
         case fields do
           [
             date,
@@ -201,7 +207,7 @@ defmodule StreamystatServer.Workers.PlaybackReportingImporter do
             playback_method,
             client_name,
             device_name,
-            play_duration | _rest
+            play_duration
           ] ->
             %{
               "DateCreated" => date,
@@ -540,9 +546,6 @@ defmodule StreamystatServer.Workers.PlaybackReportingImporter do
         item_name = activity["ItemName"]
         item_type = activity["ItemType"]
 
-        # Extract series name and episode details if available
-        {series_name, item_name} = extract_series_info(item_name, item_type)
-
         # Try exact match first, then case-insensitive fallback
         item = Map.get(items_map, item_jellyfin_id)
 
@@ -559,6 +562,25 @@ defmodule StreamystatServer.Workers.PlaybackReportingImporter do
 
         # Use the case-insensitive match if we have one
         item = item || case_insensitive_item
+
+        # Extract series name from item_name since we need it regardless of whether we have the item
+        {series_name, episode_name} = extract_series_info(item_name, item_type)
+
+        # For episodes, use the series name from extraction if item doesn't have it
+        series_name =
+          if item_type == "Episode" do
+            (item && item.series_name) || series_name
+          else
+            nil
+          end
+
+        # Use the actual item name or the extracted episode name for episodes
+        actual_item_name =
+          if item_type == "Episode" do
+            episode_name || item_name
+          else
+            item_name
+          end
 
         runtime_ticks =
           case item do
@@ -599,7 +621,7 @@ defmodule StreamystatServer.Workers.PlaybackReportingImporter do
           device_name: activity["DeviceName"] || "",
           client_name: activity["ClientName"],
           item_jellyfin_id: item_jellyfin_id,
-          item_name: item_name,
+          item_name: actual_item_name,
           series_jellyfin_id: item && item.series_id,
           series_name: series_name,
           season_jellyfin_id: item && item.season_id,
@@ -712,13 +734,30 @@ defmodule StreamystatServer.Workers.PlaybackReportingImporter do
   defp parse_date(date) when is_binary(date) do
     # Try SQL Server datetime format first since it's the most common in our data
     cond do
-      # SQL Server datetime format with milliseconds
+      # SQL Server datetime format with 7-digit microseconds (as in the example)
+      String.match?(date, ~r/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{7}$/) ->
+        [year, month, day, hour, minute, second, ms] =
+          Regex.run(~r/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})\.(\d{7})$/, date)
+          |> tl()
+
+        # Truncate microseconds to 6 digits for ISO compatibility
+        ms_truncated = String.slice(ms, 0, 6)
+        iso_string = "#{year}-#{month}-#{day}T#{hour}:#{minute}:#{second}.#{ms_truncated}Z"
+
+        case DateTime.from_iso8601(iso_string) do
+          {:ok, dt, _} -> dt
+          {:error, _} -> fallback_date_parsing(date)
+        end
+
+      # SQL Server datetime format with milliseconds or microseconds
       String.match?(date, ~r/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+$/) ->
         [year, month, day, hour, minute, second, ms] =
           Regex.run(~r/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})\.(\d+)$/, date)
           |> tl()
 
-        iso_string = "#{year}-#{month}-#{day}T#{hour}:#{minute}:#{second}.#{ms}Z"
+        # Ensure ms is 6 digits or less for ISO compatibility
+        ms_formatted = String.slice(ms, 0, 6)
+        iso_string = "#{year}-#{month}-#{day}T#{hour}:#{minute}:#{second}.#{ms_formatted}Z"
 
         case DateTime.from_iso8601(iso_string) do
           {:ok, dt, _} -> dt
