@@ -180,6 +180,7 @@ export type User = {
   jellyfin_id: string | null;
   watch_stats: { total_watch_time: number; total_plays: number };
   watch_time_per_day: { date: string; total_duration: number }[];
+  watch_time_per_weekday: { day_of_week: number; total_duration: number }[];
   is_administrator: boolean;
   genre_stats: GenreStat[];
   longest_streak: number; // days
