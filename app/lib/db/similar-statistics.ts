@@ -28,6 +28,7 @@ export const getSimilarStatistics = async (
     }
 
     const data = await res.json();
+    console.log(data);
     return data.data || [];
   } catch (error) {
     console.error("Error fetching similar statistics:", error);

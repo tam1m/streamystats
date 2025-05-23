@@ -1,5 +1,16 @@
 "use client";
 
+import {
+  MorphingDialog,
+  MorphingDialogClose,
+  MorphingDialogContainer,
+  MorphingDialogContent,
+  MorphingDialogDescription,
+  MorphingDialogImage,
+  MorphingDialogSubtitle,
+  MorphingDialogTitle,
+  MorphingDialogTrigger,
+} from "@/components/motion-primitives/morphing-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,23 +21,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
-import {
-  MorphingDialog,
-  MorphingDialogTrigger,
-  MorphingDialogContent,
-  MorphingDialogTitle,
-  MorphingDialogImage,
-  MorphingDialogSubtitle,
-  MorphingDialogClose,
-  MorphingDialogDescription,
-  MorphingDialogContainer,
-} from "@/components/motion-primitives/morphing-dialog";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Item, Server } from "@/lib/db";
 import { Clock, ExternalLink } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
-import { Poster } from "./Poster";
 
 interface Props {
   data: Item[];
@@ -221,6 +219,30 @@ export const SimilarStatstics = ({ data, server }: Props) => {
                                 exit: { opacity: 0, scale: 0.8, y: 100 },
                               }}
                             >
+                              {/* Show "based on" information if available */}
+                              {item.based_on && item.based_on.length > 0 && (
+                                <div className="mb-4 p-3 bg-zinc-800/50 rounded-lg border border-zinc-700/50">
+                                  <p className="text-zinc-300 text-sm font-medium mb-2">
+                                    We recommend this because you watched:
+                                  </p>
+                                  <div className="flex flex-wrap gap-1">
+                                    {item.based_on
+                                      .slice(0, 3)
+                                      .map((basedOnItem, index) => (
+                                        <Badge
+                                          key={basedOnItem.jellyfin_id || index}
+                                          variant="outline"
+                                          className="text-xs text-zinc-200 border-zinc-600"
+                                        >
+                                          {basedOnItem.name}
+                                          {basedOnItem.production_year &&
+                                            ` (${basedOnItem.production_year})`}
+                                        </Badge>
+                                      ))}
+                                  </div>
+                                </div>
+                              )}
+
                               <p className="mt-2 text-zinc-400 text-sm leading-relaxed">
                                 {item.overview ||
                                   "No description available for this item."}

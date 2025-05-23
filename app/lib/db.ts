@@ -96,6 +96,10 @@ export type Item = {
   // Statistics (these might be included in some API responses)
   total_play_count?: number;
   total_play_duration?: number;
+
+  // Recommendation-related fields
+  similarity?: number;
+  based_on?: Item[]; // Array of movies this recommendation is based on
 };
 
 export type MostWatchedItem = Item & {
