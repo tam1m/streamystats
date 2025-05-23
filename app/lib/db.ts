@@ -13,6 +13,10 @@ export type Server = {
   api_key: string;
   open_ai_api_token?: string;
   auto_generate_embeddings?: boolean;
+  ollama_api_token?: string;
+  ollama_base_url?: string;
+  ollama_model?: string;
+  embedding_provider?: "openai" | "ollama";
 };
 
 export type SyncTask = {
