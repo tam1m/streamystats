@@ -74,7 +74,7 @@ export const SimilarStatstics = ({ data, server }: Props) => {
   if (!data || !Array.isArray(data) || data.length === 0) {
     return (
       <Card>
-        <CardHeader>
+        <CardHeader className="mb-0 pb-0">
           <CardTitle>Recommended Content</CardTitle>
           <CardDescription>No recommendations available yet</CardDescription>
         </CardHeader>
@@ -84,7 +84,7 @@ export const SimilarStatstics = ({ data, server }: Props) => {
 
   return (
     <Card className="flex flex-col max-w-full">
-      <CardHeader className="p-4 sm:p-6">
+      <CardHeader className="px-4 sm:px-6 mb-0 pb-0">
         <CardTitle className="text-lg sm:text-xl">
           Recommended Content
         </CardTitle>
@@ -92,7 +92,7 @@ export const SimilarStatstics = ({ data, server }: Props) => {
           Based on your viewing habits
         </CardDescription>
       </CardHeader>
-      <CardContent className="px-5 pt-0 m-0 max-w-full overflow-hidden">
+      <CardContent className="px-5 m-0 pt-0 max-w-full overflow-hidden">
         <Tabs defaultValue={defaultTab}>
           {(!server.open_ai_api_token || server.open_ai_api_token === "") &&
           server.embedding_provider === "openai" ? (
@@ -114,7 +114,7 @@ export const SimilarStatstics = ({ data, server }: Props) => {
           {types.map((type) => (
             <TabsContent key={type} value={type.toLowerCase()} className="">
               {/* Horizontal scrollable container */}
-              <div className="overflow-x-auto pb-2">
+              <div className="overflow-x-auto pt-4">
                 <div className="flex gap-4 min-w-full w-max">
                   {groupedItems[type].map((item) => (
                     <MorphingDialog
