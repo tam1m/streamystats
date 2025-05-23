@@ -8,7 +8,7 @@ export const getSimilarStatistics = async (
 ): Promise<Item[]> => {
   try {
     const res = await fetch(
-      `${process.env.API_URL}/servers/${serverId}/statistics/recommendations/me`,
+      `${process.env.API_URL}/servers/${serverId}/statistics/recommendations/me?limit=20`,
       {
         headers: {
           Authorization: `Bearer ${await getToken()}`,
