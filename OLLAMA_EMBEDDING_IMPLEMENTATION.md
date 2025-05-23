@@ -102,7 +102,9 @@ export type Server = {
 4. Save configuration
 
 ### Setting up Ollama (new functionality)
-1. Install and run Ollama on your server
+1. Install and run Ollama on your server  
+   **Tested/recommended version:** Ollama v0.1.32 or later  
+   _Using a tested version helps avoid compatibility issues. See [Ollama releases](https://github.com/ollama/ollama/releases) for details._
 2. Pull an embedding model: `ollama pull nomic-embed-text`
 3. Navigate to Server Settings > AI & Embeddings
 4. Select "Ollama" as the embedding provider

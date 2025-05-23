@@ -92,7 +92,7 @@ defmodule StreamystatServerWeb.ServerController do
         end
 
       "ollama" ->
-        if server.ollama_base_url || server.ollama_model do
+        if server.ollama_base_url && server.ollama_model do
           :ok
         else
           {:error, "Ollama configuration not set"}

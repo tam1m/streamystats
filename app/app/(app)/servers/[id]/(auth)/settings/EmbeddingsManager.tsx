@@ -168,9 +168,9 @@ export function EmbeddingsManager({ server }: { server: Server }) {
   // Check if current provider has valid configuration
   const hasValidConfig = () => {
     if (provider === "openai") {
-      return !!server.open_ai_api_token;
+      return !!apiKey;
     } else {
-      return !!server.ollama_base_url || !!server.ollama_model;
+      return !!ollamaBaseUrl && !!ollamaModel;
     }
   };
 
@@ -280,7 +280,7 @@ export function EmbeddingsManager({ server }: { server: Server }) {
                   handleProviderChange(value)
                 }
               >
-                <SelectTrigger>
+                <SelectTrigger id="provider-select">
                   <SelectValue placeholder="Select provider" />
                 </SelectTrigger>
                 <SelectContent>

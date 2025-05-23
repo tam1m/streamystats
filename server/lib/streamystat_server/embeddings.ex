@@ -18,7 +18,7 @@ defmodule StreamystatServer.Embeddings do
 
   # Support for server struct
   defp get_provider_and_opts(%{embedding_provider: "ollama"} = server) do
-    if server.ollama_base_url || server.ollama_model do
+    if server.ollama_base_url && server.ollama_model do
       {Ollama, server}
     else
       :error
