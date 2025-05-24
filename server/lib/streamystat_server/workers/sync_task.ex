@@ -22,6 +22,7 @@ defmodule StreamystatServer.Workers.SyncTask do
     {:ok, task_supervisor} = Task.Supervisor.start_link()
     schedule_full_sync()
     schedule_recently_added_sync()
+    schedule_recent_activities_sync()
     schedule_embedding_job()
     {:ok, %{task_supervisor: task_supervisor}}
   end
@@ -128,6 +129,19 @@ defmodule StreamystatServer.Workers.SyncTask do
     end)
 
     schedule_full_sync()
+    {:noreply, state}
+  end
+
+  @impl true
+  def handle_info(:sync_recent_activities, %{task_supervisor: supervisor} = state) do
+    Task.Supervisor.async_nolink(supervisor, fn ->
+      Servers.list_servers()
+      |> Enum.each(fn server ->
+        perform_sync(:sync_recent_activities, server.id)
+      end)
+    end)
+
+    schedule_recent_activities_sync()
     {:noreply, state}
   end
 
@@ -334,6 +348,11 @@ defmodule StreamystatServer.Workers.SyncTask do
   defp schedule_recently_added_sync do
     # Every other minute
     Process.send_after(self(), :sync_recently_added, 60 * 1000 * 2)
+  end
+
+  defp schedule_recent_activities_sync do
+    # Run every 5 minutes
+    Process.send_after(self(), :sync_recent_activities, 60 * 1000 * 5)
   end
 
   @spec get_server(server_id()) :: {:ok, Servers.Server.t()} | {:error, :not_found}
