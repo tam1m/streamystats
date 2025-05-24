@@ -13,8 +13,12 @@ defmodule StreamystatServerWeb.AuthPlug do
     # Then try to get the server
     server_result =
       case Servers.get_server(server_id) do
-        nil -> {:error, :not_found}
-        server -> {:ok, server}
+        nil ->
+          Logger.warning("Server not found for id: #{server_id}")
+          {:error, :not_found}
+        server ->
+          Logger.debug("Found server: #{server.url}")
+          {:ok, server}
       end
 
     with ["Bearer " <> token] <- auth_header,
@@ -28,7 +32,7 @@ defmodule StreamystatServerWeb.AuthPlug do
       |> assign(:server, server)
     else
       error ->
-        Logger.debug("Authentication failed at step: #{inspect(error)}")
+        Logger.warning("Authentication failed at step: #{inspect(error)}")
         handle_unauthorized(conn)
     end
   end

@@ -6,7 +6,7 @@ defmodule StreamystatServerWeb.ServerController do
   alias StreamystatServer.BatchEmbedder
   alias StreamystatServer.Repo
   alias StreamystatServer.SessionAnalysis
-  alias StreamystatServer.Items.Item
+  alias StreamystatServer.Jellyfin.Models.Item
   require Logger
 
   def index(conn, _params) do

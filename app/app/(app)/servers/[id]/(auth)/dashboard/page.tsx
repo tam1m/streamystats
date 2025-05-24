@@ -14,10 +14,10 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { ActiveSessions } from "./ActiveSessions";
 import { getSimilarStatistics } from "@/lib/db/similar-statistics";
-import { SimilarStatstics } from "./SimilarStatstics";
 import { MostWatchedItems } from "./MostWatchedItems";
 import { UserLeaderboard } from "./UserLeaderboard";
 import { UserActivityWrapper } from "./UserActivityWrapper";
+import { SimilarStatstics } from "./SimilarStatstics";
 
 interface ServerWithStats extends Server {
   statistics?: Statistics;
@@ -91,6 +91,7 @@ async function GeneralStats({
     mostWatchedItems.Episode = data.most_watched_items.Episode || [];
     mostWatchedItems.Series = data.most_watched_items.Series || [];
   }
+
 
   return (
     <div className="flex flex-col gap-6">

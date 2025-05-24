@@ -2,11 +2,9 @@ defmodule StreamystatServer.SessionAnalysis do
   alias StreamystatServer.Repo
   alias StreamystatServer.Sessions.Models.PlaybackSession
   alias StreamystatServer.Jellyfin.Models.Item
+  alias StreamystatServer.Recommendations.Models.HiddenRecommendation
   require Logger
   import Ecto.Query
-
-  # Add a configurable cache TTL
-  @cache_ttl :timer.minutes(1)  # Cache recommendations for 24 hours
 
   @doc """
   Removes all embeddings from jellyfin_items table for a specific server.
@@ -27,262 +25,311 @@ defmodule StreamystatServer.SessionAnalysis do
   end
 
   @doc """
-  Finds similar items based on a user's viewing history.
+  Hides a recommendation for a specific user
+  """
+  def hide_recommendation(user_id, item_jellyfin_id, server_id) do
+    attrs = %{
+      user_jellyfin_id: user_id,
+      item_jellyfin_id: item_jellyfin_id,
+      server_id: server_id,
+      hidden_at: DateTime.utc_now()
+    }
 
-  Improvements:
-  - Adds weighting based on watch completion percentage
-  - Adds genre filtering option
-  - Adds caching mechanism
-  - Returns "based on" information showing which movies contributed to each recommendation
+    %HiddenRecommendation{}
+    |> HiddenRecommendation.changeset(attrs)
+    |> Repo.insert(on_conflict: :nothing, conflict_target: [:user_jellyfin_id, :item_jellyfin_id, :server_id])
+    |> case do
+      {:ok, hidden_rec} ->
+        # Clear relevant caches
+        clear_user_recommendation_cache(user_id)
+        {:ok, hidden_rec}
+      {:error, changeset} ->
+        {:error, changeset}
+    end
+  end
+
+  # Gets comprehensive list of item IDs to exclude from recommendations for a user.
+  # This includes both watched items and hidden recommendations.
+  defp get_excluded_item_ids(user_id, server_id) do
+    # Get all items the user has watched (any completion percentage)
+    watched_item_ids = Repo.all(
+      from(s in PlaybackSession,
+        where: s.user_jellyfin_id == ^user_id,
+        select: s.item_jellyfin_id,
+        distinct: true
+      )
+    )
+
+    # Get all items the user has hidden
+    hidden_item_ids = Repo.all(
+      from(h in HiddenRecommendation,
+        where: h.user_jellyfin_id == ^user_id and h.server_id == ^server_id,
+        select: h.item_jellyfin_id
+      )
+    )
+
+    # Combine both lists and remove duplicates
+    (watched_item_ids ++ hidden_item_ids) |> Enum.uniq()
+  end
+
+  @doc """
+  Diverse recommendation system that finds items similar to what the user watched recently.
+  - Divides recent watch history into groups for more diverse recommendations
+  - Excludes both watched and hidden items
   """
   def find_similar_items_for_user(user_id, opts \\ []) do
     opts = if Keyword.keyword?(opts), do: opts, else: [limit: opts]
     limit = Keyword.get(opts, :limit, 10)
-    genre_filter = Keyword.get(opts, :genre)
+    server_id = Keyword.get(opts, :server_id)
 
-    # Use cached results if available
-    cache_key = "user_recommendations:#{user_id}:#{limit}:#{genre_filter}"
+    Logger.info("Finding similar items for user #{user_id} with limit #{limit} and server_id #{server_id}")
+
+    # Use simple cache key without complex options
+    cache_key = "diverse_recommendations:#{user_id}:#{limit}:#{server_id}"
     case get_from_cache(cache_key) do
       nil ->
-        # Get the items the user has watched with watch completion data
-        watched_sessions =
-          Repo.all(
-            from(s in PlaybackSession,
-              where: s.user_jellyfin_id == ^user_id,
-              select: {s.item_jellyfin_id, s.percent_complete}
-            )
-          )
+        Logger.debug("Cache miss for key: #{cache_key}")
 
-        # Group by item to handle multiple views of same item
-        watched_data =
-          Enum.reduce(watched_sessions, %{}, fn {item_id, pct}, acc ->
-            Map.update(acc, item_id, pct, fn existing -> max(existing, pct) end)
-          end)
+        # Get items to exclude (watched + hidden)
+        excluded_item_ids = get_excluded_item_ids(user_id, server_id)
+        Logger.debug("Found #{length(excluded_item_ids)} items to exclude")
 
-        watched_item_ids = Map.keys(watched_data)
+        # Get user's recently watched items (increased to 20 for more diversity)
+        recently_watched = get_recently_watched_items(user_id, server_id, 20)
+        Logger.debug("Found #{length(recently_watched)} recently watched items")
 
-        # Get the embeddings for those items and include server_id for filtering
-        watched_items =
-          Repo.all(
-            from(i in Item,
-              where: i.jellyfin_id in ^watched_item_ids and not is_nil(i.embedding),
-              select: %{item: i, server_id: i.server_id, library_id: i.library_id}
-            )
-          )
-
-        # If no watched items with embeddings, return empty list
-        if Enum.empty?(watched_items) do
+        if Enum.empty?(recently_watched) do
+          Logger.info("No recently watched items found for user #{user_id}")
           []
         else
-          # Get server_id and library_id from the first item (assuming user has items from one server)
-          # This helps avoid cross-server recommendations
-          first_item = List.first(watched_items)
-          server_id = first_item.server_id
-          library_id = first_item.library_id
-
-          # Calculate a weighted "user taste profile"
-          # Extract just the items from the map
-          items_only = Enum.map(watched_items, fn %{item: item} -> item end)
-          weighted_embedding = weighted_average_embeddings(items_only, watched_data)
-
-          # Find similar items using the weighted embedding and filter by server/library
-          query = build_similarity_query(weighted_embedding, watched_item_ids, limit, genre_filter, server_id, library_id)
-          similar_items = Repo.all(query)
-
-          # For each recommendation, find the top 3 watched movies it's most similar to
-          recommendations_with_based_on =
-            Enum.map(similar_items, fn %{item: recommended_item, similarity: similarity} ->
-              # Calculate similarity between this recommendation and each watched item
-              watched_similarities =
-                Enum.map(items_only, fn watched_item ->
-                  item_similarity = calculate_similarity(recommended_item.embedding, watched_item.embedding)
-                  weight = Map.get(watched_data, watched_item.jellyfin_id, 0.5)
-                  # Combine similarity with user's engagement (watch completion)
-                  weighted_similarity = item_similarity * (0.7 + weight * 0.3)
-                  %{item: watched_item, similarity: weighted_similarity}
-                end)
-                |> Enum.sort_by(& &1.similarity, :desc)
-                |> Enum.take(3)
-
-              based_on_items = Enum.map(watched_similarities, & &1.item)
-
-              %{
-                item: recommended_item,
-                similarity: similarity,
-                based_on: based_on_items
-              }
-            end)
-
-          # Store in cache
-          put_in_cache(cache_key, recommendations_with_based_on, @cache_ttl)
-
-          recommendations_with_based_on
-        end
-      cached_results ->
-        cached_results
-    end
-  end
-
-  @doc """
-  Finds similar items to a specific item with improved similarity calculation.
-  """
-  def find_similar_items_to_item(item_jellyfin_id, opts \\ []) do
-    limit = Keyword.get(opts, :limit, 10)
-    genre_filter = Keyword.get(opts, :genre)
-
-    # Try cache first
-    cache_key = "item_recommendations:#{item_jellyfin_id}:#{limit}:#{genre_filter}"
-    case get_from_cache(cache_key) do
-      nil ->
-        case Repo.one(
-               from(i in Item, where: i.jellyfin_id == ^item_jellyfin_id and not is_nil(i.embedding))
-             ) do
-          nil ->
-            []
-
-          item ->
-            # Use server_id and library_id to prevent cross-server recommendations
-            query = build_similarity_query(item.embedding, [item_jellyfin_id], limit, genre_filter, item.server_id, item.library_id)
-            similar_items = Repo.all(query)
-            put_in_cache(cache_key, similar_items, @cache_ttl)
-            similar_items
-        end
-      cached_results ->
-        cached_results
-    end
-  end
-
-  @doc """
-  Finds items similar to those in a specific session.
-  """
-  def find_similar_items_for_session(session_id, limit \\ 10) do
-    case Repo.one(from(s in PlaybackSession, where: s.id == ^session_id)) do
-      nil ->
-        []
-
-      session ->
-        item =
-          Repo.one(
-            from(i in Item,
-              where: i.jellyfin_id == ^session.item_jellyfin_id and not is_nil(i.embedding)
-            )
+          # Get diverse recommendations from different groups of recent movies
+          diverse_recommendations = get_diverse_recommendations(
+            recently_watched,
+            excluded_item_ids,
+            limit,
+            server_id
           )
+          Logger.info("Generated #{length(diverse_recommendations)} diverse recommendations")
 
-        if item do
-          # Use build_similarity_query with server and library filtering
-          query = build_similarity_query(item.embedding, [item.jellyfin_id], limit, nil, item.server_id, item.library_id)
-          Repo.all(query)
-        else
-          []
+          # Cache the results for 1 hour
+          put_in_cache(cache_key, diverse_recommendations, 3600)
+          Logger.debug("Cached recommendations for key: #{cache_key}")
+          diverse_recommendations
         end
+
+      cached_result ->
+        Logger.debug("Cache hit for key: #{cache_key}")
+        cached_result
     end
   end
 
-  @doc """
-  Finds the most popular items among sessions with similar viewing patterns.
-  """
-  def find_items_from_similar_sessions(item_jellyfin_id, limit \\ 10) do
-    # Find sessions where this item was watched
-    sessions =
-      Repo.all(
-        from(s in PlaybackSession,
-          where: s.item_jellyfin_id == ^item_jellyfin_id,
-          select: s.id
-        )
-      )
+  # Get diverse recommendations by sampling from different groups of recently watched items
+  defp get_diverse_recommendations(recently_watched, excluded_item_ids, limit, server_id) do
+    Logger.info("=== get_diverse_recommendations DEBUG ===")
+    Logger.info("recently_watched count: #{length(recently_watched)}")
+    Logger.info("excluded_item_ids count: #{length(excluded_item_ids)}")
+    Logger.info("limit: #{limit}")
+    Logger.info("server_id: #{server_id}")
 
-    if Enum.empty?(sessions) do
+    # Define different sampling strategies for diversity
+    sampling_strategies = [
+      # Last 2 movies (most recent)
+      %{name: "recent", items: Enum.take(recently_watched, 2), weight: 0.4},
+      # Next 2 movies (offset 2-4)
+      %{name: "mid_recent", items: Enum.slice(recently_watched, 2, 2), weight: 0.3},
+      # Next 3 movies (offset 4-7)
+      %{name: "older", items: Enum.slice(recently_watched, 4, 3), weight: 0.2},
+      # Random sample from remaining
+      %{name: "random", items: Enum.slice(recently_watched, 7, 5) |> Enum.shuffle() |> Enum.take(2), weight: 0.1}
+    ]
+
+    Logger.info("Original sampling_strategies:")
+    Enum.with_index(sampling_strategies, fn strategy, index ->
+      Logger.info("  [#{index}] name: #{strategy.name}, items_count: #{length(strategy.items)}, weight: #{strategy.weight}")
+      Logger.info("      keys: #{inspect(Map.keys(strategy))}")
+    end)
+
+    # Calculate how many recommendations to get from each strategy
+    Logger.info("Starting to map strategies with counts...")
+
+    recommendations_per_strategy = Enum.map(sampling_strategies, fn strategy ->
+      Logger.info("Processing strategy: #{strategy.name}")
+      Logger.info("  Original strategy keys: #{inspect(Map.keys(strategy))}")
+
+      count = max(1, round(limit * strategy.weight))
+      Logger.info("  Calculated count: #{count}")
+
+      # Use Map.put instead of map update syntax
+      result = Map.put(strategy, :count, count)
+      Logger.info("  Result after Map.put: keys = #{inspect(Map.keys(result))}")
+
+      result
+    end)
+
+    Logger.info("Final recommendations_per_strategy:")
+    Enum.with_index(recommendations_per_strategy, fn strategy, index ->
+      Logger.info("  [#{index}] #{inspect(strategy)}")
+      Logger.info("  [#{index}] keys: #{inspect(Map.keys(strategy))}")
+    end)
+
+    # Get recommendations from each strategy
+    Logger.info("Starting flat_map over recommendations_per_strategy...")
+
+    all_recommendations =
+      recommendations_per_strategy
+      |> Enum.flat_map(fn strategy ->
+        Logger.info("flat_map processing strategy: #{inspect(strategy)}")
+        Logger.info("flat_map strategy keys: #{inspect(Map.keys(strategy))}")
+        Logger.info("flat_map strategy.name: #{inspect(Map.get(strategy, :name, "KEY_MISSING"))}")
+        Logger.info("flat_map strategy.count: #{inspect(Map.get(strategy, :count, "KEY_MISSING"))}")
+        Logger.info("flat_map strategy.items length: #{if Map.has_key?(strategy, :items), do: length(strategy.items), else: "KEY_MISSING"}")
+
+        if Enum.empty?(strategy.items) do
+          Logger.info("Strategy #{strategy.name} has empty items, returning []")
+          []
+        else
+          Logger.info("Calling get_recommendations_for_group for #{strategy.name} with count: #{strategy.count}")
+          try do
+            result = get_recommendations_for_group(
+              strategy.items,
+              excluded_item_ids,
+              strategy.count,
+              strategy.name
+            )
+            Logger.info("get_recommendations_for_group returned #{length(result)} recommendations")
+            result
+          rescue
+            e ->
+              Logger.error("Error in get_recommendations_for_group for #{strategy.name}: #{inspect(e)}")
+              Logger.error("Strategy that caused error: #{inspect(strategy)}")
+              reraise e, __STACKTRACE__
+          end
+        end
+      end)
+      |> Enum.uniq_by(fn rec -> rec.item.jellyfin_id end)  # Remove duplicates
+
+    Logger.info("Total recommendations before sorting: #{length(all_recommendations)}")
+
+    # Sort by similarity and take the requested limit
+    final_recommendations = all_recommendations
+    |> Enum.sort_by(& &1.similarity, :desc)
+    |> Enum.take(limit)
+
+    Logger.info("Final recommendations count: #{length(final_recommendations)}")
+    Logger.info("=== get_diverse_recommendations DEBUG END ===")
+
+    final_recommendations
+  end
+
+  # Get recommendations for a specific group of items
+  defp get_recommendations_for_group(items, excluded_item_ids, count, _group_name) do
+    # Calculate average embedding for this group
+    average_embedding = simple_average_embeddings(items)
+
+    if is_nil(average_embedding) do
       []
     else
-      # First, get the server_id and library_id of the original item for filtering
-      base_item = Repo.one(from(i in Item, where: i.jellyfin_id == ^item_jellyfin_id, select: i))
+      # Build similarity query for this group
+      query = build_similarity_query(
+        average_embedding,
+        excluded_item_ids,
+        count * 2,  # Get more results to ensure diversity
+        nil,  # no genre filter
+        nil,  # no server filter
+        nil   # no library filter
+      )
 
-      # Proceed only if we have the base item
-      if base_item do
-        server_id = base_item.server_id
-        _library_id = base_item.library_id
+      Repo.all(query)
+      |> Enum.map(fn result ->
+        # Handle both new format (with item/similarity keys) and old format
+        item = case result do
+          %{item: item, similarity: _similarity} -> item
+          item -> item
+        end
 
-        # Find users who watched this item
-        users =
-          Repo.all(
-            from(s in PlaybackSession,
-              where: s.item_jellyfin_id == ^item_jellyfin_id,
-              select: s.user_jellyfin_id,
-              distinct: true
-            )
-          )
+        similarity = calculate_similarity(average_embedding, item.embedding)
 
-        # Find other items these users watched
-        other_items =
-          Repo.all(
-            from(s in PlaybackSession,
-              where: s.user_jellyfin_id in ^users and s.item_jellyfin_id != ^item_jellyfin_id,
-              group_by: s.item_jellyfin_id,
-              select: {s.item_jellyfin_id, count(s.id)},
-              order_by: [desc: count(s.id)],
-              limit: ^limit
-            )
-          )
+        # Find top 3 items from this group that contributed to this recommendation
+        contributing_items = find_contributing_movies(item, items, 3)
 
-        # Fetch the actual items
-        item_ids = Enum.map(other_items, fn {id, _} -> id end)
+        # Log the format we're creating
+        recommendation = %{
+          item: item,
+          similarity: similarity,
+          based_on: contributing_items
+          # Remove source_group to match TypeScript interface
+        }
 
-        Repo.all(
-          from(i in Item,
-            where: i.jellyfin_id in ^item_ids and i.server_id == ^server_id,
-            order_by: fragment("array_position(?, jellyfin_id)", ^item_ids)
-          )
-        )
-      else
-        []
-      end
+        Logger.info("Created recommendation format: #{inspect(Map.keys(recommendation))}")
+        Logger.info("  item type: #{inspect(item.__struct__)}")
+        Logger.info("  similarity type: #{inspect(similarity)}")
+        Logger.info("  based_on count: #{length(contributing_items)}")
+        Logger.info("  based_on first item type: #{if length(contributing_items) > 0, do: inspect(hd(contributing_items).__struct__), else: "empty"}")
+
+        recommendation
+      end)
+      |> Enum.sort_by(& &1.similarity, :desc)
+      |> Enum.take(count)
     end
   end
 
-  # Enhanced private helper functions
+  # Helper function to get user's recently watched items
+  defp get_recently_watched_items(user_id, server_id, limit) do
+    Repo.all(
+      from(s in PlaybackSession,
+        join: i in Item,
+        on: s.item_jellyfin_id == i.jellyfin_id and s.server_id == i.server_id,
+        where: s.user_jellyfin_id == ^user_id
+          and s.server_id == ^server_id
+          and not is_nil(i.embedding)
+          and is_nil(i.removed_at),
+        order_by: [desc: s.start_time],
+        limit: ^limit,
+        select: i,
+        distinct: i.jellyfin_id
+      )
+    )
+  end
 
-  defp weighted_average_embeddings(items, weight_map) do
-    # Extract embeddings with weights
-    embedding_data =
-      Enum.map(items, fn item ->
-        weight = Map.get(weight_map, item.jellyfin_id, 0.5)
-        vector = ensure_list_format(item.embedding)
-        {vector, weight}
-      end)
+  # Simple average of embeddings without complex weighting
+  defp simple_average_embeddings(items) when is_list(items) and length(items) > 0 do
+    # Convert all embeddings to list format
+    embeddings = Enum.map(items, fn item ->
+      ensure_list_format(item.embedding)
+    end)
 
     # Get dimensions from first embedding
-    [{first_vector, _} | _] = embedding_data
-    dims = length(first_vector)
+    [first_embedding | _] = embeddings
+    dims = length(first_embedding)
 
-    # Initialize an accumulator with zeros
-    zeros = List.duplicate(0.0, dims)
-
-    # Total weight for normalization
-    total_weight = Enum.reduce(embedding_data, 0, fn {_, weight}, sum -> sum + weight end)
-    total_weight = if total_weight == 0, do: 1, else: total_weight
-
-    # Calculate weighted sum
-    weighted_sum =
-      Enum.reduce(embedding_data, zeros, fn {vector, weight}, acc ->
-        weighted_vector = Enum.map(vector, fn val -> val * weight end)
-        Enum.zip_with(weighted_vector, acc, fn e1, e2 -> e1 + e2 end)
+    # Calculate simple average
+    averaged =
+      0..(dims - 1)
+      |> Enum.map(fn dim_index ->
+        # Sum values at this dimension across all embeddings
+        sum = Enum.reduce(embeddings, 0, fn embedding, acc ->
+          acc + Enum.at(embedding, dim_index)
+        end)
+        # Average by number of embeddings
+        sum / length(embeddings)
       end)
-
-    # Normalize by total weight
-    averaged = Enum.map(weighted_sum, fn value -> value / total_weight end)
 
     # Convert back to Pgvector format
     Pgvector.new(averaged)
   end
 
+  defp simple_average_embeddings(_), do: nil
+
   defp ensure_list_format(embedding) do
     if is_list(embedding), do: embedding, else: Pgvector.to_list(embedding)
   end
 
-  defp build_similarity_query(embedding, excluded_item_ids, limit, genre_filter, server_id \\ nil, library_id \\ nil) do
-    # Start with a simple query structure
+  defp build_similarity_query(embedding, excluded_item_ids, limit, genre_filter, server_id, library_id) do
+    # Start with a simple query structure - exclude items without embeddings, removed items, and user-excluded items
     query = from(i in Item,
-      where: i.jellyfin_id not in ^excluded_item_ids and not is_nil(i.embedding)
+      where: i.jellyfin_id not in ^excluded_item_ids
+        and not is_nil(i.embedding)
+        and is_nil(i.removed_at)  # Exclude removed items
     )
 
     # Apply genre filter if provided
@@ -389,5 +436,58 @@ defmodule StreamystatServer.SessionAnalysis do
           _ -> true
         end
     end
+  end
+
+  # Helper function to clear user recommendation cache
+  defp clear_user_recommendation_cache(user_id) do
+    try do
+      # Get all cache keys and find the ones that match this user
+      pattern = "diverse_recommendations:#{user_id}:"
+
+      # Get all keys from the ETS table
+      case :ets.tab2list(:recommendation_cache) do
+        keys_and_values ->
+          keys_to_delete =
+            keys_and_values
+            |> Enum.filter(fn {key, _value, _expiry} ->
+              String.starts_with?(key, pattern)
+            end)
+            |> Enum.map(fn {key, _value, _expiry} -> key end)
+
+          # Delete all matching keys
+          Enum.each(keys_to_delete, fn key ->
+            :ets.delete(:recommendation_cache, key)
+          end)
+
+          Logger.info("Cleared #{length(keys_to_delete)} recommendation cache entries for user #{user_id}")
+      end
+    rescue
+      ArgumentError ->
+        # Table doesn't exist, nothing to clear
+        Logger.info("No recommendation cache table found, nothing to clear for user #{user_id}")
+    end
+  end
+
+  # Helper function to find contributing movies for a recommendation
+  defp find_contributing_movies(recommended_item, watched_items, limit) when is_list(watched_items) do
+    Logger.info("find_contributing_movies called with:")
+    Logger.info("  recommended_item: #{recommended_item.name}")
+    Logger.info("  watched_items count: #{length(watched_items)}")
+    Logger.info("  limit: #{limit}")
+
+    # Calculate similarity between recommendation and each watched item
+    result = watched_items
+    |> Enum.map(fn watched_item ->
+      similarity = calculate_similarity(recommended_item.embedding, watched_item.embedding)
+      %{item: watched_item, similarity: similarity}
+    end)
+    |> Enum.sort_by(& &1.similarity, :desc)
+    |> Enum.take(limit)
+    |> Enum.map(& &1.item)  # <- This should return just the items
+
+    Logger.info("find_contributing_movies returning #{length(result)} items")
+    Logger.info("  first item type: #{if length(result) > 0, do: inspect(hd(result).__struct__), else: "empty"}")
+
+    result
   end
 end

@@ -57,7 +57,9 @@ defmodule StreamystatServer.Jellyfin.Models.Item do
              :embedding,
              :removed_at,
              :inserted_at,
-             :updated_at
+             :updated_at,
+             :missing_sync_count,
+             :first_missing_at
            ]}
 
   schema "jellyfin_items" do
@@ -106,6 +108,8 @@ defmodule StreamystatServer.Jellyfin.Models.Item do
     field(:people, {:array, :map})
     field(:embedding, Pgvector.Ecto.Vector)
     field(:removed_at, :utc_datetime)
+    field(:missing_sync_count, :integer, default: 0)
+    field(:first_missing_at, :utc_datetime)
     belongs_to(:library, Library, foreign_key: :library_id)
     belongs_to(:server, Server, foreign_key: :server_id)
 
@@ -169,7 +173,9 @@ defmodule StreamystatServer.Jellyfin.Models.Item do
       :primary_image_thumb_tag,
       :primary_image_logo_tag,
       :embedding,
-      :removed_at
+      :removed_at,
+      :missing_sync_count,
+      :first_missing_at
     ])
     |> validate_required([:jellyfin_id, :name, :type, :library_id, :server_id])
     |> unique_constraint([:jellyfin_id, :library_id])

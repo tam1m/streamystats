@@ -3,8 +3,9 @@ defmodule StreamystatServer.Jellyfin.Sync.Items.Core do
   Core functionality for syncing all Jellyfin items from libraries.
   """
 
-  require Logger
+  use Ecto.Schema
   import Ecto.Query
+  require Logger
 
   alias StreamystatServer.Repo
   alias StreamystatServer.Jellyfin.Client
@@ -350,29 +351,160 @@ defmodule StreamystatServer.Jellyfin.Sync.Items.Core do
     )
   end
 
-  # Helper function to process items that should be marked as removed
+  # Helper function to process items that should be marked as removed with grace period
   defp process_removed_items(existing_item_ids, found_item_ids, server_id) do
     removed_items = MapSet.difference(existing_item_ids, found_item_ids)
-    removed_list = MapSet.to_list(removed_items)
+    found_items = found_item_ids
 
     if MapSet.size(removed_items) > 0 do
-      # Log how many items are being marked as removed
-      Logger.info("Marking #{MapSet.size(removed_items)} items as removed")
+      Logger.warning("🔍 Found #{MapSet.size(removed_items)} items missing from current sync for server #{server_id}")
+      process_missing_items(MapSet.to_list(removed_items), server_id)
+    end
 
-      # If we're removing more than 100 items, log a warning as this could be suspicious
-      if MapSet.size(removed_items) > 100 do
-        Logger.warning("Large number of items (#{MapSet.size(removed_items)}) being marked as removed. This could indicate sync issues.")
-      end
+    if MapSet.size(found_items) > 0 do
+      # Reset missing count for items that were found in this sync
+      reset_missing_count_for_found_items(MapSet.to_list(found_items), server_id)
+    end
+  end
 
-      now = NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
-      {count, _} =
-        Repo.update_all(
-          from(i in Item,
-            where: i.jellyfin_id in ^removed_list and i.server_id == ^server_id
+  # Process items that are missing from the current sync
+  defp process_missing_items(missing_item_ids, server_id) do
+    now = DateTime.utc_now()
+
+    Logger.info("Incrementing missing count for #{length(missing_item_ids)} items")
+
+    # Get existing items to update them individually for better control
+    existing_items = Repo.all(
+      from(i in Item,
+        where: i.jellyfin_id in ^missing_item_ids
+          and i.server_id == ^server_id
+          and is_nil(i.removed_at),
+        select: %{id: i.id, jellyfin_id: i.jellyfin_id, missing_sync_count: i.missing_sync_count, first_missing_at: i.first_missing_at}
+      )
+    )
+
+    # Prepare updates
+    updates = Enum.map(existing_items, fn item ->
+      %{
+        id: item.id,
+        missing_sync_count: (item.missing_sync_count || 0) + 1,
+        first_missing_at: item.first_missing_at || now
+      }
+    end)
+
+    # Bulk update with individual values
+    if length(updates) > 0 do
+      update_missing_counts(updates)
+      Logger.info("Updated missing count for #{length(updates)} items")
+    end
+
+    # Find items that should now be marked as removed
+    items_to_remove = find_items_to_remove(server_id, now)
+
+    if length(items_to_remove) > 0 do
+      mark_verified_items_as_removed(items_to_remove, server_id)
+    else
+      Logger.info("✅ No items meet removal criteria yet")
+    end
+  end
+
+  # Helper function to update missing counts
+  defp update_missing_counts(updates) do
+    Enum.each(updates, fn update ->
+      Repo.update_all(
+        from(i in Item, where: i.id == ^update.id),
+        set: [
+          missing_sync_count: update.missing_sync_count,
+          first_missing_at: update.first_missing_at
+        ]
+      )
+    end)
+  end
+
+  # Reset missing count for items that were found in this sync
+  defp reset_missing_count_for_found_items(found_item_ids, server_id) do
+    {reset_count, _} = Repo.update_all(
+      from(i in Item,
+        where: i.jellyfin_id in ^found_item_ids
+          and i.server_id == ^server_id
+          and (not is_nil(i.missing_sync_count) or not is_nil(i.first_missing_at))
+      ),
+      set: [missing_sync_count: 0, first_missing_at: nil]
+    )
+
+    if reset_count > 0 do
+      Logger.info("✅ Reset missing count for #{reset_count} items that were found")
+    end
+  end
+
+  # Find items that meet the criteria for removal
+  defp find_items_to_remove(server_id, current_time) do
+    # Items are marked for removal if:
+    # 1. Missing from 3+ consecutive syncs, OR
+    # 2. Missing for 24+ hours, OR
+    # 3. Missing from 5+ syncs (extra safety)
+
+    twenty_four_hours_ago = DateTime.add(current_time, -24, :hour)
+
+    items_to_remove = Repo.all(
+      from(i in Item,
+        where: i.server_id == ^server_id
+          and is_nil(i.removed_at)
+          and not is_nil(i.missing_sync_count)
+          and (
+            i.missing_sync_count >= 3
+            or
+            (not is_nil(i.first_missing_at) and i.first_missing_at <= ^twenty_four_hours_ago)
+            or
+            i.missing_sync_count >= 5
           ),
-          set: [removed_at: now]
+        select: %{
+          jellyfin_id: i.jellyfin_id,
+          name: i.name,
+          missing_sync_count: i.missing_sync_count,
+          first_missing_at: i.first_missing_at
+        }
+      )
+    )
+
+    if length(items_to_remove) > 0 do
+      Logger.warning("⚠️  Found #{length(items_to_remove)} items meeting removal criteria:")
+      Enum.each(items_to_remove, fn item ->
+        hours_missing = if item.first_missing_at do
+          DateTime.diff(current_time, item.first_missing_at, :hour)
+        else
+          0
+        end
+        Logger.warning("  - #{item.name} (#{item.jellyfin_id}): missing #{item.missing_sync_count} syncs, #{hours_missing}h")
+      end)
+    end
+
+    Enum.map(items_to_remove, & &1.jellyfin_id)
+  end
+
+  # Mark items as removed after they've been verified through the grace period
+  defp mark_verified_items_as_removed(verified_removed_items, server_id) do
+    now = DateTime.utc_now()
+
+    {count, _} = Repo.update_all(
+      from(i in Item,
+        where: i.jellyfin_id in ^verified_removed_items and i.server_id == ^server_id
+      ),
+      set: [removed_at: now]
+    )
+
+    Logger.warning("✅ Successfully marked #{count} verified items as removed after grace period")
+
+    # Log which items were removed for debugging
+    if count > 0 do
+      removed_items = Repo.all(
+        from(i in Item,
+          where: i.jellyfin_id in ^verified_removed_items and i.server_id == ^server_id,
+          select: %{name: i.name, jellyfin_id: i.jellyfin_id}
         )
-      Logger.info("Successfully marked #{count} items as removed")
+      )
+
+      Logger.warning("Removed items: #{inspect(removed_items)}")
     end
   end
 end

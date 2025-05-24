@@ -77,18 +77,7 @@ defmodule StreamystatServerWeb.Router do
       get("/statistics/library", UserStatisticsController, :library_stats)
       get("/statistics/unwatched", StatisticsController, :unwatched)
       get("/statistics/recommendations/me", RecommendationController, :for_me)
-
-      get(
-        "/statistics/recommendations/similar_to/:item_id",
-        RecommendationController,
-        :similar_to
-      )
-
-      get(
-        "/statistics/recommendations/current_session/:session_id",
-        RecommendationController,
-        :current_session
-      )
+      post("/statistics/recommendations/hide/:item_id", RecommendationController, :hide_recommendation)
 
       # get("/me", UserController, :me)
       resources("/libraries", LibraryController, only: [:index, :show])
