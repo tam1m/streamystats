@@ -130,7 +130,7 @@ export const SimilarStatstics = ({ data, server }: Props) => {
                         className="flex w-[200px] sm:w-[240px] flex-col overflow-hidden border border-zinc-50/10 bg-zinc-900 hover:opacity-80 transition-opacity"
                       >
                         <MorphingDialogImage
-                          src={`${server.url}/Items/${item.jellyfin_id}/Images/Primary?maxHeight=300&quality=90`}
+                          src={`${server.url}/Items/${item.jellyfin_id}/Images/Primary?maxHeight=1000&quality=90`}
                           alt={item.name || "Movie poster"}
                           className="h-48 sm:h-56 w-full object-cover"
                         />
@@ -174,7 +174,7 @@ export const SimilarStatstics = ({ data, server }: Props) => {
                         >
                           <div className="flex-shrink-0">
                             <MorphingDialogImage
-                              src={`${server.url}/Items/${item.jellyfin_id}/Images/Primary?maxHeight=400&quality=90`}
+                              src={`${server.url}/Items/${item.jellyfin_id}/Images/Primary?maxHeight=1000&quality=90`}
                               alt={item.name || "Movie poster"}
                               className="h-64 sm:h-80 w-full object-cover"
                             />
