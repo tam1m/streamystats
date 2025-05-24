@@ -63,7 +63,7 @@ class ErrorBoundary extends React.Component<
       const newIssueUrl = `https://github.com/fredrikburmester/streamystats/issues/new?title=${issueTitle}&body=${issueBody}`;
 
       return (
-        <div className="flex flex-col items-center justify-center min-h-[90svh] bg-black text-white">
+        <div className="flex flex-col items-center justify-center min-h-[90svh] bg-black text-white w-full">
           <h1 className="text-3xl font-extrabold mb-2">Error</h1>
 
           <div className="max-w-md text-center mb-8">
