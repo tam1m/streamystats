@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/sidebar";
 import { getServer, getServers } from "@/lib/db";
 import { getMe, isUserAdmin } from "@/lib/me";
+import { getPreferredServer } from "@/lib/preferred-server";
 import { redirect } from "next/navigation";
 import { PropsWithChildren, Suspense } from "react";
 
@@ -26,6 +27,7 @@ export default async function layout({ children, params }: Props) {
 
   const servers = await getServers();
   const server = await getServer(id);
+  const preferredServerId = await getPreferredServer();
 
   const me = await getMe();
   const isAdmin = await isUserAdmin();
@@ -36,7 +38,12 @@ export default async function layout({ children, params }: Props) {
 
   return (
     <SidebarProvider>
-      <SideBar servers={servers} me={me} allowedToCreateServer={isAdmin} />
+      <SideBar
+        servers={servers}
+        me={me}
+        allowedToCreateServer={isAdmin}
+        preferredServerId={preferredServerId}
+      />
       <Suspense fallback={<SuspenseLoading />}>
         <ErrorBoundary>
           <main>

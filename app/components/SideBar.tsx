@@ -105,12 +105,14 @@ interface Props {
   servers: Server[];
   me?: UserMe;
   allowedToCreateServer?: boolean;
+  preferredServerId?: number | null;
 }
 
 export const SideBar: React.FC<Props> = ({
   servers,
   me,
   allowedToCreateServer = false,
+  preferredServerId,
 }) => {
   const params = useParams();
   const [fullUser, setFullUser] = useState<User | null>(null);
@@ -150,6 +152,7 @@ export const SideBar: React.FC<Props> = ({
           <ServerSelector
             servers={servers}
             allowedToCreateServer={allowedToCreateServer}
+            preferredServerId={preferredServerId}
           />
         </SidebarGroup>
         <SidebarGroup>
