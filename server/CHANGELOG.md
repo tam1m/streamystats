@@ -1,5 +1,29 @@
 # Changelog
 
+## [1.8.0](https://github.com/fredrikburmester/streamystats/compare/v1.7.5...v1.8.0) (2025-05-24)
+
+
+### Features
+
+* add based on statistic ([1264e4f](https://github.com/fredrikburmester/streamystats/commit/1264e4fdf371bec34e6416dd83b32b66c39fc48a))
+* add User Activity chart with date filtering ([e99da45](https://github.com/fredrikburmester/streamystats/commit/e99da45dc509c3af53c454ba8254d6d7f453c302))
+* add User Activity chart with date filtering - Add horizontal bar chart showing daily active users - Implement user activity statistics in Phoenix backend - Add new API endpoint for user activity data - Create date filtering with calendar component - Add client-side data fetching via API route - Chart displays unique users per day from playback_sessions - Include date range controls with preset options - Fix tooltip spacing and layout issues ([0874dc5](https://github.com/fredrikburmester/streamystats/commit/0874dc5d2c438f036491d086dbe5ca9dcff98dba))
+* ollama support for embedding ([d3ad198](https://github.com/fredrikburmester/streamystats/commit/d3ad198b7d6a20ae96fc3306b6e25458b3d1ea9c))
+* ollama support for embeddings ([cbba66d](https://github.com/fredrikburmester/streamystats/commit/cbba66d063caa0874d36efbe0c51df2f32d60f9a))
+* watchtime per week day ([bd6ef2a](https://github.com/fredrikburmester/streamystats/commit/bd6ef2a4b5b84b6794d396842e317adb53920cd6))
+
+
+### Bug Fixes
+
+* better ai recommendations ([47f3b06](https://github.com/fredrikburmester/streamystats/commit/47f3b061f50518e9e2ebefc152227c5e82134910))
+* hide items ([191bdab](https://github.com/fredrikburmester/streamystats/commit/191bdab4e70d759e1c9a0a4ae69e52937ec70b92))
+* improve sync ([519217c](https://github.com/fredrikburmester/streamystats/commit/519217c37f77ee64723755920028837a7ac4a6ed))
+* migrate to jellyfin uuid instead of custom id ([74e7803](https://github.com/fredrikburmester/streamystats/commit/74e78038a0b4feed40a84bf1a8cb7e881e500c3f))
+* migrate to jellyfin uuid instead of custom id ([1c454f4](https://github.com/fredrikburmester/streamystats/commit/1c454f41dd816764a1fd053045eaeceb358e5a26))
+* small issues ([abb58ba](https://github.com/fredrikburmester/streamystats/commit/abb58ba0b80416948df694e63ffcd1e19c88560a))
+* sync ([6fd93d6](https://github.com/fredrikburmester/streamystats/commit/6fd93d6fdd40ff937c23ee7beb9b9c6670128ac9))
+* use Jellyfin UUID instead of ID as primary key ([13afb2a](https://github.com/fredrikburmester/streamystats/commit/13afb2a67ad6cdeff3768f6d3b06548b96681611))
+
 ## [1.7.5](https://github.com/fredrikburmester/streamystats/compare/v1.7.4...v1.7.5) (2025-05-21)
 
 

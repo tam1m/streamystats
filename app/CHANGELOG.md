@@ -1,5 +1,31 @@
 # Changelog
 
+## [1.8.0](https://github.com/fredrikburmester/streamystats/compare/streamystat-v1.7.3...streamystat-v1.8.0) (2025-05-24)
+
+
+### Features
+
+* add based on statistic ([1264e4f](https://github.com/fredrikburmester/streamystats/commit/1264e4fdf371bec34e6416dd83b32b66c39fc48a))
+* add User Activity chart with date filtering ([e99da45](https://github.com/fredrikburmester/streamystats/commit/e99da45dc509c3af53c454ba8254d6d7f453c302))
+* add User Activity chart with date filtering - Add horizontal bar chart showing daily active users - Implement user activity statistics in Phoenix backend - Add new API endpoint for user activity data - Create date filtering with calendar component - Add client-side data fetching via API route - Chart displays unique users per day from playback_sessions - Include date range controls with preset options - Fix tooltip spacing and layout issues ([0874dc5](https://github.com/fredrikburmester/streamystats/commit/0874dc5d2c438f036491d086dbe5ca9dcff98dba))
+* enhance active sessions with detailed bitrate and transcoding info ([410fe01](https://github.com/fredrikburmester/streamystats/commit/410fe013bd5bf846f5255c16ac80ab1995fb58ab))
+* enhance active sessions with detailed bitrate and transcoding info ([9cb525d](https://github.com/fredrikburmester/streamystats/commit/9cb525dcaa4fc938076111a87613b076fcb5c5a6))
+* ollama support for embedding ([d3ad198](https://github.com/fredrikburmester/streamystats/commit/d3ad198b7d6a20ae96fc3306b6e25458b3d1ea9c))
+* ollama support for embeddings ([cbba66d](https://github.com/fredrikburmester/streamystats/commit/cbba66d063caa0874d36efbe0c51df2f32d60f9a))
+* preferred server ([b4a3b8b](https://github.com/fredrikburmester/streamystats/commit/b4a3b8bd4700bc112e928a3eb955532504e7629c))
+* watchtime per week day ([bd6ef2a](https://github.com/fredrikburmester/streamystats/commit/bd6ef2a4b5b84b6794d396842e317adb53920cd6))
+
+
+### Bug Fixes
+
+* better ai recommendations ([47f3b06](https://github.com/fredrikburmester/streamystats/commit/47f3b061f50518e9e2ebefc152227c5e82134910))
+* design ([446c790](https://github.com/fredrikburmester/streamystats/commit/446c7909c991459f972a9c7a72d82de011cdf9a9))
+* poster quality ([f79b7c1](https://github.com/fredrikburmester/streamystats/commit/f79b7c1d0402447e28465698341c76a8235ed42a))
+* small issues ([abb58ba](https://github.com/fredrikburmester/streamystats/commit/abb58ba0b80416948df694e63ffcd1e19c88560a))
+* type error ([fb3048d](https://github.com/fredrikburmester/streamystats/commit/fb3048d5bd6b6948bf62bcb48391b90954428efa))
+* use Jellyfin UUID instead of ID as primary key ([13afb2a](https://github.com/fredrikburmester/streamystats/commit/13afb2a67ad6cdeff3768f6d3b06548b96681611))
+* width ([201f365](https://github.com/fredrikburmester/streamystats/commit/201f365222df19c3cc35c60623d7a8d8b170871a))
+
 ## [1.7.3](https://github.com/fredrikburmester/streamystats/compare/streamystat-v1.7.2...streamystat-v1.7.3) (2025-05-21)
 
 
