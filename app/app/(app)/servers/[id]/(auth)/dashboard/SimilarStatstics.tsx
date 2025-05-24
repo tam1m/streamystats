@@ -1,5 +1,6 @@
 "use client";
 
+import React, { useState } from "react";
 import {
   MorphingDialog,
   MorphingDialogClose,
@@ -23,8 +24,10 @@ import {
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Item, Server } from "@/lib/db";
-import { Clock, ExternalLink } from "lucide-react";
+import { Clock, ExternalLink, EyeOffIcon } from "lucide-react";
 import Link from "next/link";
+import { hideRecommendation } from "@/lib/db/similar-statistics";
+import { toast } from "sonner";
 
 interface Props {
   data: Item[];
@@ -33,10 +36,42 @@ interface Props {
 
 export const SimilarStatstics = ({ data, server }: Props) => {
   const isMobile = useIsMobile();
+  const [recommendations, setRecommendations] = useState(data);
+  const [hidingItems, setHidingItems] = useState<Set<string>>(new Set());
+
+  const handleHideRecommendation = async (item: Item) => {
+    if (!item.jellyfin_id || hidingItems.has(item.jellyfin_id)) return;
+
+    const jellyfinId = item.jellyfin_id;
+    setHidingItems((prev) => new Set(prev).add(jellyfinId));
+
+    try {
+      const result = await hideRecommendation(server.id, jellyfinId);
+
+      if (result.success) {
+        // Remove the item from recommendations
+        setRecommendations((prev) =>
+          prev.filter((i) => i.jellyfin_id !== jellyfinId)
+        );
+        toast.success("Recommendation hidden successfully");
+      } else {
+        toast.error(result.error || "Failed to hide recommendation");
+      }
+    } catch (error) {
+      console.error("Error hiding recommendation:", error);
+      toast.error("Failed to hide recommendation");
+    } finally {
+      setHidingItems((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(jellyfinId);
+        return newSet;
+      });
+    }
+  };
 
   // Group items by type
-  const groupedItems = Array.isArray(data)
-    ? data.reduce((acc: Record<string, Item[]>, item) => {
+  const groupedItems = Array.isArray(recommendations)
+    ? recommendations.reduce((acc: Record<string, Item[]>, item) => {
         if (!item || !item.type) return acc;
 
         acc[item.type] = acc[item.type] || [];
@@ -69,7 +104,11 @@ export const SimilarStatstics = ({ data, server }: Props) => {
     return `${minutes}m`;
   };
 
-  if (!data || !Array.isArray(data) || data.length === 0) {
+  if (
+    !recommendations ||
+    !Array.isArray(recommendations) ||
+    recommendations.length === 0
+  ) {
     return (
       <Card>
         <CardHeader className="mb-0 pb-0">
@@ -130,7 +169,7 @@ export const SimilarStatstics = ({ data, server }: Props) => {
                         className="flex w-[200px] sm:w-[240px] flex-col overflow-hidden border border-zinc-50/10 bg-zinc-900 hover:opacity-80 transition-opacity"
                       >
                         <MorphingDialogImage
-                          src={`${server.url}/Items/${item.jellyfin_id}/Images/Primary?maxHeight=1000&quality=90`}
+                          src={`${server.url}/Items/${item.jellyfin_id}/Images/Primary?maxHeight=300&quality=90`}
                           alt={item.name || "Movie poster"}
                           className="h-48 sm:h-56 w-full object-cover"
                         />
@@ -174,16 +213,34 @@ export const SimilarStatstics = ({ data, server }: Props) => {
                         >
                           <div className="flex-shrink-0">
                             <MorphingDialogImage
-                              src={`${server.url}/Items/${item.jellyfin_id}/Images/Primary?maxHeight=1000&quality=90`}
+                              src={`${server.url}/Items/${item.jellyfin_id}/Images/Primary?maxHeight=400&quality=90`}
                               alt={item.name || "Movie poster"}
                               className="h-64 sm:h-80 w-full object-cover"
                             />
                           </div>
 
                           <div className="p-6 flex-1 overflow-y-auto">
-                            <MorphingDialogTitle className="text-2xl text-zinc-50 font-bold">
-                              {item.name}
-                            </MorphingDialogTitle>
+                            <div className="flex justify-between items-start mb-4">
+                              <div className="flex-1 mr-3">
+                                <MorphingDialogTitle className="text-2xl text-zinc-50 font-bold">
+                                  {item.name}
+                                </MorphingDialogTitle>
+                              </div>
+                              {item.jellyfin_id && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleHideRecommendation(item)}
+                                  disabled={hidingItems.has(item.jellyfin_id)}
+                                  className="flex items-center gap-2 text-zinc-300 border-zinc-600 hover:text-zinc-100 hover:border-zinc-500"
+                                >
+                                  <EyeOffIcon className="h-4 w-4" />
+                                  {hidingItems.has(item.jellyfin_id)
+                                    ? "Hiding..."
+                                    : "Hide"}
+                                </Button>
+                              )}
+                            </div>
 
                             <div className="flex gap-2 flex-wrap mt-2 mb-4">
                               {item.production_year && (

@@ -9,8 +9,8 @@ import { getTranscodingStatistics } from "@/lib/db/transcoding-statistics";
 import Graph from "./Graph";
 import { UserLeaderboard } from "./UserLeaderboard";
 import { isUserAdmin } from "@/lib/me";
-import { SimilarStatstics } from "./SimilarStatstics";
 import { getSimilarStatistics } from "@/lib/db/similar-statistics";
+import { SimilarStatstics } from "./SimilarStatstics";
 
 export async function StatsWithSuspense({
   server,

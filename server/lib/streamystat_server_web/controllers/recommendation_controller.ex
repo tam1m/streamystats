@@ -13,9 +13,68 @@ defmodule StreamystatServerWeb.RecommendationController do
   def for_me(conn, params) do
     try do
       user_id = get_user_id(conn)
+      server_id = get_server_id(conn)
       limit = Map.get(params, "limit", "10") |> parse_limit()
 
-      recommendations = SessionAnalysis.find_similar_items_for_user(user_id, limit)
+      recommendations = SessionAnalysis.find_similar_items_for_user(user_id,
+        limit: limit,
+        server_id: server_id
+      )
+
+      conn
+      |> put_status(:ok)
+      |> render(:recommendations, items: recommendations)
+    rescue
+      e in RuntimeError ->
+        conn
+        |> put_status(:unauthorized)
+        |> render(:error, error: e.message)
+    end
+  end
+
+  @doc """
+  Returns contextual recommendations based on current time/context
+  """
+  def contextual(conn, params) do
+    try do
+      user_id = get_user_id(conn)
+      server_id = get_server_id(conn)
+      limit = Map.get(params, "limit", "10") |> parse_limit()
+      context = Map.get(params, "context", "auto") |> parse_context()
+
+      recommendations = SessionAnalysis.find_contextual_recommendations(user_id,
+        limit: limit,
+        context: context,
+        server_id: server_id
+      )
+
+      conn
+      |> put_status(:ok)
+      |> render(:recommendations, items: recommendations)
+    rescue
+      e in RuntimeError ->
+        conn
+        |> put_status(:unauthorized)
+        |> render(:error, error: e.message)
+    end
+  end
+
+  @doc """
+  Returns genre-boosted recommendations
+  """
+  def genre_boosted(conn, params) do
+    try do
+      user_id = get_user_id(conn)
+      server_id = get_server_id(conn)
+      limit = Map.get(params, "limit", "10") |> parse_limit()
+      genre = Map.get(params, "genre")
+
+      recommendations = SessionAnalysis.find_similar_items_for_user(user_id,
+        limit: limit,
+        genre: genre,
+        boost_user_genres: true,
+        server_id: server_id
+      )
 
       conn
       |> put_status(:ok)
@@ -125,6 +184,33 @@ defmodule StreamystatServerWeb.RecommendationController do
     end
   end
 
+  @doc """
+  Hides a recommendation for the current user
+  """
+  def hide_recommendation(conn, %{"item_id" => item_id}) do
+    try do
+      user_id = get_user_id(conn)
+      server_id = get_server_id(conn)
+
+      case SessionAnalysis.hide_recommendation(user_id, item_id, server_id) do
+        {:ok, _hidden_rec} ->
+          conn
+          |> put_status(:ok)
+          |> json(%{success: true, message: "Recommendation hidden successfully"})
+
+        {:error, changeset} ->
+          conn
+          |> put_status(:unprocessable_entity)
+          |> json(%{success: false, error: "Failed to hide recommendation", details: changeset})
+      end
+    rescue
+      e in RuntimeError ->
+        conn
+        |> put_status(:unauthorized)
+        |> render(:error, error: e.message)
+    end
+  end
+
   # Private helper functions
 
   defp get_user_id(conn) do
@@ -138,19 +224,34 @@ defmodule StreamystatServerWeb.RecommendationController do
     end
   end
 
-  defp parse_limit(limit) when is_binary(limit) do
-    case Integer.parse(limit) do
-      {num, _} when num > 0 and num <= 100 -> num
-      # Default to 10 if invalid
+  defp get_server_id(conn) do
+    server_id = conn.assigns[:current_server_id]
+
+    # Return nil if server_id is missing, will be handled in the endpoints
+    if is_nil(server_id) do
+      raise "Server not authenticated"
+    else
+      server_id
+    end
+  end
+
+  defp parse_limit(limit_str) do
+    case Integer.parse(limit_str) do
+      {limit, _} when limit > 0 and limit <= 50 -> limit
       _ -> 10
     end
   end
 
-  defp parse_limit(limit) when is_integer(limit) do
-    if limit > 0 and limit <= 100, do: limit, else: 10
+  defp parse_context(context_str) do
+    case context_str do
+      "auto" -> :auto
+      "weekend" -> :weekend
+      "weekday" -> :weekday
+      "evening" -> :evening
+      "quick_watch" -> :quick_watch
+      _ -> :auto
+    end
   end
-
-  defp parse_limit(_), do: 10
 
   defp parse_id(id) when is_binary(id) do
     case Integer.parse(id) do
@@ -175,10 +276,15 @@ defmodule StreamystatServerWeb.RecommendationController do
     if has_watched do
       true
     else
-      # If the user hasn't watched it, check if the item is public
+      # If the user hasn't watched it, check if the item is public and not removed
       # This logic would need to be customized based on your access control system
-      # Here we're assuming all items are accessible if they exist
-      Repo.exists?(from(i in Item, where: i.jellyfin_id == ^item_jellyfin_id))
+      # Here we're assuming all items are accessible if they exist and are not removed
+      Repo.exists?(
+        from(i in Item,
+          where: i.jellyfin_id == ^item_jellyfin_id
+            and is_nil(i.removed_at)  # Exclude removed items
+        )
+      )
     end
   end
 end
