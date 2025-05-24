@@ -49,7 +49,6 @@ import {
 import { Label } from "@/components/ui/label";
 
 export function EmbeddingsManager({ server }: { server: Server }) {
-  console.log("server", server);
   // OpenAI state
   const [apiKey, setApiKey] = useState(server.open_ai_api_token || "");
 

@@ -1,7 +1,6 @@
 import { Container } from "@/components/Container";
 import { PageTitle } from "@/components/PageTitle";
-import { Badge } from "@/components/ui/badge";
-import { getServer, getStatisticsHistory, getUser } from "@/lib/db";
+import { getServer, getUser } from "@/lib/db";
 import { formatDuration } from "@/lib/utils";
 import { redirect } from "next/navigation";
 import { HistoryTable } from "../../history/HistoryTable";
@@ -25,7 +24,6 @@ export default async function User({
   }
 
   const user = await getUser(name, server.id, page);
-  console.log(user);
   if (!user) {
     redirect("/");
   }

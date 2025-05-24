@@ -1,6 +1,5 @@
 "use client";
 
-import React, { useState } from "react";
 import {
   MorphingDialog,
   MorphingDialogClose,
@@ -22,14 +21,14 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { Item, Server } from "@/lib/db";
-import { Clock, ExternalLink, EyeOffIcon } from "lucide-react";
-import Link from "next/link";
+import { Server } from "@/lib/db";
 import {
   hideRecommendation,
   RecommendationItem,
 } from "@/lib/db/similar-statistics";
+import { Clock, ExternalLink, EyeOffIcon } from "lucide-react";
+import Link from "next/link";
+import { useState } from "react";
 import { toast } from "sonner";
 
 interface Props {
@@ -38,16 +37,13 @@ interface Props {
 }
 
 export const SimilarStatstics = ({ data, server }: Props) => {
-  const isMobile = useIsMobile();
   const [recommendations, setRecommendations] = useState(data);
   const [hidingItems, setHidingItems] = useState<Set<string>>(new Set());
-
-  console.log("SimilarStatstics", data);
 
   const handleHideRecommendation = async (
     recommendation: RecommendationItem
   ) => {
-    const item = recommendation.item;
+    const { item } = recommendation;
     if (!item.jellyfin_id || hidingItems.has(item.jellyfin_id)) {
       console.warn("Item already hidden or missing jellyfin_id", item);
       return;
@@ -85,7 +81,9 @@ export const SimilarStatstics = ({ data, server }: Props) => {
     ? recommendations.reduce(
         (acc: Record<string, RecommendationItem[]>, recommendation) => {
           const item = recommendation?.item;
-          if (!item || !item.type) return acc;
+          if (!item || !item.type) {
+            return acc;
+          }
 
           acc[item.type] = acc[item.type] || [];
 
@@ -108,7 +106,9 @@ export const SimilarStatstics = ({ data, server }: Props) => {
 
   // Format runtime from ticks to hours and minutes
   const formatRuntime = (ticks: number | null) => {
-    if (!ticks) return null;
+    if (!ticks) {
+      return null;
+    }
     const minutes = Math.floor(ticks / 600000000);
     const hours = Math.floor(minutes / 60);
     const remainingMinutes = minutes % 60;
@@ -126,7 +126,7 @@ export const SimilarStatstics = ({ data, server }: Props) => {
   ) {
     return (
       <Card>
-        <CardHeader className="mb-0 pb-0">
+        <CardHeader className="">
           <CardTitle>Recommended Content</CardTitle>
           <CardDescription>No recommendations available yet</CardDescription>
         </CardHeader>

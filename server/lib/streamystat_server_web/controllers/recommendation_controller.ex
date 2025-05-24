@@ -9,7 +9,8 @@ defmodule StreamystatServerWeb.RecommendationController do
   def for_me(conn, params) do
     try do
       user_id = get_user_id(conn)
-      server_id = get_server_id(conn)
+      server_id = params["server_id"]
+      Logger.info("Getting recommendations for user #{user_id} on server #{server_id}")
       limit = Map.get(params, "limit", "10") |> parse_limit()
 
       recommendations = SessionAnalysis.find_similar_items_for_user(user_id,
@@ -31,10 +32,9 @@ defmodule StreamystatServerWeb.RecommendationController do
   @doc """
   Hides a recommendation for the current user
   """
-  def hide_recommendation(conn, %{"item_id" => item_id}) do
+  def hide_recommendation(conn, %{"item_id" => item_id, "server_id" => server_id}) do
     try do
       user_id = get_user_id(conn)
-      server_id = get_server_id(conn)
 
       case SessionAnalysis.hide_recommendation(user_id, item_id, server_id) do
         {:ok, _hidden_rec} ->
@@ -65,17 +65,6 @@ defmodule StreamystatServerWeb.RecommendationController do
       raise "User not authenticated"
     else
       user_id
-    end
-  end
-
-  defp get_server_id(conn) do
-    server_id = conn.assigns[:current_server_id]
-
-    # Return nil if server_id is missing, will be handled in the endpoints
-    if is_nil(server_id) do
-      raise "Server not authenticated"
-    else
-      server_id
     end
   end
 

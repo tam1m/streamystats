@@ -73,7 +73,8 @@ defmodule StreamystatServer.SessionAnalysis do
   end
 
   @doc """
-  Simple recommendation system that finds items similar to what the user watched recently.
+  Diverse recommendation system that finds items similar to what the user watched recently.
+  - Divides recent watch history into groups for more diverse recommendations
   - Excludes both watched and hidden items
   """
   def find_similar_items_for_user(user_id, opts \\ []) do
@@ -81,55 +82,194 @@ defmodule StreamystatServer.SessionAnalysis do
     limit = Keyword.get(opts, :limit, 10)
     server_id = Keyword.get(opts, :server_id)
 
+    Logger.info("Finding similar items for user #{user_id} with limit #{limit} and server_id #{server_id}")
+
     # Use simple cache key without complex options
-    cache_key = "simple_recommendations:#{user_id}:#{limit}:#{server_id}"
+    cache_key = "diverse_recommendations:#{user_id}:#{limit}:#{server_id}"
     case get_from_cache(cache_key) do
       nil ->
+        Logger.debug("Cache miss for key: #{cache_key}")
+
         # Get items to exclude (watched + hidden)
         excluded_item_ids = get_excluded_item_ids(user_id, server_id)
+        Logger.debug("Found #{length(excluded_item_ids)} items to exclude")
 
-        # Get user's recently watched items (last 10)
-        recently_watched = get_recently_watched_items(user_id, server_id, 10)
+        # Get user's recently watched items (increased to 20 for more diversity)
+        recently_watched = get_recently_watched_items(user_id, server_id, 20)
+        Logger.debug("Found #{length(recently_watched)} recently watched items")
 
         if Enum.empty?(recently_watched) do
+          Logger.info("No recently watched items found for user #{user_id}")
           []
         else
-          # Calculate simple average embedding from recently watched items
-          average_embedding = simple_average_embeddings(recently_watched)
-
-          # Build basic similarity query
-          query = build_similarity_query(
-            average_embedding,
+          # Get diverse recommendations from different groups of recent movies
+          diverse_recommendations = get_diverse_recommendations(
+            recently_watched,
             excluded_item_ids,
             limit,
-            nil,  # no genre filter
-            server_id,
-            nil   # no library filter
+            server_id
           )
-
-          recommendations = Repo.all(query)
-          |> Enum.map(fn item ->
-            similarity = calculate_similarity(average_embedding, item.embedding)
-
-            # Find top 3 recently watched items that contributed to this recommendation
-            contributing_items = find_contributing_movies(item, recently_watched, 3)
-
-            %{
-              item: item,
-              similarity: similarity,
-              based_on: contributing_items
-            }
-          end)
-          |> Enum.sort_by(& &1.similarity, :desc)
-          |> Enum.take(limit)
+          Logger.info("Generated #{length(diverse_recommendations)} diverse recommendations")
 
           # Cache the results for 1 hour
-          put_in_cache(cache_key, recommendations, 3600)
-          recommendations
+          put_in_cache(cache_key, diverse_recommendations, 3600)
+          Logger.debug("Cached recommendations for key: #{cache_key}")
+          diverse_recommendations
         end
 
       cached_result ->
+        Logger.debug("Cache hit for key: #{cache_key}")
         cached_result
+    end
+  end
+
+  # Get diverse recommendations by sampling from different groups of recently watched items
+  defp get_diverse_recommendations(recently_watched, excluded_item_ids, limit, server_id) do
+    Logger.info("=== get_diverse_recommendations DEBUG ===")
+    Logger.info("recently_watched count: #{length(recently_watched)}")
+    Logger.info("excluded_item_ids count: #{length(excluded_item_ids)}")
+    Logger.info("limit: #{limit}")
+    Logger.info("server_id: #{server_id}")
+
+    # Define different sampling strategies for diversity
+    sampling_strategies = [
+      # Last 2 movies (most recent)
+      %{name: "recent", items: Enum.take(recently_watched, 2), weight: 0.4},
+      # Next 2 movies (offset 2-4)
+      %{name: "mid_recent", items: Enum.slice(recently_watched, 2, 2), weight: 0.3},
+      # Next 3 movies (offset 4-7)
+      %{name: "older", items: Enum.slice(recently_watched, 4, 3), weight: 0.2},
+      # Random sample from remaining
+      %{name: "random", items: Enum.slice(recently_watched, 7, 5) |> Enum.shuffle() |> Enum.take(2), weight: 0.1}
+    ]
+
+    Logger.info("Original sampling_strategies:")
+    Enum.with_index(sampling_strategies, fn strategy, index ->
+      Logger.info("  [#{index}] name: #{strategy.name}, items_count: #{length(strategy.items)}, weight: #{strategy.weight}")
+      Logger.info("      keys: #{inspect(Map.keys(strategy))}")
+    end)
+
+    # Calculate how many recommendations to get from each strategy
+    Logger.info("Starting to map strategies with counts...")
+
+    recommendations_per_strategy = Enum.map(sampling_strategies, fn strategy ->
+      Logger.info("Processing strategy: #{strategy.name}")
+      Logger.info("  Original strategy keys: #{inspect(Map.keys(strategy))}")
+
+      count = max(1, round(limit * strategy.weight))
+      Logger.info("  Calculated count: #{count}")
+
+      # Use Map.put instead of map update syntax
+      result = Map.put(strategy, :count, count)
+      Logger.info("  Result after Map.put: keys = #{inspect(Map.keys(result))}")
+
+      result
+    end)
+
+    Logger.info("Final recommendations_per_strategy:")
+    Enum.with_index(recommendations_per_strategy, fn strategy, index ->
+      Logger.info("  [#{index}] #{inspect(strategy)}")
+      Logger.info("  [#{index}] keys: #{inspect(Map.keys(strategy))}")
+    end)
+
+    # Get recommendations from each strategy
+    Logger.info("Starting flat_map over recommendations_per_strategy...")
+
+    all_recommendations =
+      recommendations_per_strategy
+      |> Enum.flat_map(fn strategy ->
+        Logger.info("flat_map processing strategy: #{inspect(strategy)}")
+        Logger.info("flat_map strategy keys: #{inspect(Map.keys(strategy))}")
+        Logger.info("flat_map strategy.name: #{inspect(Map.get(strategy, :name, "KEY_MISSING"))}")
+        Logger.info("flat_map strategy.count: #{inspect(Map.get(strategy, :count, "KEY_MISSING"))}")
+        Logger.info("flat_map strategy.items length: #{if Map.has_key?(strategy, :items), do: length(strategy.items), else: "KEY_MISSING"}")
+
+        if Enum.empty?(strategy.items) do
+          Logger.info("Strategy #{strategy.name} has empty items, returning []")
+          []
+        else
+          Logger.info("Calling get_recommendations_for_group for #{strategy.name} with count: #{strategy.count}")
+          try do
+            result = get_recommendations_for_group(
+              strategy.items,
+              excluded_item_ids,
+              strategy.count,
+              strategy.name
+            )
+            Logger.info("get_recommendations_for_group returned #{length(result)} recommendations")
+            result
+          rescue
+            e ->
+              Logger.error("Error in get_recommendations_for_group for #{strategy.name}: #{inspect(e)}")
+              Logger.error("Strategy that caused error: #{inspect(strategy)}")
+              reraise e, __STACKTRACE__
+          end
+        end
+      end)
+      |> Enum.uniq_by(fn rec -> rec.item.jellyfin_id end)  # Remove duplicates
+
+    Logger.info("Total recommendations before sorting: #{length(all_recommendations)}")
+
+    # Sort by similarity and take the requested limit
+    final_recommendations = all_recommendations
+    |> Enum.sort_by(& &1.similarity, :desc)
+    |> Enum.take(limit)
+
+    Logger.info("Final recommendations count: #{length(final_recommendations)}")
+    Logger.info("=== get_diverse_recommendations DEBUG END ===")
+
+    final_recommendations
+  end
+
+  # Get recommendations for a specific group of items
+  defp get_recommendations_for_group(items, excluded_item_ids, count, group_name) do
+    # Calculate average embedding for this group
+    average_embedding = simple_average_embeddings(items)
+
+    if is_nil(average_embedding) do
+      []
+    else
+      # Build similarity query for this group
+      query = build_similarity_query(
+        average_embedding,
+        excluded_item_ids,
+        count * 2,  # Get more results to ensure diversity
+        nil,  # no genre filter
+        nil,  # no server filter
+        nil   # no library filter
+      )
+
+      Repo.all(query)
+      |> Enum.map(fn result ->
+        # Handle both new format (with item/similarity keys) and old format
+        item = case result do
+          %{item: item, similarity: _similarity} -> item
+          item -> item
+        end
+
+        similarity = calculate_similarity(average_embedding, item.embedding)
+
+        # Find top 3 items from this group that contributed to this recommendation
+        contributing_items = find_contributing_movies(item, items, 3)
+
+        # Log the format we're creating
+        recommendation = %{
+          item: item,
+          similarity: similarity,
+          based_on: contributing_items
+          # Remove source_group to match TypeScript interface
+        }
+
+        Logger.info("Created recommendation format: #{inspect(Map.keys(recommendation))}")
+        Logger.info("  item type: #{inspect(item.__struct__)}")
+        Logger.info("  similarity type: #{inspect(similarity)}")
+        Logger.info("  based_on count: #{length(contributing_items)}")
+        Logger.info("  based_on first item type: #{if length(contributing_items) > 0, do: inspect(hd(contributing_items).__struct__), else: "empty"}")
+
+        recommendation
+      end)
+      |> Enum.sort_by(& &1.similarity, :desc)
+      |> Enum.take(count)
     end
   end
 
@@ -184,7 +324,7 @@ defmodule StreamystatServer.SessionAnalysis do
     if is_list(embedding), do: embedding, else: Pgvector.to_list(embedding)
   end
 
-  defp build_similarity_query(embedding, excluded_item_ids, limit, genre_filter, server_id \\ nil, library_id \\ nil) do
+  defp build_similarity_query(embedding, excluded_item_ids, limit, genre_filter, server_id, library_id) do
     # Start with a simple query structure - exclude items without embeddings, removed items, and user-excluded items
     query = from(i in Item,
       where: i.jellyfin_id not in ^excluded_item_ids
@@ -307,14 +447,24 @@ defmodule StreamystatServer.SessionAnalysis do
 
   # Helper function to find contributing movies for a recommendation
   defp find_contributing_movies(recommended_item, watched_items, limit) when is_list(watched_items) do
+    Logger.info("find_contributing_movies called with:")
+    Logger.info("  recommended_item: #{recommended_item.name}")
+    Logger.info("  watched_items count: #{length(watched_items)}")
+    Logger.info("  limit: #{limit}")
+
     # Calculate similarity between recommendation and each watched item
-    watched_items
+    result = watched_items
     |> Enum.map(fn watched_item ->
       similarity = calculate_similarity(recommended_item.embedding, watched_item.embedding)
       %{item: watched_item, similarity: similarity}
     end)
     |> Enum.sort_by(& &1.similarity, :desc)
     |> Enum.take(limit)
-    |> Enum.map(& &1.item)
+    |> Enum.map(& &1.item)  # <- This should return just the items
+
+    Logger.info("find_contributing_movies returning #{length(result)} items")
+    Logger.info("  first item type: #{if length(result) > 0, do: inspect(hd(result).__struct__), else: "empty"}")
+
+    result
   end
 end
