@@ -31,7 +31,7 @@ defmodule StreamystatServer.Application do
       {Finch, name: StreamystatServer.Finch},
       StreamystatServerWeb.Endpoint,
       StreamystatServer.Workers.SyncTask,
-      # Removed SessionPoller since NextJS now fetches sessions directly from Jellyfin
+      StreamystatServer.Workers.SessionPoller,
       StreamystatServer.Workers.TautulliImporter,
       StreamystatServer.Workers.JellystatsImporter,
       StreamystatServer.Workers.PlaybackReportingImporter,
@@ -52,9 +52,20 @@ defmodule StreamystatServer.Application do
   end
 
   @impl true
-  def start_full_sync do
-    # Start a sync after a delay to let system boot up
-    Process.sleep(30_000)
-    StreamystatServer.Workers.SyncTask.sync_all()
+  def stop(_state) do
+    # Clean up embedding processes on application shutdown
+    require Logger
+    Logger.info("Application stopping - cleaning up embedding processes")
+    StreamystatServer.BatchEmbedder.cleanup_all_processes()
+    :ok
+  end
+
+  # Start a full sync for each server
+  defp start_full_sync do
+    servers = StreamystatServer.Jellyfin.Users.list_servers()
+
+    Enum.each(servers, fn server ->
+      StreamystatServer.Workers.SyncTask.full_sync(server.id)
+    end)
   end
 end
