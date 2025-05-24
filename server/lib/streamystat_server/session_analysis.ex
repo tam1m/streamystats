@@ -37,7 +37,7 @@ defmodule StreamystatServer.SessionAnalysis do
 
     %HiddenRecommendation{}
     |> HiddenRecommendation.changeset(attrs)
-    |> Repo.insert()
+    |> Repo.insert(on_conflict: :nothing, conflict_target: [:user_jellyfin_id, :item_jellyfin_id, :server_id])
     |> case do
       {:ok, hidden_rec} ->
         # Clear relevant caches
@@ -222,7 +222,7 @@ defmodule StreamystatServer.SessionAnalysis do
   end
 
   # Get recommendations for a specific group of items
-  defp get_recommendations_for_group(items, excluded_item_ids, count, group_name) do
+  defp get_recommendations_for_group(items, excluded_item_ids, count, _group_name) do
     # Calculate average embedding for this group
     average_embedding = simple_average_embeddings(items)
 
@@ -440,9 +440,32 @@ defmodule StreamystatServer.SessionAnalysis do
 
   # Helper function to clear user recommendation cache
   defp clear_user_recommendation_cache(user_id) do
-    # In a real implementation, you'd clear all cache keys that start with "user_recommendations:#{user_id}"
-    # For now, we'll just log that cache should be cleared
-    Logger.info("Clearing recommendation cache for user #{user_id}")
+    try do
+      # Get all cache keys and find the ones that match this user
+      pattern = "diverse_recommendations:#{user_id}:"
+
+      # Get all keys from the ETS table
+      case :ets.tab2list(:recommendation_cache) do
+        keys_and_values ->
+          keys_to_delete =
+            keys_and_values
+            |> Enum.filter(fn {key, _value, _expiry} ->
+              String.starts_with?(key, pattern)
+            end)
+            |> Enum.map(fn {key, _value, _expiry} -> key end)
+
+          # Delete all matching keys
+          Enum.each(keys_to_delete, fn key ->
+            :ets.delete(:recommendation_cache, key)
+          end)
+
+          Logger.info("Cleared #{length(keys_to_delete)} recommendation cache entries for user #{user_id}")
+      end
+    rescue
+      ArgumentError ->
+        # Table doesn't exist, nothing to clear
+        Logger.info("No recommendation cache table found, nothing to clear for user #{user_id}")
+    end
   end
 
   # Helper function to find contributing movies for a recommendation

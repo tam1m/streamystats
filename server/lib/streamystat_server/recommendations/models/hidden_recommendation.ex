@@ -17,6 +17,7 @@ defmodule StreamystatServer.Recommendations.Models.HiddenRecommendation do
     hidden_recommendation
     |> cast(attrs, [:user_jellyfin_id, :item_jellyfin_id, :server_id, :hidden_at])
     |> validate_required([:user_jellyfin_id, :item_jellyfin_id, :server_id])
-    |> unique_constraint([:user_jellyfin_id, :item_jellyfin_id, :server_id])
+    |> unique_constraint([:user_jellyfin_id, :item_jellyfin_id, :server_id],
+         name: "hidden_recommendations_user_jellyfin_id_item_jellyfin_id_server")
   end
 end
