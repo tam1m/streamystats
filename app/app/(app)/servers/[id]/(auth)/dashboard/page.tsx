@@ -92,6 +92,7 @@ async function GeneralStats({
     mostWatchedItems.Series = data.most_watched_items.Series || [];
   }
 
+
   return (
     <div className="flex flex-col gap-6">
       <SimilarStatstics data={similarData} server={server} />
