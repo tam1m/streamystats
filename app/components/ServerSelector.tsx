@@ -7,6 +7,8 @@ import {
   ChevronsUpDown,
   GalleryVerticalEnd,
   PlusIcon,
+  Star,
+  StarIcon,
 } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useMemo } from "react";
@@ -17,15 +19,18 @@ import {
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 import { SidebarMenuButton } from "./ui/sidebar";
+import { setPreferredServerAction } from "@/lib/actions/server-actions";
 
 interface Props extends React.HTMLAttributes<HTMLButtonElement> {
   servers: Server[];
   allowedToCreateServer?: boolean;
+  preferredServerId?: number | null;
 }
 
 export const ServerSelector: React.FC<Props> = ({
   servers,
   allowedToCreateServer = false,
+  preferredServerId,
   className,
   ...props
 }) => {
@@ -38,6 +43,25 @@ export const ServerSelector: React.FC<Props> = ({
 
   const router = useRouter();
 
+  const handleServerSelect = (server: Server) => {
+    // Just navigate to the server without setting as preferred
+    router.push(`/servers/${server.id}/login`);
+  };
+
+  const handleSetPreferred = async (e: React.MouseEvent, server: Server) => {
+    e.stopPropagation(); // Prevent the dropdown from closing and server selection
+    // Save the selected server to cookie
+    await setPreferredServerAction(server.id);
+
+    // If starring the current server, don't redirect - just stay where we are
+    if (server.id === currentServer?.id) {
+      return;
+    }
+
+    // If starring a different server, go to its dashboard
+    router.push(`/servers/${server.id}/dashboard`);
+  };
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -45,7 +69,7 @@ export const ServerSelector: React.FC<Props> = ({
           data-size="lg"
           className={cn(
             "data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground peer/menu-button flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-left outline-none ring-sidebar-ring transition-[width,height,padding] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-accent-foreground disabled:pointer-events-none disabled:opacity-50 group-has-[[data-sidebar=menu-action]]/menu-item:pr-8 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground data-[state=open]:hover:bg-sidebar-accent data-[state=open]:hover:text-sidebar-accent-foreground group-data-[collapsible=icon]:!size-8  [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0 h-12 text-sm group-data-[collapsible=icon]:!p-0",
-            className,
+            className
           )}
           {...props}
         >
@@ -66,12 +90,33 @@ export const ServerSelector: React.FC<Props> = ({
         {servers.map((s) => (
           <DropdownMenuItem
             key={s.id}
-            onSelect={() => {
-              router.push(`/servers/${s.id}/login`);
-            }}
+            onSelect={() => handleServerSelect(s)}
+            className="flex items-center justify-between"
           >
-            {s.name}{" "}
-            {s.id === currentServer?.id && <Check className="ml-auto" />}
+            <div className="flex items-center gap-2">
+              <span>{s.name}</span>
+              {s.id === currentServer?.id && <Check className="h-4 w-4" />}
+            </div>
+            <button
+              onClick={(e) => handleSetPreferred(e, s)}
+              className={cn(
+                "p-1 rounded hover:bg-accent transition-colors",
+                s.id === preferredServerId
+                  ? "text-yellow-500"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+              title={
+                s.id === preferredServerId
+                  ? "This is your preferred server"
+                  : "Set as preferred server"
+              }
+            >
+              {s.id === preferredServerId ? (
+                <Star className="h-4 w-4 fill-current" />
+              ) : (
+                <StarIcon className="h-4 w-4" />
+              )}
+            </button>
           </DropdownMenuItem>
         ))}
         {allowedToCreateServer && (
