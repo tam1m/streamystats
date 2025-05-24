@@ -220,6 +220,14 @@ export type ActiveSession = {
     hardware_acceleration_type: string;
     transcode_reasons: string[];
   };
+  media_info?: {
+    video_bitrate: number | null;
+    audio_bitrate: number | null;
+    total_bitrate: number | null;
+    video_codec: string | null;
+    audio_codec: string | null;
+    transcode_type: string | null;
+  };
   ip_address?: string;
 };
 

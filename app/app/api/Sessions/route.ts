@@ -15,6 +15,62 @@ function formatTicks(ticks: number): string {
 }
 
 /**
+ * Extract bitrate information from MediaStreams
+ * Returns the video bitrate, audio bitrate, and combined bitrate
+ */
+function extractBitrateInfo(mediaStreams: any[]): {
+  videoBitrate: number | null;
+  audioBitrate: number | null;
+  totalBitrate: number | null;
+  videoCodec: string | null;
+  audioCodec: string | null;
+} {
+  if (!mediaStreams || !Array.isArray(mediaStreams)) {
+    return {
+      videoBitrate: null,
+      audioBitrate: null,
+      totalBitrate: null,
+      videoCodec: null,
+      audioCodec: null,
+    };
+  }
+
+  let videoBitrate = null;
+  let audioBitrate = null;
+  let videoCodec = null;
+  let audioCodec = null;
+
+  // Extract video bitrate from video stream
+  const videoStream = mediaStreams.find((stream) => stream.Type === "Video");
+  if (videoStream) {
+    videoBitrate = videoStream.BitRate || null;
+    videoCodec = videoStream.Codec || null;
+  }
+
+  // Extract audio bitrate from audio stream
+  const audioStream = mediaStreams.find((stream) => stream.Type === "Audio");
+  if (audioStream) {
+    audioBitrate = audioStream.BitRate || null;
+    audioCodec = audioStream.Codec || null;
+  }
+
+  // Calculate total bitrate
+  let totalBitrate = null;
+  if (videoBitrate || audioBitrate) {
+    totalBitrate = (videoBitrate || 0) + (audioBitrate || 0);
+    if (totalBitrate === 0) totalBitrate = null;
+  }
+
+  return {
+    videoBitrate,
+    audioBitrate,
+    totalBitrate,
+    videoCodec,
+    audioCodec,
+  };
+}
+
+/**
  * Maps a JellyfinSession to an ActiveSession
  */
 function mapJellyfinSessionToActiveSession(
@@ -24,6 +80,11 @@ function mapJellyfinSessionToActiveSession(
   if (!session.NowPlayingItem) {
     return null;
   }
+
+  // Extract media stream information including bitrates
+  const mediaStreamInfo = extractBitrateInfo(
+    session.NowPlayingItem.MediaStreams
+  );
 
   const item: Item = {
     name: session.NowPlayingItem.Name,
@@ -65,6 +126,32 @@ function mapJellyfinSessionToActiveSession(
   // Calculate playback duration in seconds
   const playbackDuration = Math.floor(positionTicks / 10000000);
 
+  // Determine what's being transcoded when TranscodingInfo is missing
+  const playMethod = session.PlayState.PlayMethod || null;
+  let transcodeType = null;
+
+  if (playMethod === "Transcode" && !session.TranscodingInfo) {
+    // If transcoding but no TranscodingInfo, try to determine what's being transcoded
+    const videoTranscoding =
+      !mediaStreamInfo.videoCodec ||
+      session.NowPlayingItem.MediaStreams?.some(
+        (s: any) => s.Type === "Video" && s.IsInterlaced
+      );
+
+    const audioTranscoding =
+      !mediaStreamInfo.audioCodec ||
+      session.NowPlayingItem.MediaStreams?.some(
+        (s: any) =>
+          s.Type === "Audio" &&
+          ["dts", "truehd", "eac3"].includes(s.Codec?.toLowerCase())
+      );
+
+    if (videoTranscoding && audioTranscoding) transcodeType = "both";
+    else if (videoTranscoding) transcodeType = "video";
+    else if (audioTranscoding) transcodeType = "audio";
+    else transcodeType = "unknown";
+  }
+
   return {
     session_key: session.Id,
     user: {
@@ -84,7 +171,7 @@ function mapJellyfinSessionToActiveSession(
     playback_duration: playbackDuration,
     last_activity_date: session.LastActivityDate,
     is_paused: session.PlayState.IsPaused,
-    play_method: session.PlayState.PlayMethod || null,
+    play_method: playMethod,
     transcoding_info: session.TranscodingInfo
       ? {
           video_codec: session.TranscodingInfo.VideoCodec,
@@ -101,6 +188,14 @@ function mapJellyfinSessionToActiveSession(
           transcode_reasons: session.TranscodingInfo.TranscodeReasons,
         }
       : undefined,
+    media_info: {
+      video_bitrate: mediaStreamInfo.videoBitrate,
+      audio_bitrate: mediaStreamInfo.audioBitrate,
+      total_bitrate: mediaStreamInfo.totalBitrate,
+      video_codec: mediaStreamInfo.videoCodec,
+      audio_codec: mediaStreamInfo.audioCodec,
+      transcode_type: transcodeType,
+    },
     ip_address: session.RemoteEndPoint || undefined,
   };
 }
