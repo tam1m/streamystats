@@ -1,8 +1,39 @@
 {
-  "release-type": "manifest",
-  "include-v-in-tag": true,
+  "release-type": "node",
   "packages": {
-    "app":   { "release-type": "node"   },
-    "server":{ "release-type": "elixir" }
-  }
+    ".": {
+      "release-type": "node",
+      "package-name": "streamystats-v2",
+      "changelog-sections": [
+        {"type": "feat", "section": "Features"},
+        {"type": "fix", "section": "Bug Fixes"},
+        {"type": "perf", "section": "Performance Improvements"},
+        {"type": "deps", "section": "Dependencies"},
+        {"type": "revert", "section": "Reverts"},
+        {"type": "docs", "section": "Documentation"},
+        {"type": "style", "section": "Styles", "hidden": true},
+        {"type": "chore", "section": "Miscellaneous Chores", "hidden": true},
+        {"type": "refactor", "section": "Code Refactoring", "hidden": true},
+        {"type": "test", "section": "Tests", "hidden": true},
+        {"type": "build", "section": "Build System", "hidden": true},
+        {"type": "ci", "section": "Continuous Integration", "hidden": true}
+      ]
+    },
+    "apps/nextjs-app": {
+      "release-type": "node",
+      "package-name": "@streamystats/nextjs-app"
+    },
+    "apps/job-server": {
+      "release-type": "node", 
+      "package-name": "@streamystats/job-server"
+    },
+    "packages/database": {
+      "release-type": "node",
+      "package-name": "@streamystats/database"
+    }
+  },
+  "bump-minor-pre-major": true,
+  "bump-patch-for-minor-pre-major": true,
+  "draft": false,
+  "prerelease": false
 }
