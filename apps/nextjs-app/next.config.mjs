@@ -16,6 +16,9 @@ const nextConfig = {
   experimental: {
     nodeMiddleware: true,
   },
+  serverActions: {
+    bodySizeLimit: "500mb",
+  },
 };
 
 export default nextConfig;

@@ -14,14 +14,6 @@ services:
     restart: "no"
     networks:
       - app-network
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-          cpus: "0.5"
-        reservations:
-          memory: 256M
-          cpus: "0.25"
 
   nextjs-app:
     image: docker.io/fredrikburmester/streamystats-v2-nextjs:${VERSION:-latest}

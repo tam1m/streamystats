@@ -83,7 +83,101 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create ${{ needs.release-please.outputs.tag_name }} \
-            --title "Release ${{ needs.release-please.outputs.tag_name }}" \
-            --notes "Automated release created by release-please" \
+          # Generate release notes from template
+          export VERSION="${{ needs.release-please.outputs.tag_name }}"
+          export TAG="${{ needs.release-please.outputs.tag_name }}"
+
+          # Create enhanced release notes
+          cat > release_notes.md << 'EOF'
+          ## 🚀 StreamyStats v2 Release ${{ needs.release-please.outputs.tag_name }}
+
+          ### ⚠️ **CRITICAL: v1 → v2 BREAKING CHANGE**
+
+          **🛑 This is a complete stack rewrite requiring fresh installation.**
+
+          #### Docker Image Changes:
+          - ❌ **Discontinued:** `streamystats:edge` 
+          - ✅ **New:** `streamystats-v2-*:latest`
+          - 🆕 **New Database:** `vectorchord` (replaces old database)
+
+          #### 📋 **MANDATORY Migration Steps:**
+
+          **1. Backup Your v1 Data (CRITICAL):**
+          ```bash
+          # Database backup
+          sqlite3 your_database.db ".backup backup_$(date +%Y%m%d_%H%M%S).db"
+
+          # Export from StreamyStats v1 Settings → Export Data
+          ```
+
+          **2. Convert Database for Import:**
+          ```bash
+          # Convert .db to JSON for v2 import
+          sqlite3 input.db -json "SELECT * FROM playback_sessions;" > exported_data.json
+          ```
+
+          **3. Fresh v2 Installation:**
+          ```bash
+          # ⚠️ IMPORTANT: Remove ALL old volumes
+          docker-compose down -v
+          docker volume prune -f
+
+          # Get new v2 docker-compose.yml  
+          curl -o docker-compose.yml https://raw.githubusercontent.com/${{ github.repository }}/${{ needs.release-please.outputs.tag_name }}/docker-compose.yml
+
+          # Start fresh v2 setup
+          docker-compose up -d
+          ```
+
+          **4. Import Your Data:**
+          - Open StreamyStats v2 → Settings → **Legacy Import**
+          - Upload your `exported_data.json` file
+          - Complete the import process
+
+          ---
+
+          ### 📦 **Fresh Installation (New Users)**
+
+          **Docker (Recommended):**
+          ```bash
+          curl -o docker-compose.yml https://raw.githubusercontent.com/${{ github.repository }}/${{ needs.release-please.outputs.tag_name }}/docker-compose.yml
+          docker-compose up -d
+          ```
+
+          **Manual Installation:**
+          ```bash
+          git clone https://github.com/${{ github.repository }}.git
+          cd streamystats
+          git checkout ${{ needs.release-please.outputs.tag_name }}
+          pnpm install && pnpm run build:all && pnpm start
+          ```
+
+          ### 🆕 What's New in v2:
+          - **VectorChord Database:** New high-performance database engine
+          - **Improved Architecture:** Better scalability and performance  
+          - **Enhanced Data Processing:** Faster analytics and insights
+          - **Streamlined Docker Setup:** Simplified deployment process
+
+          ### 📚 **Documentation & Support**
+
+          - [v1 → v2 Migration Guide](https://github.com/${{ github.repository }}/wiki/V1-to-V2-Migration)
+          - [Installation Guide](https://github.com/${{ github.repository }}/wiki/Installation)
+          - [Troubleshooting](https://github.com/${{ github.repository }}/wiki/Troubleshooting)
+          - [Report Issues](https://github.com/${{ github.repository }}/issues/new)
+
+          **⚠️ Need Help?** The migration process is complex - don't hesitate to open an issue if you encounter problems!
+
+          ---
+
+          EOF
+
+          # Get the auto-generated changelog and append it
+          gh release view ${{ needs.release-please.outputs.tag_name }} --json body --jq .body >> release_notes.md
+
+          # Update the release with enhanced notes
+          gh release edit ${{ needs.release-please.outputs.tag_name }} \
+            --title "🚀 StreamyStats ${{ needs.release-please.outputs.tag_name }}" \
+            --notes-file release_notes.md \
             --verify-tag
+
+          echo "✅ Release ${{ needs.release-please.outputs.tag_name }} created with enhanced notes!"
