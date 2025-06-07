@@ -1,6 +1,6 @@
 {
-  ".": "2.0.0",
-  "apps/nextjs-app": "2.0.0",
-  "apps/job-server": "2.0.0", 
-  "packages/database": "2.0.0"
+  ".": "1.8.1",
+  "apps/nextjs-app": "1.8.1",
+  "apps/job-server": "1.8.1", 
+  "packages/database": "1.8.1"
 } 

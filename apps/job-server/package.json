@@ -1,6 +1,6 @@
 {
   "name": "@streamystats/job-server",
-  "version": "1.0.0",
+  "version": "1.8.1",
   "description": "TypeScript job server with Express, pg-boss, and Drizzle ORM",
   "main": "dist/index.js",
   "scripts": {
