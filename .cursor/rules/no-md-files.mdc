@@ -1,0 +1,6 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+Don't add new documentation to markdown files in the projekt. The readme should be the only markdown file in general. Don't remove any existing markdown files.
