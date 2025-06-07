@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.0.0](https://github.com/fredrikburmester/streamystats/compare/v1.8.0...v2.0.0) (2025-06-07)
+
+
+### ⚠ BREAKING CHANGES
+
+* This is a major version upgrade with breaking changes requiring migration from v1.x to v2.x including database schema changes, new compose file and new Docker images
+
+### Features
+
+* major version 2.0.0 release ([d12e3aa](https://github.com/fredrikburmester/streamystats/commit/d12e3aa5a824dbbbd5e072966f3ac538e54afded))
+
+
+### Bug Fixes
+
+* instructions ([017dd29](https://github.com/fredrikburmester/streamystats/commit/017dd29351481e512802d06ba5e393d37ae00152))
+
 ## [1.7.3](https://github.com/fredrikburmester/streamystats/compare/streamystat-v1.7.2...streamystat-v1.7.3) (2025-05-21)
 
 
