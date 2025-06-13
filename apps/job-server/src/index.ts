@@ -15,6 +15,10 @@ const app = express();
 const PORT = parseInt(process.env.PORT || "3000", 10);
 const HOST = process.env.HOST || "localhost";
 
+if (isNaN(PORT) || PORT < 1 || PORT > 65535) {
+  throw new Error(`Invalid PORT value: "${process.env.PORT}". Please provide a valid port number between 1 and 65535.`);
+}
+
 // Middleware
 app.use(helmet());
 app.use(cors());
