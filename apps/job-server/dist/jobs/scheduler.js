@@ -43,8 +43,10 @@ class SyncScheduler {
     scheduledTasks = new Map();
     enabled = false;
     activitySyncInterval = "*/5 * * * *"; // Every 5 minutes
-    recentItemsSyncInterval = "*/5 * * * *"; // Every 15 minutes
+    recentItemsSyncInterval = "*/5 * * * *"; // Every 5 minutes
+    userSyncInterval = "*/5 * * * *"; // Every 5 minutes
     jobCleanupInterval = "*/5 * * * *"; // Every 5 minutes
+    fullSyncInterval = "0 2 * * *"; // Daily at 2 AM
     constructor() {
         // Auto-start if not explicitly disabled
         const autoStart = process.env.SCHEDULER_AUTO_START !== "false";
@@ -74,23 +76,41 @@ class SyncScheduler {
                     console.error("Error during scheduled recent items sync:", error);
                 });
             });
+            // User sync task
+            const userSyncTask = cron.schedule(this.userSyncInterval, () => {
+                this.triggerUserSync().catch((error) => {
+                    console.error("Error during scheduled user sync:", error);
+                });
+            });
             // Job cleanup task for stale embedding jobs
             const jobCleanupTask = cron.schedule(this.jobCleanupInterval, () => {
                 this.triggerJobCleanup().catch((error) => {
                     console.error("Error during scheduled job cleanup:", error);
                 });
             });
+            // Full sync task - daily complete sync
+            const fullSyncTask = cron.schedule(this.fullSyncInterval, () => {
+                this.triggerFullSync().catch((error) => {
+                    console.error("Error during scheduled full sync:", error);
+                });
+            });
             this.scheduledTasks.set("activity-sync", activityTask);
             this.scheduledTasks.set("recent-items-sync", recentItemsTask);
+            this.scheduledTasks.set("user-sync", userSyncTask);
             this.scheduledTasks.set("job-cleanup", jobCleanupTask);
+            this.scheduledTasks.set("full-sync", fullSyncTask);
             // Start all tasks
             activityTask.start();
             recentItemsTask.start();
+            userSyncTask.start();
             jobCleanupTask.start();
+            fullSyncTask.start();
             console.log("Scheduler started successfully");
             console.log(`Activity sync: ${this.activitySyncInterval}`);
             console.log(`Recent items sync: ${this.recentItemsSyncInterval}`);
+            console.log(`User sync: ${this.userSyncInterval}`);
             console.log(`Job cleanup: ${this.jobCleanupInterval}`);
+            console.log(`Full sync: ${this.fullSyncInterval}`);
         }
         catch (error) {
             console.error("Failed to start scheduler:", error);
@@ -132,8 +152,14 @@ class SyncScheduler {
         if (config.recentItemsSyncInterval) {
             this.recentItemsSyncInterval = config.recentItemsSyncInterval;
         }
+        if (config.userSyncInterval) {
+            this.userSyncInterval = config.userSyncInterval;
+        }
         if (config.jobCleanupInterval) {
             this.jobCleanupInterval = config.jobCleanupInterval;
+        }
+        if (config.fullSyncInterval) {
+            this.fullSyncInterval = config.fullSyncInterval;
         }
         if (config.enabled !== undefined && config.enabled !== this.enabled) {
             if (config.enabled) {
@@ -233,6 +259,105 @@ class SyncScheduler {
         }
         catch (error) {
             console.error("Error during periodic recently added items sync trigger:", error);
+        }
+    }
+    /**
+     * Trigger user sync for all active servers
+     */
+    async triggerUserSync() {
+        try {
+            console.log("Triggering periodic user sync...");
+            // Get all servers that are not currently syncing
+            const activeServers = await database_1.db
+                .select()
+                .from(database_1.servers)
+                .where((0, drizzle_orm_1.eq)(database_1.servers.syncStatus, "completed"));
+            if (activeServers.length === 0) {
+                console.log("No active servers found for user sync");
+                return;
+            }
+            const boss = await (0, queue_1.getJobQueue)();
+            // Queue user sync jobs for each server
+            for (const server of activeServers) {
+                try {
+                    await boss.send(workers_1.JELLYFIN_JOB_NAMES.USERS_SYNC, {
+                        serverId: server.id,
+                        options: {
+                            userOptions: {
+                            // User sync specific options can be added here
+                            },
+                        },
+                    }, {
+                        expireInMinutes: 30, // Job expires after 30 minutes
+                        retryLimit: 1, // Retry once if it fails
+                        retryDelay: 60, // Wait 60 seconds before retrying
+                    });
+                    console.log(`Queued periodic user sync for server: ${server.name} (ID: ${server.id})`);
+                }
+                catch (error) {
+                    console.error(`Failed to queue user sync for server ${server.name}:`, error);
+                }
+            }
+            console.log(`Periodic user sync queued for ${activeServers.length} servers`);
+        }
+        catch (error) {
+            console.error("Error during periodic user sync trigger:", error);
+        }
+    }
+    /**
+     * Trigger full sync for all active servers
+     */
+    async triggerFullSync() {
+        try {
+            console.log("Triggering scheduled daily full sync...");
+            // Get all servers that are not currently syncing
+            const activeServers = await database_1.db
+                .select()
+                .from(database_1.servers)
+                .where((0, drizzle_orm_1.eq)(database_1.servers.syncStatus, "completed"));
+            if (activeServers.length === 0) {
+                console.log("No active servers found for full sync");
+                return;
+            }
+            const boss = await (0, queue_1.getJobQueue)();
+            // Queue full sync jobs for each server
+            for (const server of activeServers) {
+                try {
+                    await boss.send(workers_1.JELLYFIN_JOB_NAMES.FULL_SYNC, {
+                        serverId: server.id,
+                        options: {
+                            // Full sync options - will sync users, libraries, items, and activities
+                            userOptions: {},
+                            libraryOptions: {},
+                            itemOptions: {
+                                itemPageSize: 500,
+                                batchSize: 1000,
+                                maxLibraryConcurrency: 2,
+                                itemConcurrency: 10,
+                                apiRequestDelayMs: 100,
+                            },
+                            activityOptions: {
+                                pageSize: 100,
+                                maxPages: 1000,
+                                concurrency: 5,
+                                apiRequestDelayMs: 100,
+                            },
+                        },
+                    }, {
+                        expireInMinutes: 360, // Job expires after 6 hours (longer for full sync)
+                        retryLimit: 1, // Retry once if it fails
+                        retryDelay: 300, // Wait 5 minutes before retrying
+                    });
+                    console.log(`Queued scheduled full sync for server: ${server.name} (ID: ${server.id})`);
+                }
+                catch (error) {
+                    console.error(`Failed to queue full sync for server ${server.name}:`, error);
+                }
+            }
+            console.log(`Scheduled daily full sync queued for ${activeServers.length} servers`);
+        }
+        catch (error) {
+            console.error("Error during scheduled full sync trigger:", error);
         }
     }
     /**
@@ -340,6 +465,69 @@ class SyncScheduler {
         }
     }
     /**
+     * Manually trigger full sync for a specific server
+     */
+    async triggerServerFullSync(serverId) {
+        try {
+            const boss = await (0, queue_1.getJobQueue)();
+            await boss.send(workers_1.JELLYFIN_JOB_NAMES.FULL_SYNC, {
+                serverId,
+                options: {
+                    // Full sync options - will sync users, libraries, items, and activities
+                    userOptions: {},
+                    libraryOptions: {},
+                    itemOptions: {
+                        itemPageSize: 500,
+                        batchSize: 1000,
+                        maxLibraryConcurrency: 2,
+                        itemConcurrency: 10,
+                        apiRequestDelayMs: 100,
+                    },
+                    activityOptions: {
+                        pageSize: 100,
+                        maxPages: 1000,
+                        concurrency: 5,
+                        apiRequestDelayMs: 100,
+                    },
+                },
+            }, {
+                expireInMinutes: 360, // Job expires after 6 hours (longer for full sync)
+                retryLimit: 1, // Retry once if it fails
+                retryDelay: 300, // Wait 5 minutes before retrying
+            });
+            console.log(`Manual full sync queued for server ID: ${serverId}`);
+        }
+        catch (error) {
+            console.error(`Failed to queue manual full sync for server ${serverId}:`, error);
+            throw error;
+        }
+    }
+    /**
+     * Manually trigger user sync for a specific server
+     */
+    async triggerServerUserSync(serverId) {
+        try {
+            const boss = await (0, queue_1.getJobQueue)();
+            await boss.send(workers_1.JELLYFIN_JOB_NAMES.USERS_SYNC, {
+                serverId,
+                options: {
+                    userOptions: {
+                    // User sync specific options can be added here
+                    },
+                },
+            }, {
+                expireInMinutes: 30, // Job expires after 30 minutes
+                retryLimit: 1, // Retry once if it fails
+                retryDelay: 60, // Wait 60 seconds before retrying
+            });
+            console.log(`Manual user sync queued for server ID: ${serverId}`);
+        }
+        catch (error) {
+            console.error(`Failed to queue manual user sync for server ${serverId}:`, error);
+            throw error;
+        }
+    }
+    /**
      * Get current scheduler status
      */
     getStatus() {
@@ -347,7 +535,9 @@ class SyncScheduler {
             enabled: this.enabled,
             activitySyncInterval: this.activitySyncInterval,
             recentItemsSyncInterval: this.recentItemsSyncInterval,
+            userSyncInterval: this.userSyncInterval,
             jobCleanupInterval: this.jobCleanupInterval,
+            fullSyncInterval: this.fullSyncInterval,
             runningTasks: Array.from(this.scheduledTasks.keys()),
             healthCheck: this.enabled,
         };

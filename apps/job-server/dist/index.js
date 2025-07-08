@@ -48,7 +48,11 @@ const jobs_1 = __importDefault(require("./routes/jobs"));
 // Load environment variables
 dotenv.config();
 const app = (0, express_1.default)();
-const PORT = process.env.PORT || 3000;
+const PORT = parseInt(process.env.PORT || "3000", 10);
+const HOST = process.env.HOST || "localhost";
+if (isNaN(PORT) || PORT < 1 || PORT > 65535) {
+    throw new Error(`Invalid PORT value: "${process.env.PORT}". Please provide a valid port number between 1 and 65535.`);
+}
 // Middleware
 app.use((0, helmet_1.default)());
 app.use((0, cors_1.default)());
@@ -106,13 +110,15 @@ async function startServer() {
         console.log("Starting session poller...");
         await session_poller_1.sessionPoller.start();
         // Start the server
-        app.listen(PORT, () => {
+        app.listen(PORT, HOST, () => {
             console.log(`🚀 Job server running on port ${PORT}`);
-            console.log(`📊 Health check: http://localhost:${PORT}/health`);
-            console.log(`🔧 API docs: http://localhost:${PORT}/`);
+            console.log(`📊 Health check: http://${HOST}:${PORT}/health`);
+            console.log(`🔧 API docs: http://${HOST}:${PORT}/`);
             const status = scheduler_1.activityScheduler.getStatus();
             console.log(`⏰ Activity sync scheduler is running (${status.activitySyncInterval})`);
             console.log(`📦 Recently added items sync scheduler is running (${status.recentItemsSyncInterval})`);
+            console.log(`👥 User sync scheduler is running (${status.userSyncInterval})`);
+            console.log(`🔄 Daily full sync scheduler is running (${status.fullSyncInterval})`);
             console.log(`🎯 Session poller is running (every 5 seconds)`);
         });
     }

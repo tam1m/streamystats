@@ -669,19 +669,98 @@ router.post("/scheduler/trigger", async (req, res) => {
         res.status(500).json({ error: "Failed to trigger activity sync" });
     }
 });
+// POST /jobs/scheduler/trigger-user-sync - Manually trigger user sync for a server
+router.post("/scheduler/trigger-user-sync", async (req, res) => {
+    try {
+        const { serverId } = req.body;
+        if (!serverId) {
+            return res.status(400).json({ error: "Server ID is required" });
+        }
+        // Verify server exists
+        const server = await database_1.db
+            .select({ id: database_1.servers.id, name: database_1.servers.name })
+            .from(database_1.servers)
+            .where((0, drizzle_orm_1.eq)(database_1.servers.id, parseInt(serverId)))
+            .limit(1);
+        if (!server.length) {
+            return res.status(404).json({ error: "Server not found" });
+        }
+        await scheduler_1.activityScheduler.triggerServerUserSync(parseInt(serverId));
+        res.json({
+            success: true,
+            message: `User sync triggered for server: ${server[0].name}`,
+        });
+    }
+    catch (error) {
+        console.error("Error triggering user sync:", error);
+        res.status(500).json({ error: "Failed to trigger user sync" });
+    }
+});
+// POST /jobs/scheduler/trigger-full-sync - Manually trigger full sync for a server
+router.post("/scheduler/trigger-full-sync", async (req, res) => {
+    try {
+        const { serverId } = req.body;
+        if (!serverId) {
+            return res.status(400).json({ error: "Server ID is required" });
+        }
+        // Verify server exists
+        const server = await database_1.db
+            .select({ id: database_1.servers.id, name: database_1.servers.name })
+            .from(database_1.servers)
+            .where((0, drizzle_orm_1.eq)(database_1.servers.id, parseInt(serverId)))
+            .limit(1);
+        if (!server.length) {
+            return res.status(404).json({ error: "Server not found" });
+        }
+        await scheduler_1.activityScheduler.triggerServerFullSync(parseInt(serverId));
+        res.json({
+            success: true,
+            message: `Full sync triggered for server: ${server[0].name}`,
+        });
+    }
+    catch (error) {
+        console.error("Error triggering full sync:", error);
+        res.status(500).json({ error: "Failed to trigger full sync" });
+    }
+});
 // POST /jobs/scheduler/config - Update scheduler configuration
 router.post("/scheduler/config", async (req, res) => {
     try {
-        const { activitySyncInterval, enabled } = req.body;
+        const { activitySyncInterval, recentItemsSyncInterval, userSyncInterval, fullSyncInterval, enabled, } = req.body;
         const config = {};
+        // Validate cron expression helper
+        const isValidCron = (expr) => /^(\*|[0-9,-/\*]+)\s+(\*|[0-9,-/\*]+)\s+(\*|[0-9,-/\*]+)\s+(\*|[0-9,-/\*]+)\s+(\*|[0-9,-/\*]+)$/.test(expr);
         if (typeof activitySyncInterval === "string") {
-            // Validate cron expression (basic validation)
-            if (!/^(\*|[0-9,-/\*]+)\s+(\*|[0-9,-/\*]+)\s+(\*|[0-9,-/\*]+)\s+(\*|[0-9,-/\*]+)\s+(\*|[0-9,-/\*]+)$/.test(activitySyncInterval)) {
+            if (!isValidCron(activitySyncInterval)) {
                 return res.status(400).json({
-                    error: "Invalid cron expression format",
+                    error: "Invalid activity sync cron expression format",
                 });
             }
             config.activitySyncInterval = activitySyncInterval;
+        }
+        if (typeof recentItemsSyncInterval === "string") {
+            if (!isValidCron(recentItemsSyncInterval)) {
+                return res.status(400).json({
+                    error: "Invalid recent items sync cron expression format",
+                });
+            }
+            config.recentItemsSyncInterval = recentItemsSyncInterval;
+        }
+        if (typeof userSyncInterval === "string") {
+            if (!isValidCron(userSyncInterval)) {
+                return res.status(400).json({
+                    error: "Invalid user sync cron expression format",
+                });
+            }
+            config.userSyncInterval = userSyncInterval;
+        }
+        if (typeof fullSyncInterval === "string") {
+            if (!isValidCron(fullSyncInterval)) {
+                return res.status(400).json({
+                    error: "Invalid full sync cron expression format",
+                });
+            }
+            config.fullSyncInterval = fullSyncInterval;
         }
         if (typeof enabled === "boolean") {
             config.enabled = enabled;

@@ -5,7 +5,6 @@ import { getServer } from "@/lib/db/server";
 import { redirect } from "next/navigation";
 import { DeleteServer } from "../DeleteServer";
 import { VersionSection } from "../VersionSection";
-import { ServerSetupMonitor } from "@/components/ServerSetupMonitor";
 import { SystemStatsDisplay } from "@/components/SystemStatsDisplay";
 
 export default async function GeneralSettings(props: {
@@ -24,7 +23,6 @@ export default async function GeneralSettings(props: {
       <div className="space-y-8">
         <VersionSection />
         <SystemStatsDisplay />
-        <ServerSetupMonitor serverId={server.id} serverName={server.name} />
         <DeleteServer server={server} />
       </div>
     </Container>

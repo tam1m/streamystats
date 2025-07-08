@@ -1,5 +1,13 @@
 import { eq, and, inArray } from "drizzle-orm";
-import { db, items, libraries, Server, NewItem, Library, Item } from "@streamystats/database";
+import {
+  db,
+  items,
+  libraries,
+  Server,
+  NewItem,
+  Library,
+  Item,
+} from "@streamystats/database";
 import { JellyfinClient, JellyfinBaseItemDto } from "../client";
 import {
   SyncMetricsTracker,
@@ -335,19 +343,44 @@ export async function syncRecentlyAddedItems(
       `Starting recently added items sync for server ${server.name} (limit: ${limit})`
     );
 
-    // Get all libraries for this server (that haven't been removed)
+    // Get current libraries from Jellyfin server to verify they still exist
+    metrics.incrementApiRequests();
+    const jellyfinLibraries = await client.getLibraries();
+    const existingLibraryIds = new Set(jellyfinLibraries.map((lib) => lib.Id));
+
+    // Get all libraries for this server from our database
     const serverLibraries = await db
       .select()
       .from(libraries)
       .where(eq(libraries.serverId, server.id));
 
-    console.log(`Found ${serverLibraries.length} libraries to sync`);
+    // Filter to only include libraries that still exist on the Jellyfin server
+    const validLibraries = serverLibraries.filter((library) =>
+      existingLibraryIds.has(library.id)
+    );
+
+    const removedLibraries = serverLibraries.filter(
+      (library) => !existingLibraryIds.has(library.id)
+    );
+
+    if (removedLibraries.length > 0) {
+      console.log(
+        `Found ${removedLibraries.length} libraries that no longer exist on server:`,
+        removedLibraries.map((lib) => `${lib.name} (${lib.id})`).join(", ")
+      );
+    }
+
+    console.log(
+      `Found ${validLibraries.length} valid libraries to sync (${
+        serverLibraries.length - validLibraries.length
+      } removed libraries skipped)`
+    );
 
     let allMappedItems: NewItem[] = [];
     let allInvalidItems: Array<{ id: string; error: string }> = [];
 
-    // Collect recent items from all libraries with their already-known library IDs
-    for (const library of serverLibraries) {
+    // Collect recent items from all valid libraries with their already-known library IDs
+    for (const library of validLibraries) {
       try {
         console.log(
           `Fetching recently added items from library: ${library.name} (limit: ${limit})`
@@ -395,7 +428,7 @@ export async function syncRecentlyAddedItems(
       console.log("No recently added items found across libraries");
       const finalMetrics = metrics.finish();
       const data: ItemSyncData = {
-        librariesProcessed: serverLibraries.length,
+        librariesProcessed: validLibraries.length,
         itemsProcessed: finalMetrics.itemsProcessed,
         itemsInserted: 0,
         itemsUpdated: 0,
@@ -411,12 +444,34 @@ export async function syncRecentlyAddedItems(
 
     const finalMetrics = metrics.finish();
     const data: ItemSyncData = {
-      librariesProcessed: serverLibraries.length,
+      librariesProcessed: validLibraries.length,
       itemsProcessed: finalMetrics.itemsProcessed,
       itemsInserted: insertResult,
       itemsUpdated: updateResult,
       itemsUnchanged: unchangedCount,
     };
+
+    // Optionally clean up libraries that no longer exist on the server
+    if (removedLibraries.length > 0) {
+      try {
+        const removedLibraryIds = removedLibraries.map((lib) => lib.id);
+
+        // Note: We don't automatically delete libraries as they might contain important historical data
+        // Instead, we just log them. In the future, we could add a configuration option for automatic cleanup
+        console.log(
+          `Libraries no longer on server (not automatically removed): ${removedLibraries
+            .map((lib) => lib.name)
+            .join(", ")}`
+        );
+
+        // If you want to enable automatic cleanup, uncomment the following:
+        // await db.delete(libraries).where(inArray(libraries.id, removedLibraryIds));
+        // console.log(`Removed ${removedLibraries.length} obsolete libraries from database`);
+      } catch (cleanupError) {
+        console.error("Error during library cleanup:", cleanupError);
+        // Don't fail the entire sync for cleanup errors
+      }
+    }
 
     console.log(
       `Recently added items sync completed for server ${server.name}:`,
@@ -444,7 +499,7 @@ export async function syncRecentlyAddedItems(
     );
     const finalMetrics = metrics.finish();
     const errorData: ItemSyncData = {
-      librariesProcessed: 0,
+      librariesProcessed: 0, // 0 because we failed before processing any libraries
       itemsProcessed: finalMetrics.itemsProcessed,
       itemsInserted: 0,
       itemsUpdated: 0,
@@ -636,7 +691,9 @@ async function processValidItems(
     .from(items)
     .where(and(inArray(items.id, jellyfinIds), eq(items.serverId, serverId)));
 
-  const existingMap = new Map(existingItems.map((item: Item) => [item.id, item]));
+  const existingMap = new Map(
+    existingItems.map((item: Item) => [item.id, item])
+  );
 
   // Separate items into inserts, updates, and unchanged
   const itemsToInsert: NewItem[] = [];

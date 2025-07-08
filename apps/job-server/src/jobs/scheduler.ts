@@ -1,6 +1,6 @@
 import * as cron from "node-cron";
 import { db, servers, jobResults } from "@streamystats/database";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, ne } from "drizzle-orm";
 import { getJobQueue } from "./queue";
 import { JELLYFIN_JOB_NAMES } from "../jellyfin/workers";
 
@@ -179,7 +179,7 @@ class SyncScheduler {
       const activeServers = await db
         .select()
         .from(servers)
-        .where(eq(servers.syncStatus, "completed"));
+        .where(ne(servers.syncStatus, "syncing"));
 
       if (activeServers.length === 0) {
         console.log("No active servers found for activity sync");
@@ -238,7 +238,7 @@ class SyncScheduler {
       const activeServers = await db
         .select()
         .from(servers)
-        .where(eq(servers.syncStatus, "completed"));
+        .where(ne(servers.syncStatus, "syncing"));
 
       if (activeServers.length === 0) {
         console.log("No active servers found for recently added items sync");
@@ -300,7 +300,7 @@ class SyncScheduler {
       const activeServers = await db
         .select()
         .from(servers)
-        .where(eq(servers.syncStatus, "completed"));
+        .where(ne(servers.syncStatus, "syncing"));
 
       if (activeServers.length === 0) {
         console.log("No active servers found for user sync");
@@ -359,7 +359,7 @@ class SyncScheduler {
       const activeServers = await db
         .select()
         .from(servers)
-        .where(eq(servers.syncStatus, "completed"));
+        .where(ne(servers.syncStatus, "syncing"));
 
       if (activeServers.length === 0) {
         console.log("No active servers found for full sync");

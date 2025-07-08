@@ -253,7 +253,31 @@ async function syncRecentlyAddedItems(server, limit = 100) {
             }
         }
         console.log(`Total recently added items collected: ${allMappedItems.length}`);
-        if (allMappedItems.length === 0) {
+        // Deduplicate items by ID to prevent primary key constraint violations
+        // This can happen when the same item appears in multiple libraries' recent items
+        const uniqueItemsMap = new Map();
+        const duplicateItems = [];
+        for (const item of allMappedItems) {
+            if (uniqueItemsMap.has(item.id)) {
+                // Track duplicates for logging
+                const existing = duplicateItems.find((d) => d.id === item.id);
+                if (existing) {
+                    existing.count++;
+                }
+                else {
+                    duplicateItems.push({ id: item.id, count: 2 });
+                }
+            }
+            else {
+                uniqueItemsMap.set(item.id, item);
+            }
+        }
+        const deduplicatedItems = Array.from(uniqueItemsMap.values());
+        if (duplicateItems.length > 0) {
+            console.warn(`Found ${duplicateItems.length} duplicate items across libraries:`, duplicateItems.map((d) => `${d.id} (${d.count} times)`));
+            console.log(`Deduplicated ${allMappedItems.length} items to ${deduplicatedItems.length} unique items`);
+        }
+        if (deduplicatedItems.length === 0) {
             console.log("No recently added items found across libraries");
             const finalMetrics = metrics.finish();
             const data = {
@@ -267,7 +291,7 @@ async function syncRecentlyAddedItems(server, limit = 100) {
         }
         // Process valid items - determine inserts vs updates
         metrics.incrementDatabaseOperations();
-        const { insertResult, updateResult, unchangedCount } = await processValidItems(allMappedItems, allInvalidItems, server.id);
+        const { insertResult, updateResult, unchangedCount } = await processValidItems(deduplicatedItems, allInvalidItems, server.id);
         const finalMetrics = metrics.finish();
         const data = {
             librariesProcessed: serverLibraries.length,
@@ -548,13 +572,56 @@ async function processInserts(itemsToInsert) {
     if (itemsToInsert.length === 0)
         return 0;
     try {
+        // Try batch insert first (most efficient)
         await database_1.db.insert(database_1.items).values(itemsToInsert);
         console.log(`Inserted ${itemsToInsert.length} new items`);
         return itemsToInsert.length;
     }
     catch (error) {
-        console.error("Error inserting items:", error);
-        throw error;
+        console.error("Batch insert failed, attempting individual inserts:", error);
+        // Log specific constraint violation details if available
+        if (error && typeof error === "object" && "code" in error) {
+            const dbError = error;
+            if (dbError.code === "23505") {
+                // PostgreSQL unique constraint violation
+                console.error(`Duplicate key constraint violation in batch insert: ${dbError.detail || dbError.message}`);
+                console.error("Items in failed batch:", itemsToInsert.map((item) => ({
+                    id: item.id,
+                    name: item.name,
+                    serverId: item.serverId,
+                })));
+            }
+        }
+        // Fall back to individual inserts with error handling
+        let successCount = 0;
+        const failedItems = [];
+        for (const item of itemsToInsert) {
+            try {
+                await database_1.db
+                    .insert(database_1.items)
+                    .values([item])
+                    .onConflictDoUpdate({
+                    target: database_1.items.id,
+                    set: {
+                        ...item,
+                        updatedAt: new Date(),
+                    },
+                });
+                successCount++;
+            }
+            catch (individualError) {
+                const errorMessage = individualError instanceof Error
+                    ? individualError.message
+                    : String(individualError);
+                console.error(`Failed to insert item ${item.id} (${item.name}):`, errorMessage);
+                failedItems.push({ item, error: errorMessage });
+            }
+        }
+        if (failedItems.length > 0) {
+            console.warn(`${failedItems.length} items failed to insert:`, failedItems.map((f) => `${f.item.id}: ${f.error}`));
+        }
+        console.log(`Individual insert results: ${successCount} succeeded, ${failedItems.length} failed`);
+        return successCount;
     }
 }
 /**
