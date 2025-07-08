@@ -100,6 +100,12 @@ async function startServer() {
       console.log(
         `📦 Recently added items sync scheduler is running (${status.recentItemsSyncInterval})`
       );
+      console.log(
+        `👥 User sync scheduler is running (${status.userSyncInterval})`
+      );
+      console.log(
+        `🔄 Daily full sync scheduler is running (${status.fullSyncInterval})`
+      );
       console.log(`🎯 Session poller is running (every 5 seconds)`);
     });
   } catch (error) {
