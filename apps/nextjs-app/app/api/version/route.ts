@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
 type VersionResponse = {
   currentVersion: string;
@@ -10,7 +10,7 @@ type VersionResponse = {
 };
 
 export async function GET(_req: NextRequest) {
-  const currentVersion = process.env.NEXT_PUBLIC_VERSION || "edge";
+  const currentVersion = process.env.NEXT_PUBLIC_VERSION || "latest";
   const currentSha = process.env.NEXT_PUBLIC_COMMIT_SHA?.substring(0, 7) || "";
   const buildTime = Number.parseInt(
     process.env.NEXT_PUBLIC_BUILD_TIME || "0",
@@ -37,7 +37,7 @@ export async function GET(_req: NextRequest) {
     }
 
     // Fetch latest commit SHA if on edge
-    if (currentVersion === "edge") {
+    if (currentVersion === "latest") {
       const commitRes = await fetch(
         "https://api.github.com/repos/fredrikburmester/streamystats/commits/main",
         {
@@ -51,15 +51,16 @@ export async function GET(_req: NextRequest) {
         latestSha = data.sha.substring(0, 7);
         hasUpdate = currentSha !== latestSha;
       }
-    } else if (latestVersion !== "edge") {
-      // Compare semantic versions if not on edge
+    } else if (latestVersion !== "latest") {
+      // Compare semantic versions if not on latest
       hasUpdate = compareVersions(currentVersion, latestVersion) < 0;
     }
 
     return new Response(
       JSON.stringify({
-        currentVersion: currentVersion === "edge" ? currentSha : currentVersion,
-        latestVersion: currentVersion === "edge" ? latestSha : latestVersion,
+        currentVersion:
+          currentVersion === "latest" ? currentSha : currentVersion,
+        latestVersion: currentVersion === "latest" ? latestSha : latestVersion,
         hasUpdate,
         buildTime,
       }),
@@ -91,7 +92,9 @@ function compareVersions(a: string, b: string): number {
 
   for (let i = 0; i < 3; i++) {
     const diff = (aParts[i] || 0) - (bParts[i] || 0);
-    if (diff !== 0) return diff;
+    if (diff !== 0) {
+      return diff;
+    }
   }
 
   return 0;
