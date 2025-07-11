@@ -37,7 +37,7 @@ interface Props {
   server: Server;
 }
 
-export const SimilarStatstics = ({ data, server }: Props) => {
+export const SimilarStatistics = ({ data, server }: Props) => {
   const [recommendations, setRecommendations] = useState(data);
   const [hidingItems, setHidingItems] = useState<Set<string>>(new Set());
 
