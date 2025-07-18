@@ -3,6 +3,18 @@
 import { db, User, users, sessions, items } from "@streamystats/database";
 import { and, eq, sum, inArray, gte, lte, sql } from "drizzle-orm";
 import { cookies } from "next/headers";
+import { getServer } from "./server";
+
+interface JellyfinUser {
+  Id: string;
+  Name: string;
+  // IsAdministrator: boolean;
+  IsDisabled: boolean;
+  Policy: {
+    IsAdministrator: boolean;
+  };
+  // Add other fields as needed
+}
 
 export const getUser = async (
   name: string,
@@ -243,11 +255,45 @@ export const isUserAdmin = async (): Promise<boolean> => {
     return false;
   }
 
-  const user = await db.query.users.findFirst({
-    where: and(eq(users.id, me.id), eq(users.isAdministrator, true)),
-  });
+  // Get the server configuration for this user
+  const server = await getServer(me.serverId);
+  if (!server) {
+    return false;
+  }
 
-  return user?.isAdministrator || false;
+  const c = await cookies();
+  const token = c.get("streamystats-token");
+
+  try {
+    // Make a request to the Jellyfin server to get current user details
+    const response = await fetch(`${server.url}/Users/Me`, {
+      method: "GET",
+      headers: {
+        "X-Emby-Token": token?.value || "",
+        "Content-Type": "application/json",
+      },
+      signal: AbortSignal.timeout(5000),
+    });
+
+    if (!response.ok) {
+      // If the request fails, fall back to false for security
+      return false;
+    }
+
+    const jellyfinUser: JellyfinUser = await response.json();
+
+    // Verify the user ID matches what we expect
+    if (jellyfinUser.Id !== me.id) {
+      return false;
+    }
+
+    // Return the actual admin status from Jellyfin
+    return jellyfinUser.Policy.IsAdministrator === true;
+  } catch (error) {
+    // If there's any error (network, timeout, etc.), return false for security
+    console.error("Error checking admin status with Jellyfin server:", error);
+    return false;
+  }
 };
 
 // Server-level statistics functions for admin users
@@ -387,7 +433,8 @@ export const getUserWatchStats = async (
   return {
     total_watch_time: totalWatchTime,
     total_plays: userSessions.filter(
-      (s: { playDuration: number | null }) => s.playDuration && s.playDuration > 0
+      (s: { playDuration: number | null }) =>
+        s.playDuration && s.playDuration > 0
     ).length,
     longest_streak: longestStreak, // Return the number of days directly
   };
