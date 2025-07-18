@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.1.1](https://github.com/fredrikburmester/streamystats/compare/v2.1.0...v2.1.1) (2025-07-18)
+
+
+### Bug Fixes
+
+* await params ([2acad96](https://github.com/fredrikburmester/streamystats/commit/2acad96446a91c7197a59b5a3c4e6fcb657c56bd))
+* better auth ([af9858c](https://github.com/fredrikburmester/streamystats/commit/af9858cdf1b43549db06bbfd8442d0f60e02e1cb))
+* build on main push ([67664ac](https://github.com/fredrikburmester/streamystats/commit/67664ac61c0af41f77fd733219dc9553435d4f79))
+* release notes ([9ea1a30](https://github.com/fredrikburmester/streamystats/commit/9ea1a30adbbe66d76a29d4932c3e171a045ab571))
+
 ## [2.1.0](https://github.com/fredrikburmester/streamystats/compare/v2.0.0...v2.1.0) (2025-07-18)
 
 
