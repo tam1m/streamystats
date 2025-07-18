@@ -2,7 +2,7 @@ name: CI – docker build & push
 
 on:
   push:
-    branches: [master]
+    branches: [main]
 
 env:
   REGISTRY: docker.io
@@ -62,7 +62,6 @@ jobs:
             type=registry,ref=${{ env.IMAGE_NAMESPACE }}/${{ matrix.part }}:cache-build,mode=max
             type=registry,ref=${{ env.IMAGE_NAMESPACE }}/${{ matrix.part }}:cache-runtime,mode=max
           # --------------------------------------------
-
           push: true
           tags: |
             ${{ env.IMAGE_NAMESPACE }}/${{ matrix.part }}:latest
