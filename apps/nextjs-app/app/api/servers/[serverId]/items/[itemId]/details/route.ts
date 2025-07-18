@@ -1,5 +1,5 @@
 import { getItemDetails } from "@/lib/db/items";
-import { isUserAdmin } from "@/lib/db/users";
+import { showAdminStatistics } from "@/utils/adminTools";
 import { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -25,8 +25,8 @@ export async function GET(
       );
     }
 
-    // Check if user is admin to determine data access level
-    const isAdmin = await isUserAdmin();
+    // Check if user should see admin statistics (combines admin status + preference)
+    const isAdmin = await showAdminStatistics();
 
     // Get item details with statistics
     const itemDetails = await getItemDetails(Number(serverId), itemId, isAdmin);

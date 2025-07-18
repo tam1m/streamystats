@@ -3,13 +3,12 @@
 import { DynamicBreadcrumbs } from "@/components/DynamicBreadcrumbs";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { JobStatusMonitor } from "@/components/JobStatusMonitor";
-import { ShowAdminStatisticsSwitch } from "@/components/ShowAdminStatisticsSwitch";
 import { SideBar } from "@/components/SideBar";
 import { SuspenseLoading } from "@/components/SuspenseLoading";
 import { UpdateNotifier } from "@/components/UpdateNotifier";
 import { Separator } from "@/components/ui/separator";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { getServer, getServers } from "@/lib/db/server";
+import { getServers } from "@/lib/db/server";
 import { getMe, isUserAdmin } from "@/lib/db/users";
 import { redirect } from "next/navigation";
 import { PropsWithChildren, Suspense } from "react";
@@ -22,7 +21,6 @@ export default async function layout({ children, params }: Props) {
   const { id } = await params;
 
   const servers = await getServers();
-  const server = await getServer(id);
 
   const me = await getMe();
   const isAdmin = await isUserAdmin();

@@ -34,6 +34,8 @@ export const login = async ({
 
   const data = await res.json();
 
+  console.log(data);
+
   const accessToken = data["AccessToken"];
   const user = data["User"];
 
@@ -42,6 +44,8 @@ export const login = async ({
   const secure = h.get("x-forwarded-proto") === "https";
 
   const maxAge = 30 * 24 * 60 * 60;
+
+  const isAdmin = data["User"]["Policy"]["IsAdministrator"];
 
   const c = await cookies();
 
@@ -68,4 +72,12 @@ export const login = async ({
       secure,
     }
   );
+
+  c.set("show-admin-statistics", isAdmin ? "true" : "false", {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge,
+    secure,
+  });
 };
