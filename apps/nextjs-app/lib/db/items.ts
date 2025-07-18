@@ -18,6 +18,7 @@ import {
   gte,
   lte,
   asc,
+  inArray,
 } from "drizzle-orm";
 import { getMe } from "./users";
 
@@ -127,6 +128,29 @@ export const getItemDetails = async (
 };
 
 /**
+ * Get all episode IDs for a TV show
+ */
+export const getEpisodeIdsForSeries = async (
+  serverId: number,
+  seriesId: string
+): Promise<string[]> => {
+  const episodes = await db
+    .select({
+      id: items.id,
+    })
+    .from(items)
+    .where(
+      and(
+        eq(items.serverId, serverId),
+        eq(items.type, "Episode"),
+        eq(items.seriesId, seriesId)
+      )
+    );
+
+  return episodes.map((episode) => episode.id);
+};
+
+/**
  * Get total views and watch time for an item
  * If userId is provided, scoped to that user only
  * If userId is not provided, shows global data (for admin users)
@@ -144,17 +168,37 @@ export const getItemTotalStats = async (
       return { total_views: 0, total_watch_time: 0 };
     }
   }
+
+  // Get the item to check if it's a TV show
+  const item = await db.query.items.findFirst({
+    where: and(eq(items.id, itemId), eq(items.serverId, serverId)),
+  });
+
+  if (!item) {
+    return { total_views: 0, total_watch_time: 0 };
+  }
+
+  let itemIdsToQuery: string[] = [itemId];
+
+  // If it's a TV show, get all episode IDs
+  if (item.type === "Series") {
+    itemIdsToQuery = await getEpisodeIdsForSeries(serverId, itemId);
+    if (itemIdsToQuery.length === 0) {
+      return { total_views: 0, total_watch_time: 0 };
+    }
+  }
+
   // Build the where condition based on whether userId is provided
   const whereCondition = userId
     ? and(
         eq(sessions.serverId, serverId),
-        eq(sessions.itemId, itemId),
+        inArray(sessions.itemId, itemIdsToQuery),
         eq(sessions.userId, userId),
         isNotNull(sessions.playDuration)
       )
     : and(
         eq(sessions.serverId, serverId),
-        eq(sessions.itemId, itemId),
+        inArray(sessions.itemId, itemIdsToQuery),
         isNotNull(sessions.playDuration)
       );
 
@@ -190,17 +234,37 @@ export const getItemWatchDates = async (
       return { first_watched: null, last_watched: null };
     }
   }
+
+  // Get the item to check if it's a TV show
+  const item = await db.query.items.findFirst({
+    where: and(eq(items.id, itemId), eq(items.serverId, serverId)),
+  });
+
+  if (!item) {
+    return { first_watched: null, last_watched: null };
+  }
+
+  let itemIdsToQuery: string[] = [itemId];
+
+  // If it's a TV show, get all episode IDs
+  if (item.type === "Series") {
+    itemIdsToQuery = await getEpisodeIdsForSeries(serverId, itemId);
+    if (itemIdsToQuery.length === 0) {
+      return { first_watched: null, last_watched: null };
+    }
+  }
+
   // Build the where condition based on whether userId is provided
   const whereCondition = userId
     ? and(
         eq(sessions.serverId, serverId),
-        eq(sessions.itemId, itemId),
+        inArray(sessions.itemId, itemIdsToQuery),
         eq(sessions.userId, userId),
         isNotNull(sessions.startTime)
       )
     : and(
         eq(sessions.serverId, serverId),
-        eq(sessions.itemId, itemId),
+        inArray(sessions.itemId, itemIdsToQuery),
         isNotNull(sessions.startTime)
       );
 
@@ -236,17 +300,37 @@ export const getItemCompletionRate = async (
       return 0;
     }
   }
+
+  // Get the item to check if it's a TV show
+  const item = await db.query.items.findFirst({
+    where: and(eq(items.id, itemId), eq(items.serverId, serverId)),
+  });
+
+  if (!item) {
+    return 0;
+  }
+
+  let itemIdsToQuery: string[] = [itemId];
+
+  // If it's a TV show, get all episode IDs
+  if (item.type === "Series") {
+    itemIdsToQuery = await getEpisodeIdsForSeries(serverId, itemId);
+    if (itemIdsToQuery.length === 0) {
+      return 0;
+    }
+  }
+
   // Build the where condition based on whether userId is provided
   const whereCondition = userId
     ? and(
         eq(sessions.serverId, serverId),
-        eq(sessions.itemId, itemId),
+        inArray(sessions.itemId, itemIdsToQuery),
         eq(sessions.userId, userId),
         isNotNull(sessions.percentComplete)
       )
     : and(
         eq(sessions.serverId, serverId),
-        eq(sessions.itemId, itemId),
+        inArray(sessions.itemId, itemIdsToQuery),
         isNotNull(sessions.percentComplete)
       );
 
@@ -273,16 +357,36 @@ export const getItemUserStats = async (
   if (!currentUser) {
     return [];
   }
+
+  // Get the item to check if it's a TV show
+  const item = await db.query.items.findFirst({
+    where: and(eq(items.id, itemId), eq(items.serverId, serverId)),
+  });
+
+  if (!item) {
+    return [];
+  }
+
+  let itemIdsToQuery: string[] = [itemId];
+
+  // If it's a TV show, get all episode IDs
+  if (item.type === "Series") {
+    itemIdsToQuery = await getEpisodeIdsForSeries(serverId, itemId);
+    if (itemIdsToQuery.length === 0) {
+      return [];
+    }
+  }
+
   // Build where condition based on admin status
   const whereCondition = isAdmin
     ? and(
         eq(sessions.serverId, serverId),
-        eq(sessions.itemId, itemId),
+        inArray(sessions.itemId, itemIdsToQuery),
         isNotNull(sessions.userId)
       )
     : and(
         eq(sessions.serverId, serverId),
-        eq(sessions.itemId, itemId),
+        inArray(sessions.itemId, itemIdsToQuery),
         eq(sessions.userId, currentUser.id),
         isNotNull(sessions.userId)
       );
@@ -347,16 +451,35 @@ export const getItemWatchHistory = async (
     return [];
   }
 
+  // Get the item to check if it's a TV show
+  const item = await db.query.items.findFirst({
+    where: and(eq(items.id, itemId), eq(items.serverId, serverId)),
+  });
+
+  if (!item) {
+    return [];
+  }
+
+  let itemIdsToQuery: string[] = [itemId];
+
+  // If it's a TV show, get all episode IDs
+  if (item.type === "Series") {
+    itemIdsToQuery = await getEpisodeIdsForSeries(serverId, itemId);
+    if (itemIdsToQuery.length === 0) {
+      return [];
+    }
+  }
+
   // Build where condition based on admin status
   const whereCondition = isAdmin
     ? and(
         eq(sessions.serverId, serverId),
-        eq(sessions.itemId, itemId),
+        inArray(sessions.itemId, itemIdsToQuery),
         isNotNull(sessions.startTime)
       )
     : and(
         eq(sessions.serverId, serverId),
-        eq(sessions.itemId, itemId),
+        inArray(sessions.itemId, itemIdsToQuery),
         eq(sessions.userId, currentUser.id),
         isNotNull(sessions.startTime)
       );
@@ -399,17 +522,37 @@ export const getItemWatchCountByMonth = async (
       return [];
     }
   }
+
+  // Get the item to check if it's a TV show
+  const item = await db.query.items.findFirst({
+    where: and(eq(items.id, itemId), eq(items.serverId, serverId)),
+  });
+
+  if (!item) {
+    return [];
+  }
+
+  let itemIdsToQuery: string[] = [itemId];
+
+  // If it's a TV show, get all episode IDs
+  if (item.type === "Series") {
+    itemIdsToQuery = await getEpisodeIdsForSeries(serverId, itemId);
+    if (itemIdsToQuery.length === 0) {
+      return [];
+    }
+  }
+
   // Build the where condition based on whether userId is provided
   const whereCondition = userId
     ? and(
         eq(sessions.serverId, serverId),
-        eq(sessions.itemId, itemId),
+        inArray(sessions.itemId, itemIdsToQuery),
         eq(sessions.userId, userId),
         isNotNull(sessions.startTime)
       )
     : and(
         eq(sessions.serverId, serverId),
-        eq(sessions.itemId, itemId),
+        inArray(sessions.itemId, itemIdsToQuery),
         isNotNull(sessions.startTime)
       );
 

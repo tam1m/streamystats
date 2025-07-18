@@ -34,8 +34,6 @@ export const login = async ({
 
   const data = await res.json();
 
-  console.log(data);
-
   const accessToken = data["AccessToken"];
   const user = data["User"];
 
