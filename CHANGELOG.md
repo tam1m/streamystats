@@ -1,5 +1,28 @@
 # Changelog
 
+## [2.1.0](https://github.com/fredrikburmester/streamystats/compare/v2.0.0...v2.1.0) (2025-07-18)
+
+
+### Features
+
+* add horizontal scroll to similar statistics cards ([e54f907](https://github.com/fredrikburmester/streamystats/commit/e54f90723101a8deaee45c8cee2ea7427f448633))
+* item details ([eb2c788](https://github.com/fredrikburmester/streamystats/commit/eb2c788904aa23a3e0cd1c3a93fa54a704285f1c))
+* **job-server:** allow setting of listening host ([c98d82a](https://github.com/fredrikburmester/streamystats/commit/c98d82a84e7bbc71566ed2f9f68a7d964ca63c1c))
+* **nextjs-app:** use next/image for MorphingDialogImage ([dc74fb3](https://github.com/fredrikburmester/streamystats/commit/dc74fb3521aa2a6037c0451fc9bb9f74229856d3))
+* use ScrollArea and ScrollBar for horizontal scrolling in SimilarSeriesStatistics ([9648625](https://github.com/fredrikburmester/streamystats/commit/9648625a78aeefd7adf94b4d702f921c57596bcd))
+* user sync ([9610f2c](https://github.com/fredrikburmester/streamystats/commit/9610f2c4d26ce6887c26271c385f10c9523a2b3b))
+
+
+### Bug Fixes
+
+* better user admin check ([afd3d25](https://github.com/fredrikburmester/streamystats/commit/afd3d25f2c9031bbecc8835e6c20ae4392d20dbe))
+* **ci:** ensure pnpm is properly installed before use in workflow ([8649f9a](https://github.com/fredrikburmester/streamystats/commit/8649f9a6077389377c693f8625f45b57dfbd90d9))
+* correct typo in SimilarStatistics component name ([9347c4f](https://github.com/fredrikburmester/streamystats/commit/9347c4fa2196738ea3b55291609b404de57cce0a))
+* edge tag still used in version check ([143c8db](https://github.com/fredrikburmester/streamystats/commit/143c8dbfd48b342813489b01802ff720defd0b32))
+* **job-server:** apply sourcery-ai suggestions wrt PORT validation ([86ef6a9](https://github.com/fredrikburmester/streamystats/commit/86ef6a9543a751f1d56f22dee83becc1c07c4ea0))
+* **nextjs-app:** correctly set body size limit ([03e59ac](https://github.com/fredrikburmester/streamystats/commit/03e59accdfb956c04c862a9d6206bef3274bc3dc))
+* removed library causes failed sync ([260fa0b](https://github.com/fredrikburmester/streamystats/commit/260fa0b1c1dd0e6651490eabb60eefe9534149fd))
+
 ## [2.0.0](https://github.com/fredrikburmester/streamystats/compare/v1.8.0...v2.0.0) (2025-06-07)
 
 
