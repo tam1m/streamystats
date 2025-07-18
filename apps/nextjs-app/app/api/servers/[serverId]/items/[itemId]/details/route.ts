@@ -6,10 +6,10 @@ export const dynamic = "force-dynamic";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { serverId: string; itemId: string } }
+  { params }: { params: Promise<{ serverId: string; itemId: string }> }
 ) {
   try {
-    const { serverId, itemId } = params;
+    const { serverId, itemId } = await params;
 
     if (!serverId || !itemId) {
       return new Response(

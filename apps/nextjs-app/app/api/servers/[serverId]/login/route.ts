@@ -4,12 +4,12 @@ import { NextRequest } from "next/server";
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { serverId: string } }
+  { params }: { params: Promise<{ serverId: string }> }
 ) {
   try {
     const body = await request.json();
     const { username, password } = body;
-    const { serverId } = params;
+    const { serverId } = await params;
 
     if (!serverId || !username) {
       return Response.json(
