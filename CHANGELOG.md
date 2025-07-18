@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.0](https://github.com/fredrikburmester/streamystats/compare/v2.1.1...v2.2.0) (2025-07-18)
+
+
+### Features
+
+* aggregate episode stats for series ([22c55d9](https://github.com/fredrikburmester/streamystats/commit/22c55d94aa1f8fdca203afcf64d6c595735fe971))
+
 ## [2.1.1](https://github.com/fredrikburmester/streamystats/compare/v2.1.0...v2.1.1) (2025-07-18)
 
 
