@@ -15,7 +15,7 @@ COPY packages/database/package.json ./packages/database/
 
 # Install dependencies
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
-    pnpm install --frozen-lockfile
+    pnpm install --no-frozen-lockfile
 
 # Copy database source and build
 COPY packages/database ./packages/database

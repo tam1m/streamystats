@@ -22,7 +22,7 @@ COPY apps/nextjs-app/package.json ./apps/nextjs-app/
 # Install all dependencies with cache mount
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
     --mount=type=cache,target=/app/node_modules/.pnpm \
-    pnpm install --frozen-lockfile
+    pnpm install --no-frozen-lockfile
 
 # Database build stage
 FROM deps AS database-builder
