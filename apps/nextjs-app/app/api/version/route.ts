@@ -36,7 +36,7 @@ export async function GET(_req: NextRequest) {
       latestVersion = data.tag_name || latestVersion;
     }
 
-    // Fetch latest commit SHA if on edge
+    // Fetch latest commit SHA if on latest
     if (currentVersion === "latest") {
       const commitRes = await fetch(
         "https://api.github.com/repos/fredrikburmester/streamystats/commits/main",

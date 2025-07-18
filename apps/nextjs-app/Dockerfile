@@ -41,7 +41,7 @@ FROM database-builder AS nextjs-builder
 COPY apps/nextjs-app ./apps/nextjs-app
 
 # Set version information
-ARG VERSION=edge
+ARG VERSION=latest
 ARG COMMIT_SHA
 ARG BUILD_TIME
 ENV NEXT_PUBLIC_VERSION=${VERSION}
