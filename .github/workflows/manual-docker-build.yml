@@ -72,18 +72,9 @@ jobs:
           file: ${{ matrix.dockerfile }}
           platforms: linux/amd64,linux/arm64
           build-args: |
-            BUILDKIT_INLINE_CACHE=1
             VERSION=${{ inputs.tag }}
             COMMIT_SHA=${{ github.sha }}
             BUILD_TIME=${{ github.event.head_commit.timestamp }}
-          cache-from: |
-            type=registry,ref=${{ env.IMAGE_NAMESPACE }}/${{ matrix.part }}:cache-deps
-            type=registry,ref=${{ env.IMAGE_NAMESPACE }}/${{ matrix.part }}:cache-build
-            type=registry,ref=${{ env.IMAGE_NAMESPACE }}/${{ matrix.part }}:cache-runtime
-          cache-to: |
-            type=registry,ref=${{ env.IMAGE_NAMESPACE }}/${{ matrix.part }}:cache-deps-manual,mode=max
-            type=registry,ref=${{ env.IMAGE_NAMESPACE }}/${{ matrix.part }}:cache-build-manual,mode=max
-            type=registry,ref=${{ env.IMAGE_NAMESPACE }}/${{ matrix.part }}:cache-runtime-manual,mode=max
           push: ${{ inputs.push_to_registry }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

@@ -19,10 +19,9 @@ COPY packages/database/package.json ./packages/database/
 COPY apps/nextjs-app/package.json ./apps/nextjs-app/
 COPY apps/job-server/package.json ./apps/job-server/
 
-# Install all dependencies with cache mount
+# Install all dependencies with frozen lockfile and ensure proper installation
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
-    --mount=type=cache,target=/app/node_modules/.pnpm \
-    pnpm install --no-frozen-lockfile
+    pnpm install --frozen-lockfile
 
 # Database build stage
 FROM deps AS database-builder
@@ -30,9 +29,8 @@ FROM deps AS database-builder
 # Copy database source
 COPY packages/database ./packages/database
 
-# Build database package with cache mount
-RUN --mount=type=cache,target=/app/node_modules/.pnpm \
-    pnpm --filter @streamystats/database build
+# Build database package
+RUN pnpm --filter @streamystats/database build
 
 # NextJS build stage
 FROM database-builder AS nextjs-builder
@@ -48,9 +46,16 @@ ENV NEXT_PUBLIC_VERSION=${VERSION}
 ENV NEXT_PUBLIC_COMMIT_SHA=${COMMIT_SHA}
 ENV NEXT_PUBLIC_BUILD_TIME=${BUILD_TIME}
 
-# Build the NextJS application with cache mount
-RUN --mount=type=cache,target=/app/node_modules/.pnpm \
-    --mount=type=cache,target=/app/apps/nextjs-app/.next/cache \
+# Ensure all dependencies are properly linked and available
+RUN pnpm install --offline --frozen-lockfile
+
+# Verify Next.js is properly installed
+RUN ls -la apps/nextjs-app/node_modules/.bin/ || echo "No .bin directory found"
+RUN test -f apps/nextjs-app/node_modules/.bin/next || echo "Next.js binary not found in .bin"
+RUN pnpm list next --filter @streamystats/nextjs-app || echo "Next.js not found in dependencies"
+
+# Build the NextJS application with cache mount for Next.js build cache only
+RUN --mount=type=cache,target=/app/apps/nextjs-app/.next/cache \
     pnpm --filter @streamystats/nextjs-app build
 
 # Production runtime stage
