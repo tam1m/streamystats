@@ -45,7 +45,7 @@ async function testJobStatusInServerStatus() {
         console.log("📦 Initializing job queue...");
         await (0, queue_1.getJobQueue)();
         // Test the endpoint by making a direct HTTP request
-        const baseUrl = process.env.JOB_SERVER_URL || "http://localhost:3001";
+        const baseUrl = process.env.JOB_SERVER_URL || "http://localhost:3005";
         const url = `${baseUrl}/api/jobs/server-status`;
         console.log(`🌐 Testing endpoint: ${url}`);
         try {

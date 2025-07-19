@@ -25,7 +25,7 @@ export async function GET(request: Request, { params }: RouteParams) {
     const jobServerUrl =
       process.env.JOB_SERVER_URL && process.env.JOB_SERVER_URL !== "undefined"
         ? process.env.JOB_SERVER_URL
-        : "http://localhost:3000";
+        : "http://localhost:3005";
     const response = await fetch(
       `${jobServerUrl}/api/jobs/servers/${serverId}/sync-status`,
       {

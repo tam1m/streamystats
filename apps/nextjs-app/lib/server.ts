@@ -85,7 +85,7 @@ export async function getServerSyncStatus(serverId: number) {
   const jobServerUrl =
     process.env.JOB_SERVER_URL && process.env.JOB_SERVER_URL !== "undefined"
       ? process.env.JOB_SERVER_URL
-      : "http://localhost:3000";
+      : "http://localhost:3005";
 
   try {
     const response = await fetch(
