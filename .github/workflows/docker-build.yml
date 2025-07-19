@@ -51,6 +51,7 @@ jobs:
           # ---------- BuildKit optimisations ----------
           build-args: |
             BUILDKIT_INLINE_CACHE=1
+            VERSION=latest
             COMMIT_SHA=${{ github.sha }}
             BUILD_TIME=${{ github.event.head_commit.timestamp }}
           cache-from: |
