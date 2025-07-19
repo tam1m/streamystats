@@ -81,9 +81,9 @@ jobs:
             type=registry,ref=${{ env.IMAGE_NAMESPACE }}/${{ matrix.part }}:cache-build
             type=registry,ref=${{ env.IMAGE_NAMESPACE }}/${{ matrix.part }}:cache-runtime
           cache-to: |
-            type=registry,ref=${{ env.IMAGE_NAMESPACE }}/${{ matrix.part }}:cache-deps,mode=max
-            type=registry,ref=${{ env.IMAGE_NAMESPACE }}/${{ matrix.part }}:cache-build,mode=max
-            type=registry,ref=${{ env.IMAGE_NAMESPACE }}/${{ matrix.part }}:cache-runtime,mode=max
+            type=registry,ref=${{ env.IMAGE_NAMESPACE }}/${{ matrix.part }}:cache-deps-manual,mode=max
+            type=registry,ref=${{ env.IMAGE_NAMESPACE }}/${{ matrix.part }}:cache-build-manual,mode=max
+            type=registry,ref=${{ env.IMAGE_NAMESPACE }}/${{ matrix.part }}:cache-runtime-manual,mode=max
           push: ${{ inputs.push_to_registry }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

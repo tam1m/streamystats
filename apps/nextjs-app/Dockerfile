@@ -48,10 +48,6 @@ ENV NEXT_PUBLIC_VERSION=${VERSION}
 ENV NEXT_PUBLIC_COMMIT_SHA=${COMMIT_SHA}
 ENV NEXT_PUBLIC_BUILD_TIME=${BUILD_TIME}
 
-# Re-link workspace after copying source files
-RUN --mount=type=cache,target=/app/node_modules/.pnpm \
-    pnpm install --prefer-offline
-
 # Build the NextJS application with cache mount
 RUN --mount=type=cache,target=/app/node_modules/.pnpm \
     --mount=type=cache,target=/app/apps/nextjs-app/.next/cache \
