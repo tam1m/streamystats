@@ -476,7 +476,11 @@ export const getUserGenreStats = async (
     .from(sessions)
     .innerJoin(items, eq(sessions.itemId, items.id))
     .where(
-      and(eq(sessions.userId, userId), eq(sessions.serverId, Number(serverId)))
+      and(
+        eq(sessions.userId, userId),
+        eq(sessions.serverId, Number(serverId)),
+        inArray(items.type, ["Movie", "Episode", "Series"])
+      )
     );
 
   const genreMap: Record<string, { watchTime: number; playCount: number }> = {};
