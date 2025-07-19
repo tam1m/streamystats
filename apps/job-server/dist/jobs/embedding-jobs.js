@@ -316,7 +316,7 @@ async function generateItemEmbeddingsJob(job) {
                         const jobServerUrl = process.env.JOB_SERVER_URL &&
                             process.env.JOB_SERVER_URL !== "undefined"
                             ? process.env.JOB_SERVER_URL
-                            : "http://localhost:3001";
+                            : "http://localhost:3005";
                         const response = await fetch(`${jobServerUrl}/api/jobs/start-embedding`, {
                             method: "POST",
                             headers: {

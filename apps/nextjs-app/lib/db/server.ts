@@ -353,7 +353,7 @@ export const startEmbedding = async (serverId: number) => {
     const jobServerUrl =
       process.env.JOB_SERVER_URL && process.env.JOB_SERVER_URL !== "undefined"
         ? process.env.JOB_SERVER_URL
-        : "http://localhost:3001";
+        : "http://localhost:3005";
 
     // Queue the embedding job (this will be implemented in the job server)
     const response = await fetch(`${jobServerUrl}/api/jobs/start-embedding`, {
@@ -392,7 +392,7 @@ export const stopEmbedding = async (serverId: number) => {
     const jobServerUrl =
       process.env.JOB_SERVER_URL && process.env.JOB_SERVER_URL !== "undefined"
         ? process.env.JOB_SERVER_URL
-        : "http://localhost:3001";
+        : "http://localhost:3005";
 
     // Stop the embedding job (this will be implemented in the job server)
     const response = await fetch(`${jobServerUrl}/api/jobs/stop-embedding`, {
