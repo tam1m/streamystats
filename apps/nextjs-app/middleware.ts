@@ -66,8 +66,8 @@ export const config = {
   ],
 };
 
-const ADMIN_ONLY_PATHS = ["history", "settings", "activities", "users"];
-const PUBLIC_PATHS = ["login", "setup"];
+const ADMIN_ONLY_PATHS = ["history", "settings", "activities", "users", "setup"];
+const PUBLIC_PATHS = ["login"];
 
 /**
  * Parse URL pathname to extract server ID, page, and user name
