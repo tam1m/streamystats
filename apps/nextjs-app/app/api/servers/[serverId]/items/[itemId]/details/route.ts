@@ -9,12 +9,6 @@ export async function GET(
   { params }: { params: Promise<{ serverId: string; itemId: string }> }
 ) {
   try {
-    // Check API key authentication
-    const authError = await requireApiKey(request);
-    if (authError) {
-      return authError;
-    }
-
     const { serverId, itemId } = await params;
 
     if (!serverId || !itemId) {
@@ -29,6 +23,12 @@ export async function GET(
           },
         }
       );
+    }
+
+    // Check API key authentication against the specific server
+    const authError = await requireApiKey(request, Number(serverId));
+    if (authError) {
+      return authError;
     }
 
     // Get item details with admin privileges (full statistics)

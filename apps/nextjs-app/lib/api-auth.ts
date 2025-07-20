@@ -1,12 +1,13 @@
 "use server";
 
 import { NextRequest } from "next/server";
+import { getServer } from "./db/server";
 
 /**
- * Validates API key from Authorization header
+ * Validates API key from Authorization header against the specific server's API key
  * Expected format: "Bearer <api-key>" or just "<api-key>"
  */
-export async function validateApiKey(request: NextRequest): Promise<boolean> {
+export async function validateApiKey(request: NextRequest, serverId: number): Promise<boolean> {
   const authHeader = request.headers.get("authorization");
   
   if (!authHeader) {
@@ -21,23 +22,28 @@ export async function validateApiKey(request: NextRequest): Promise<boolean> {
     apiKey = authHeader;
   }
 
-  // Get the expected API key from environment variable
-  const expectedApiKey = process.env.STREAMYSTATS_API_KEY;
-  
-  if (!expectedApiKey) {
-    console.error("STREAMYSTATS_API_KEY environment variable is not set");
+  try {
+    // Get the server from database to compare API keys
+    const server = await getServer(serverId);
+    
+    if (!server) {
+      console.error(`Server with ID ${serverId} not found`);
+      return false;
+    }
+
+    return apiKey === server.apiKey;
+  } catch (error) {
+    console.error("Error validating API key:", error);
     return false;
   }
-
-  return apiKey === expectedApiKey;
 }
 
 /**
- * Middleware helper to check API key authentication
+ * Middleware helper to check API key authentication for a specific server
  * Returns null if valid, Response object if invalid
  */
-export async function requireApiKey(request: NextRequest): Promise<Response | null> {
-  const isValid = await validateApiKey(request);
+export async function requireApiKey(request: NextRequest, serverId: number): Promise<Response | null> {
+  const isValid = await validateApiKey(request, serverId);
   
   if (!isValid) {
     return new Response(
