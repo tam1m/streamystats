@@ -1,5 +1,5 @@
 import { getItemDetails } from "@/lib/db/items";
-import { showAdminStatistics } from "@/utils/adminTools";
+import { requireApiKey } from "@/lib/api-auth";
 import { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -9,6 +9,12 @@ export async function GET(
   { params }: { params: Promise<{ serverId: string; itemId: string }> }
 ) {
   try {
+    // Check API key authentication
+    const authError = await requireApiKey(request);
+    if (authError) {
+      return authError;
+    }
+
     const { serverId, itemId } = await params;
 
     if (!serverId || !itemId) {
@@ -25,11 +31,8 @@ export async function GET(
       );
     }
 
-    // Check if user should see admin statistics (combines admin status + preference)
-    const isAdmin = await showAdminStatistics();
-
-    // Get item details with statistics
-    const itemDetails = await getItemDetails(Number(serverId), itemId, isAdmin);
+    // Get item details with admin privileges (full statistics)
+    const itemDetails = await getItemDetails(Number(serverId), itemId, true);
 
     if (!itemDetails) {
       return new Response(

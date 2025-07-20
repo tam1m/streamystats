@@ -24,6 +24,7 @@ services:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@vectorchord:5432/${POSTGRES_DB:-streamystats}
       - JOB_SERVER_URL=http://job-server:3005
       - HOSTNAME=0.0.0.0
+      - STREAMYSTATS_API_KEY=${STREAMYSTATS_API_KEY}
     depends_on:
       vectorchord:
         condition: service_healthy
