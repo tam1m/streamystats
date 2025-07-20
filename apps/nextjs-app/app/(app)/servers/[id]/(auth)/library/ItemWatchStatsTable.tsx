@@ -5,9 +5,6 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
@@ -33,14 +30,15 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { ArrowUpDown, ChevronDown, MoreHorizontal } from "lucide-react";
+import { ArrowUpDown, ChevronDown } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "nextjs-toploader/app";
 import * as React from "react";
 import { useDebounce } from "use-debounce";
 
-import LibraryDropdown from "./LibraryDropdown";
 import { Poster } from "../dashboard/Poster";
+import LibraryDropdown from "./LibraryDropdown";
+import Link from "next/link";
 
 export interface ItemWatchStatsTableProps {
   server: Server;
@@ -121,13 +119,11 @@ export function ItemWatchStatsTable({
         </Button>
       ),
       cell: ({ row }) => (
-        <a
-          href={`${server.url}/web/index.html#!/details?id=${row.original.item.id}`}
-          target="_blank"
-          rel="noopener noreferrer"
+        <Link
+          href={`/servers/${server.id}/library/${row.original.item.id}`}
           className="flex flex-row items-center gap-4 group"
         >
-          <div className="shrink-0 rounded overflow-hidden transition-transform duration-200 group-hover:scale-110">
+          <div className="shrink-0 rounded overflow-hidden transition-transform duration-200">
             <Poster item={row.original.item} server={server} />
           </div>
           <div>
@@ -144,7 +140,7 @@ export function ItemWatchStatsTable({
                 ` • ${row.original.item.seasonName}`}
             </p>
           </div>
-        </a>
+        </Link>
       ),
       size: 320,
       minSize: 220,

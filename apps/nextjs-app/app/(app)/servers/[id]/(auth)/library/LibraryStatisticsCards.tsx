@@ -100,7 +100,7 @@ export const LibraryStatisticsCards: React.FC<Props> = ({
             className={`
               ${
                 item.filterable
-                  ? "cursor-pointer transition-colors duration-200 transition-transform hover:bg-accent/60 hover:scale-[1.03] duration-200"
+                  ? "cursor-pointer transition-colors hover:bg-accent/60 duration-200"
                   : ""
               }
               ${isActive ? "border-primary bg-primary/10" : ""}

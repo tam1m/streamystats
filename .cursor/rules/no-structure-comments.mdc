@@ -1,0 +1,6 @@
+---
+description: No structure comments.
+globs:
+alwaysApply: true
+---
+Don't add structure comments in the code, like: {/* Overview */}

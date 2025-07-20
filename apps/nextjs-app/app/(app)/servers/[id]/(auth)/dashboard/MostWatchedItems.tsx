@@ -16,6 +16,7 @@ import { Item, Server } from "@streamystats/database/schema";
 import { Settings } from "lucide-react";
 import { useState } from "react";
 import { Poster } from "./Poster";
+import Link from "next/link";
 
 interface ItemWithStats extends Item {
   totalPlayCount: number;
@@ -79,15 +80,13 @@ export const MostWatchedItems: React.FC<Props> = ({ data, server }) => {
       )}
       <div className="flex flex-col gap-2">
         {items?.slice(0, 5).map((item, index) => (
-          <a
+          <Link
+            href={`/servers/${server.id}/library/${item.id}`}
             key={`${type}-${item.id || item.id || index}`}
-            href={`${server.url}/web/#/details?id=${item.id}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex flex-row items-center px-2 py-2 min-h-[120px] rounded-lg border border-border bg-card shadow-sm transition-transform transition-colors duration-200 hover:scale-[1.01] hover:bg-accent/60 group"
+            className="flex flex-row items-center px-2 py-2 min-h-[120px] rounded-lg border border-border bg-card shadow-sm duration-200 hover:bg-accent/60 group"
             style={{ textDecoration: "none" }}
           >
-            <div className="rounded-lg overflow-hidden w-16 transition-transform duration-200 group-hover:scale-[1.03]">
+            <div className="rounded-lg overflow-hidden w-16 transition-transform duration-200">
               <Poster
                 item={item}
                 server={server}
@@ -136,7 +135,7 @@ export const MostWatchedItems: React.FC<Props> = ({ data, server }) => {
                 </p>
               </div>
             </div>
-          </a>
+          </Link>
         ))}
       </div>
     </div>

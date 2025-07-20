@@ -61,6 +61,13 @@ export interface ItemWatchCountByMonth {
   total_watch_time: number;
 }
 
+export interface SeriesEpisodeStats {
+  total_seasons: number;
+  total_episodes: number;
+  watched_episodes: number;
+  watched_seasons: number;
+}
+
 export interface ItemDetailsResponse {
   item: Item;
   total_views: number;
@@ -71,6 +78,7 @@ export interface ItemDetailsResponse {
   users_watched: ItemUserStats[];
   watch_history: ItemWatchHistory[];
   watch_count_by_month: ItemWatchCountByMonth[];
+  episode_stats?: SeriesEpisodeStats; // Optional, only for Series
 }
 
 /**
@@ -114,6 +122,12 @@ export const getItemDetails = async (
     userId
   );
 
+  // Get episode stats if this is a series
+  let episodeStats: SeriesEpisodeStats | undefined;
+  if (item.type === "Series") {
+    episodeStats = await getSeriesEpisodeStats(serverId, itemId, userId);
+  }
+
   return {
     item,
     total_views: totalStats.total_views,
@@ -124,6 +138,7 @@ export const getItemDetails = async (
     users_watched: usersWatched,
     watch_history: watchHistory,
     watch_count_by_month: watchCountByMonth,
+    episode_stats: episodeStats,
   };
 };
 
@@ -582,4 +597,105 @@ export const getItemWatchCountByMonth = async (
     unique_users: row.unique_users,
     total_watch_time: Number(row.total_watch_time || 0),
   }));
+};
+
+/**
+ * Get season and episode statistics for a series
+ * If userId is provided, scoped to that user only
+ * If userId is not provided, shows global data (for admin users)
+ */
+export const getSeriesEpisodeStats = async (
+  serverId: number,
+  seriesId: string,
+  userId?: string
+): Promise<SeriesEpisodeStats> => {
+  // Security check: if no userId provided, ensure there's a logged in user
+  if (!userId) {
+    const currentUser = await getMe();
+    if (!currentUser) {
+      return {
+        total_seasons: 0,
+        total_episodes: 0,
+        watched_episodes: 0,
+        watched_seasons: 0,
+      };
+    }
+  }
+
+  // Get all episodes for this series
+  const allEpisodes = await db
+    .select({
+      id: items.id,
+      seasonNumber: items.parentIndexNumber,
+      episodeNumber: items.indexNumber,
+    })
+    .from(items)
+    .where(
+      and(
+        eq(items.serverId, serverId),
+        eq(items.type, "Episode"),
+        eq(items.seriesId, seriesId),
+        isNotNull(items.parentIndexNumber),
+        isNotNull(items.indexNumber)
+      )
+    );
+
+  const totalEpisodes = allEpisodes.length;
+  const seasons = new Set(
+    allEpisodes.map((ep) => ep.seasonNumber).filter(Boolean)
+  );
+  const totalSeasons = seasons.size;
+
+  if (totalEpisodes === 0) {
+    return {
+      total_seasons: totalSeasons,
+      total_episodes: totalEpisodes,
+      watched_episodes: 0,
+      watched_seasons: 0,
+    };
+  }
+
+  // Get watched episodes for this series
+  const episodeIds = allEpisodes.map((ep) => ep.id);
+
+  const whereCondition = userId
+    ? and(
+        eq(sessions.serverId, serverId),
+        inArray(sessions.itemId, episodeIds),
+        eq(sessions.userId, userId),
+        isNotNull(sessions.playDuration)
+      )
+    : and(
+        eq(sessions.serverId, serverId),
+        inArray(sessions.itemId, episodeIds),
+        isNotNull(sessions.playDuration)
+      );
+
+  const watchedEpisodeIds = await db
+    .selectDistinct({
+      itemId: sessions.itemId,
+    })
+    .from(sessions)
+    .where(whereCondition);
+
+  const watchedEpisodeSet = new Set(
+    watchedEpisodeIds.map((w) => w.itemId).filter(Boolean)
+  );
+  const watchedEpisodes = watchedEpisodeSet.size;
+
+  // Calculate watched seasons (seasons with at least one watched episode)
+  const watchedSeasonNumbers = new Set();
+  for (const episode of allEpisodes) {
+    if (watchedEpisodeSet.has(episode.id) && episode.seasonNumber !== null) {
+      watchedSeasonNumbers.add(episode.seasonNumber);
+    }
+  }
+  const watchedSeasons = watchedSeasonNumbers.size;
+
+  return {
+    total_seasons: totalSeasons,
+    total_episodes: totalEpisodes,
+    watched_episodes: watchedEpisodes,
+    watched_seasons: watchedSeasons,
+  };
 };
