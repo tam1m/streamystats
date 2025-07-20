@@ -102,13 +102,11 @@ export function HistoryTable({
       accessorKey: "item_name",
       header: "Item",
       cell: ({ row }) => (
-        <a
-          href={`${server.url}/web/index.html#!/details?id=${row.original.item?.id}`}
-          target="_blank"
-          rel="noopener noreferrer"
+        <Link
+          href={`/servers/${server.id}/library/${row.original.item?.id}`}
           className="flex flex-row items-center gap-4 cursor-pointer group"
         >
-          <div className="shrink-0 rounded overflow-hidden transition-transform duration-200 group-hover:scale-105">
+          <div className="shrink-0 rounded overflow-hidden transition-transform duration-200">
             <Poster
               item={
                 {
@@ -257,7 +255,7 @@ export function HistoryTable({
                 ` • ${formatDuration(row.original.session.playDuration)}`}
             </div>
           </div>
-        </a>
+        </Link>
       ),
     },
     {
@@ -278,7 +276,7 @@ export function HistoryTable({
                   jellyfin_id: row.original.user?.id ?? null,
                 }}
                 serverUrl={server.url}
-                className="h-6 w-6 transition-transform duration-200 group-hover:scale-110"
+                className="h-6 w-6 transition-transform duration-200"
               />
               <span className="font-medium transition-colors duration-200 group-hover:text-primary">
                 {user}
@@ -387,12 +385,12 @@ export function HistoryTable({
         if (!dateValue) {
           return <div>No Date</div>;
         }
-        
+
         const date = new Date(dateValue);
         if (isNaN(date.getTime())) {
           return <div>Invalid Date</div>;
         }
-        
+
         return (
           <div>
             {date.toLocaleString("en-UK", {

@@ -28,7 +28,7 @@ const getImageDimensions = (type: ImageType, isEpisode: boolean) => {
 
   if ((!isEpisode && type === "Primary") || (type === "Logo" && !isEpisode)) {
     y = Math.round(x * (3 / 2));
-    aspectRatio = "2/3";
+    aspectRatio = "0.71";
   } else if (type === "Backdrop" || type === "Thumb" || isEpisode) {
     y = Math.round(x * (9 / 16));
     aspectRatio = "16/9";
@@ -72,7 +72,9 @@ const PosterComponent = ({
 
   // Memoize the image URL calculation
   const imageUrl = useMemo(() => {
-    if (!item.id) return null;
+    if (!item.id) {
+      return null;
+    }
 
     // Function to get URL for a specific image type
     const getImageUrlByType = (type: ImageType): string | null => {

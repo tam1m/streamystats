@@ -537,6 +537,95 @@ async function getPopularRecommendations(
   }));
 }
 
+/**
+ * Get items similar to a specific item (not user-based)
+ */
+export const getSimilarItemsForItem = async (
+  serverId: string | number,
+  itemId: string,
+  limit: number = 10
+): Promise<RecommendationItem[]> => {
+  try {
+    debugLog(
+      `\n🎯 Getting items similar to specific item ${itemId} in server ${serverId}, limit ${limit}`
+    );
+
+    const serverIdNum = Number(serverId);
+
+    // Get the target item with its embedding
+    const targetItem = await db.query.items.findFirst({
+      where: and(
+        eq(items.id, itemId),
+        eq(items.serverId, serverIdNum),
+        isNotNull(items.embedding)
+      ),
+    });
+
+    if (!targetItem || !targetItem.embedding) {
+      debugLog(`❌ Target item not found or missing embedding: ${itemId}`);
+      return [];
+    }
+
+    debugLog(`🎬 Target item: "${targetItem.name}" (${targetItem.type})`);
+
+    // Calculate cosine similarity with other items of the same type
+    const similarity = sql<number>`1 - (${cosineDistance(
+      items.embedding,
+      targetItem.embedding
+    )})`;
+
+    const similarItems = await db
+      .select({
+        item: items,
+        similarity: similarity,
+      })
+      .from(items)
+      .where(
+        and(
+          eq(items.serverId, serverIdNum),
+          eq(items.type, targetItem.type), // Same type (Movie, Series, etc.)
+          isNotNull(items.embedding),
+          sql`${items.id} != ${itemId}` // Exclude the target item itself
+        )
+      )
+      .orderBy(desc(similarity))
+      .limit(limit * 2); // Get more to filter for quality
+
+    debugLog(`📊 Found ${similarItems.length} potential similar items`);
+
+    // Filter for good similarity scores (threshold can be adjusted)
+    const qualifiedSimilarItems = similarItems.filter(
+      (result) => Number(result.similarity) > 0.6
+    );
+
+    debugLog(`✅ ${qualifiedSimilarItems.length} items with similarity > 0.6:`);
+    qualifiedSimilarItems
+      .slice(0, Math.min(5, limit))
+      .forEach((result, index) => {
+        debugLog(
+          `  ${index + 1}. "${result.item.name}" - similarity: ${Number(
+            result.similarity
+          ).toFixed(3)}`
+        );
+      });
+
+    // Transform to recommendation format
+    const recommendations: RecommendationItem[] = qualifiedSimilarItems
+      .slice(0, limit)
+      .map((result) => ({
+        item: result.item,
+        similarity: Number(result.similarity),
+        basedOn: [targetItem], // Based on the target item
+      }));
+
+    debugLog(`\n🎉 Returning ${recommendations.length} similar items`);
+    return recommendations;
+  } catch (error) {
+    debugLog("❌ Error getting similar items for item:", error);
+    return [];
+  }
+};
+
 export const hideRecommendation = async (
   serverId: string | number,
   itemId: string

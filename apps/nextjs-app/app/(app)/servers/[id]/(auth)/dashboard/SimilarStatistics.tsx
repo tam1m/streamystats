@@ -1,16 +1,6 @@
 "use client";
 
-import {
-  MorphingDialog,
-  MorphingDialogClose,
-  MorphingDialogContainer,
-  MorphingDialogContent,
-  MorphingDialogDescription,
-  MorphingDialogImage,
-  MorphingDialogSubtitle,
-  MorphingDialogTitle,
-  MorphingDialogTrigger,
-} from "@/components/motion-primitives/morphing-dialog";
+import { Poster } from "@/app/(app)/servers/[id]/(auth)/dashboard/Poster";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,7 +17,7 @@ import {
   RecommendationItem,
 } from "@/lib/db/similar-statistics";
 import { Server } from "@streamystats/database";
-import { Clock, ExternalLink, EyeOffIcon } from "lucide-react";
+import { EyeOffIcon } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -167,36 +157,38 @@ export const SimilarStatistics = ({ data, server }: Props) => {
           {types.map((type) => (
             <TabsContent key={type} value={type.toLowerCase()} className="">
               {/* Horizontal scrollable container */}
-              <ScrollArea className="py-4">
+              <ScrollArea dir="ltr" className="py-4">
                 <div className="flex gap-4 min-w-full w-max">
                   {groupedItems[type].map((recommendation) => {
                     const item = recommendation.item;
                     return (
-                      <MorphingDialog
+                      <div
                         key={item.id || `${item.name}-${item.productionYear}`}
-                        transition={{
-                          type: "spring",
-                          bounce: 0.05,
-                          duration: 0.25,
-                        }}
+                        className="flex-shrink-0 group relative"
                       >
-                        <MorphingDialogTrigger
-                          style={{
-                            borderRadius: "12px",
-                          }}
-                          className="flex w-[200px] sm:w-[240px] flex-col overflow-hidden border border-zinc-50/10 bg-zinc-900 hover:opacity-80 transition-opacity"
+                        <Link
+                          href={`/servers/${server.id}/library/${item.id}`}
+                          className="flex w-[200px] sm:w-[240px] flex-col overflow-hidden border border-border bg-card rounded-lg hover:shadow-lg transition-all "
                         >
-                          <MorphingDialogImage
-                            src={`${server.url}/Items/${item.id}/Images/Primary?maxHeight=300&quality=90`}
-                            alt={item.name || "Movie poster"}
-                            className="h-48 sm:h-56 w-full object-cover"
-                          />
+                          {/* Poster */}
+                          <div className="relative">
+                            <Poster
+                              item={item}
+                              server={server}
+                              width={240}
+                              height={360}
+                              preferredImageType="Primary"
+                              className="w-full h-48 sm:h-56 rounded-b-none"
+                            />
+                          </div>
+
+                          {/* Content */}
                           <div className="flex grow flex-col justify-between p-3">
                             <div>
-                              <MorphingDialogTitle className="text-zinc-50 text-sm font-semibold truncate text-start">
+                              <h3 className="text-foreground text-sm font-semibold truncate text-start">
                                 {item.name}
-                              </MorphingDialogTitle>
-                              <MorphingDialogSubtitle className="text-zinc-400 text-xs mt-1 text-start">
+                              </h3>
+                              <p className="text-muted-foreground text-xs mt-1 text-start">
                                 {item.productionYear}
                                 {item.runtimeTicks &&
                                   formatRuntime(Number(item.runtimeTicks)) && (
@@ -206,142 +198,40 @@ export const SimilarStatistics = ({ data, server }: Props) => {
                                       {formatRuntime(Number(item.runtimeTicks))}
                                     </>
                                   )}
-                              </MorphingDialogSubtitle>
+                              </p>
                             </div>
                             <div className="flex flex-wrap gap-1 mt-2">
                               {item.genres?.slice(0, 2).map((genre: string) => (
                                 <Badge
                                   key={genre}
                                   variant="secondary"
-                                  className="text-xsrelo px-1.5 py-0"
+                                  className="text-xs px-1.5 py-0"
                                 >
                                   {genre}
                                 </Badge>
                               ))}
                             </div>
                           </div>
-                        </MorphingDialogTrigger>
+                        </Link>
 
-                        <MorphingDialogContainer>
-                          <MorphingDialogContent
-                            style={{
-                              borderRadius: "24px",
+                        {/* Hide button */}
+                        {item.id && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleHideRecommendation(recommendation);
                             }}
-                            className="pointer-events-auto relative flex h-auto w-full flex-col overflow-hidden border border-zinc-50/10 bg-zinc-900 sm:w-[500px] max-h-[90vh]"
+                            disabled={hidingItems.has(item.id)}
+                            className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 text-xs p-1 h-auto"
                           >
-                            <div className="flex-shrink-0">
-                              <MorphingDialogImage
-                                src={`${server.url}/Items/${item.id}/Images/Primary?maxHeight=400&quality=90`}
-                                alt={item.name || "Movie poster"}
-                                className="h-64 sm:h-80 w-full object-cover"
-                              />
-                            </div>
-
-                            <div className="p-6 flex-1 overflow-y-auto">
-                              <div className="flex justify-between items-start mb-4">
-                                <div className="flex-1 mr-3">
-                                  <MorphingDialogTitle className="text-2xl text-zinc-50 font-bold">
-                                    {item.name}
-                                  </MorphingDialogTitle>
-                                </div>
-                                {item.id && (
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() =>
-                                      handleHideRecommendation(recommendation)
-                                    }
-                                    disabled={hidingItems.has(item.id)}
-                                    className="flex items-center gap-2 text-zinc-300 border-zinc-600 hover:text-zinc-100 hover:border-zinc-500"
-                                  >
-                                    <EyeOffIcon className="h-4 w-4" />
-                                    {hidingItems.has(item.id)
-                                      ? "Hiding..."
-                                      : "Hide"}
-                                  </Button>
-                                )}
-                              </div>
-
-                              <div className="flex gap-2 flex-wrap mt-2 mb-4">
-                                {item.productionYear && (
-                                  <Badge variant="outline" className="text-xs">
-                                    {item.productionYear}
-                                  </Badge>
-                                )}
-                                {item.runtimeTicks && (
-                                  <Badge
-                                    variant="outline"
-                                    className="flex items-center gap-1 text-xs"
-                                  >
-                                    <Clock className="h-2.5 w-2.5" />
-                                    {formatRuntime(Number(item.runtimeTicks))}
-                                  </Badge>
-                                )}
-                                {item.genres?.map((genre) => (
-                                  <Badge
-                                    key={genre}
-                                    variant="secondary"
-                                    className="text-xs"
-                                  >
-                                    {genre}
-                                  </Badge>
-                                ))}
-                              </div>
-
-                              <MorphingDialogDescription
-                                disableLayoutAnimation
-                                variants={{
-                                  initial: { opacity: 0, scale: 0.8, y: 100 },
-                                  animate: { opacity: 1, scale: 1, y: 0 },
-                                  exit: { opacity: 0, scale: 0.8, y: 100 },
-                                }}
-                              >
-                                {/* Show "based on" information if available */}
-                                {recommendation.basedOn &&
-                                  recommendation.basedOn.length > 0 && (
-                                    <div className="mb-4 p-3 bg-zinc-800/50 rounded-lg border border-zinc-700/50">
-                                      <p className="text-zinc-300 text-sm font-medium mb-2">
-                                        We recommend this because you watched:
-                                      </p>
-                                      <div className="flex flex-wrap gap-1">
-                                        {recommendation.basedOn
-                                          .slice(0, 3)
-                                          .map((basedOnItem, index) => (
-                                            <Badge
-                                              key={basedOnItem.id || index}
-                                              variant="outline"
-                                              className="text-xs text-zinc-200 border-zinc-600"
-                                            >
-                                              {basedOnItem.name}
-                                              {basedOnItem.productionYear &&
-                                                ` (${basedOnItem.productionYear})`}
-                                            </Badge>
-                                          ))}
-                                      </div>
-                                    </div>
-                                  )}
-
-                                <p className="mt-2 text-zinc-400 text-sm leading-relaxed">
-                                  {item.overview ||
-                                    "No description available for this item."}
-                                </p>
-
-                                <a
-                                  className="mt-4 inline-flex items-center gap-2 text-zinc-400 hover:text-zinc-200 underline text-sm"
-                                  href={`${server.url}/web/index.html#!/details?id=${item.id}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                >
-                                  <ExternalLink className="h-3 w-3" />
-                                  Open in Jellyfin
-                                </a>
-                              </MorphingDialogDescription>
-                            </div>
-
-                            <MorphingDialogClose className="text-zinc-400 hover:text-zinc-200" />
-                          </MorphingDialogContent>
-                        </MorphingDialogContainer>
-                      </MorphingDialog>
+                            <EyeOffIcon className="h-3 w-3" />
+                            {hidingItems.has(item.id) ? "..." : "Hide"}
+                          </Button>
+                        )}
+                      </div>
                     );
                   })}
                 </div>
