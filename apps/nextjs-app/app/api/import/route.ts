@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify the target server exists
-    const targetServer = await getServer({ serverId: serverId });
+    const targetServer = await getServer({ serverId: serverIdNum });
     if (!targetServer) {
       return NextResponse.json(
         { error: "Target server not found" },
