@@ -4,12 +4,18 @@ import { NextRequest } from "next/server";
 import { getServer } from "./db/server";
 
 /**
- * Validates API key from Authorization header against the specific server's API key
+ * Validates API key from Authorization header against the actual Jellyfin server
  * Expected format: "Bearer <api-key>" or just "<api-key>"
  */
-export async function validateApiKey({ request, serverId }: { request: NextRequest; serverId: number; }): Promise<boolean> {
+export async function validateApiKey({
+  request,
+  serverId,
+}: {
+  request: NextRequest;
+  serverId: number;
+}): Promise<boolean> {
   const authHeader = request.headers.get("authorization");
-  
+
   if (!authHeader) {
     return false;
   }
@@ -17,21 +23,74 @@ export async function validateApiKey({ request, serverId }: { request: NextReque
   // Extract API key from Authorization header
   let apiKey: string;
   if (authHeader.startsWith("Bearer ")) {
-    apiKey = authHeader.substring(7);
+    apiKey = authHeader.replace("Bearer ", "");
   } else {
     apiKey = authHeader;
   }
 
   try {
-    // Get the server from database to compare API keys
+    // Get the server from database to get the URL
     const server = await getServer({ serverId });
-    
+
     if (!server) {
       console.error(`Server with ID ${serverId} not found`);
       return false;
     }
 
-    return apiKey === server.apiKey;
+    // Validate the API key by making a request to the Jellyfin server
+    // Use /Users/Me endpoint which requires valid authentication
+    try {
+      const response = await fetch(`${server.url}/System/Info`, {
+        method: "GET",
+        headers: {
+          "X-Emby-Token": apiKey,
+          "Content-Type": "application/json",
+        },
+        // Short timeout to avoid hanging requests
+        signal: AbortSignal.timeout(5000),
+      });
+
+      console.log("response", response);
+
+      // If the request succeeds, the API key is valid
+      if (response.ok) {
+        return true;
+      }
+
+      // If we get 401, the API key is invalid
+      if (response.status === 401) {
+        console.warn(
+          `Invalid API key for server ${server.name} (${server.url})`
+        );
+        return false;
+      }
+
+      // For other errors (500s, etc.), we consider it a server issue but invalid auth
+      console.error(
+        `Jellyfin server error during API key validation: ${response.status} ${response.statusText}`
+      );
+      return false;
+    } catch (fetchError) {
+      // Handle network errors, timeouts, etc.
+      if (fetchError instanceof Error) {
+        if (fetchError.name === "AbortError") {
+          console.error(`Timeout validating API key for server ${server.name}`);
+        } else if (
+          fetchError.message.includes("ECONNREFUSED") ||
+          fetchError.message.includes("ENOTFOUND")
+        ) {
+          console.error(
+            `Cannot connect to Jellyfin server ${server.name} (${server.url})`
+          );
+        } else {
+          console.error(
+            `Network error validating API key for server ${server.name}:`,
+            fetchError.message
+          );
+        }
+      }
+      return false;
+    }
   } catch (error) {
     console.error("Error validating API key:", error);
     return false;
@@ -42,14 +101,21 @@ export async function validateApiKey({ request, serverId }: { request: NextReque
  * Middleware helper to check API key authentication for a specific server
  * Returns null if valid, Response object if invalid
  */
-export async function requireApiKey({ request, serverId }: { request: NextRequest; serverId: number; }): Promise<Response | null> {
+export async function requireApiKey({
+  request,
+  serverId,
+}: {
+  request: NextRequest;
+  serverId: number;
+}): Promise<Response | null> {
   const isValid = await validateApiKey({ request, serverId });
-  
+
   if (!isValid) {
     return new Response(
       JSON.stringify({
         error: "Unauthorized",
-        message: "Valid API key required in Authorization header",
+        message:
+          "Valid API key required in Authorization header. The API key must be valid for the specified Jellyfin server.",
       }),
       {
         status: 401,
@@ -59,6 +125,6 @@ export async function requireApiKey({ request, serverId }: { request: NextReques
       }
     );
   }
-  
+
   return null;
 }
