@@ -3,7 +3,9 @@
     "allow": [
       "Bash(grep:*)",
       "Bash(ls:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(pnpm --filter @streamystats/nextjs-app build)",
+      "Bash(rm:*)"
     ],
     "deny": []
   },
