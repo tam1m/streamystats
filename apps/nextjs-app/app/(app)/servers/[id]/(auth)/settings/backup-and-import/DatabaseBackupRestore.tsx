@@ -68,17 +68,22 @@ export default function DatabaseBackupRestore({
 
   const importMutation = useMutation({
     mutationFn: async () => {
-      if (!file) throw new Error("Select a file first");
+      if (!file) {
+        throw new Error("Select a file first");
+      }
       const form = new FormData();
       form.set("file", file, file.name);
-      const res = await fetch(`...`, {
+      form.set("serverId", serverId.toString());
+      const res = await fetch(`/api/import`, {
         method: "POST",
         body: form,
       });
       const payload = await res.json().catch(() => ({
         error: "Invalid response",
       }));
-      if (!res.ok) throw new Error(payload.error || "Import failed");
+      if (!res.ok) {
+        throw new Error(payload.error || "Import failed");
+      }
       return payload;
     },
     onSuccess: (data) => {
