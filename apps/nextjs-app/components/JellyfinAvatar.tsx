@@ -20,6 +20,7 @@ export default function JellyfinAvatar({
   quality = 90,
   className,
 }: Props) {
+  console.log("user", user.name);
   const imageUrl = useMemo(() => {
     if (!serverUrl || !user?.id) return null;
 

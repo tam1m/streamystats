@@ -428,6 +428,7 @@ async function importPlaybackReportingSession(
     // Check if referenced entities exist in the database and handle missing references
     let finalItemId = playbackData.itemId || null;
     let finalUserId = playbackData.userId || null;
+    let userName = "Unknown User"; // Default fallback
     const missingReferences: string[] = [];
 
     // Check if itemId exists in items table
@@ -464,11 +465,11 @@ async function importPlaybackReportingSession(
       }
     }
 
-    // Check if userId exists in users table
+    // Check if userId exists in users table and fetch the user name
     if (playbackData.userId) {
       try {
         const existingUser = await db
-          .select({ id: users.id })
+          .select({ id: users.id, name: users.name })
           .from(users)
           .where(eq(users.id, playbackData.userId))
           .limit(1);
@@ -480,6 +481,13 @@ async function importPlaybackReportingSession(
           finalUserId = null; // Set to null instead of failing
           console.warn("User reference not found, setting to null:", {
             missingUserId: playbackData.userId,
+          });
+        } else {
+          // User exists, use their actual name
+          userName = existingUser[0].name;
+          console.debug("Found user name for playback reporting session:", {
+            userId: playbackData.userId,
+            userName: userName,
           });
         }
       } catch (error) {
@@ -552,7 +560,7 @@ async function importPlaybackReportingSession(
       serverId: serverId,
       userId: finalUserId, // Use the validated userId (could be null)
       itemId: finalItemId, // Use the validated itemId (could be null)
-      userName: "Unknown User", // Not available in Playback Reporting data
+      userName: userName, // Fetched from users table or "Unknown User" as fallback
       userServerId: finalUserId, // Use the same validated userId
 
       // Item information
@@ -636,6 +644,7 @@ async function importPlaybackReportingSession(
       itemName: playbackData.itemName,
       originalUserId: playbackData.userId,
       finalUserId,
+      userName,
       originalItemId: playbackData.itemId,
       finalItemId,
       duration: playbackData.durationSeconds,
