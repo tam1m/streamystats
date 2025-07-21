@@ -1,13 +1,6 @@
 import { NextRequest } from "next/server";
 import { getServer } from "@/lib/db/server";
-import {
-  db,
-  sessions,
-  activities,
-  users,
-  items,
-  libraries,
-} from "@streamystats/database";
+import { db, sessions, activities, libraries } from "@streamystats/database";
 import { eq } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
@@ -37,51 +30,12 @@ export async function GET(
         serverName: server.name,
         serverId: server.id,
         version: "streamystats-v2",
-        exportType: "full",
+        exportType: "sessions-only",
       },
 
       // Core session data - all sessions for this server
       sessions: await db.query.sessions.findMany({
-        where: eq(sessions.serverId, server.id),
-        with: {
-          user: true,
-          item: true,
-          server: true,
-        },
-      }),
-
-      // User activities for this server
-      activities: await db.query.activities.findMany({
-        where: eq(activities.serverId, server.id),
-        with: {
-          user: true,
-          server: true,
-        },
-      }),
-
-      // Users for this server
-      users: await db.query.users.findMany({
-        where: eq(users.serverId, server.id),
-        with: {
-          server: true,
-        },
-      }),
-
-      // Media items for this server
-      items: await db.query.items.findMany({
-        where: eq(items.serverId, server.id),
-        with: {
-          library: true,
-          server: true,
-        },
-      }),
-
-      // Libraries for this server
-      libraries: await db.query.libraries.findMany({
-        where: eq(libraries.serverId, server.id),
-        with: {
-          server: true,
-        },
+        where: eq(sessions.serverId, Number(serverId)),
       }),
 
       // Server info
@@ -89,21 +43,14 @@ export async function GET(
         id: server.id,
         name: server.name,
         url: server.url,
-        // Don't export sensitive data like API keys
-        createdAt: server.createdAt,
-        updatedAt: server.updatedAt,
-        lastSyncCompleted: server.lastSyncCompleted,
-        syncStatus: server.syncStatus,
+        version: server.version,
       },
     };
 
     const sessionCount = exportData.sessions.length;
-    const activityCount = exportData.activities.length;
-    const userCount = exportData.users.length;
-    const itemCount = exportData.items.length;
 
     console.log(
-      `Export completed for server ${server.name}: ${sessionCount} sessions, ${activityCount} activities, ${userCount} users, ${itemCount} items`
+      `Export completed for server ${server.name}: ${sessionCount} sessions`
     );
 
     // Generate filename with timestamp
