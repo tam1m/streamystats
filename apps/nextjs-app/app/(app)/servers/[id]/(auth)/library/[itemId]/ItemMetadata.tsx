@@ -18,23 +18,23 @@ import {
 } from "lucide-react";
 
 interface SeriesEpisodeStats {
-  total_seasons: number;
-  total_episodes: number;
-  watched_episodes: number;
-  watched_seasons: number;
+  totalSeasons: number;
+  totalEpisodes: number;
+  watchedEpisodes: number;
+  watchedSeasons: number;
 }
 
 interface ItemDetailsResponse {
   item: Item;
-  total_views: number;
-  total_watch_time: number;
-  completion_rate: number;
-  first_watched: Date | null;
-  last_watched: Date | null;
-  users_watched: any[];
-  watch_history: any[];
-  watch_count_by_month: any[];
-  episode_stats?: SeriesEpisodeStats;
+  totalViews: number;
+  totalWatchTime: number;
+  completionRate: number;
+  firstWatched: Date | null;
+  lastWatched: Date | null;
+  usersWatched: any[];
+  watchHistory: any[];
+  watchCountByMonth: any[];
+  episodeStats?: SeriesEpisodeStats;
 }
 
 interface ItemMetadataProps {
@@ -55,12 +55,12 @@ function formatDate(date: Date | null): string {
 
 export function ItemMetadata({ item, statistics }: ItemMetadataProps) {
   const {
-    total_views,
-    total_watch_time,
-    completion_rate,
-    first_watched,
-    last_watched,
-    users_watched,
+    totalViews,
+    totalWatchTime,
+    completionRate,
+    firstWatched,
+    lastWatched,
+    usersWatched,
   } = statistics;
 
   return (
@@ -77,13 +77,13 @@ export function ItemMetadata({ item, statistics }: ItemMetadataProps) {
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col">
               <span className="text-2xl font-bold text-primary">
-                {total_views}
+                {totalViews}
               </span>
               <span className="text-sm text-muted-foreground">Total Views</span>
             </div>
             <div className="flex flex-col">
               <span className="text-2xl font-bold text-primary">
-                {formatDuration(total_watch_time)}
+                {formatDuration(totalWatchTime)}
               </span>
               <span className="text-sm text-muted-foreground">
                 Total Watch Time
@@ -96,7 +96,7 @@ export function ItemMetadata({ item, statistics }: ItemMetadataProps) {
               <div className="flex items-center gap-1">
                 <Percent className="w-4 h-4" />
                 <span className="text-lg font-semibold">
-                  {completion_rate.toFixed(1)}%
+                  {completionRate.toFixed(1)}%
                 </span>
               </div>
               <span className="text-sm text-muted-foreground">
@@ -107,7 +107,7 @@ export function ItemMetadata({ item, statistics }: ItemMetadataProps) {
               <div className="flex items-center gap-1">
                 <Users className="w-4 h-4" />
                 <span className="text-lg font-semibold">
-                  {users_watched.length}
+                  {usersWatched.length}
                 </span>
               </div>
               <span className="text-sm text-muted-foreground">
@@ -121,20 +121,20 @@ export function ItemMetadata({ item, statistics }: ItemMetadataProps) {
               <span className="text-sm text-muted-foreground">
                 First Watched:
               </span>
-              <span className="text-sm">{formatDate(first_watched)}</span>
+              <span className="text-sm">{formatDate(firstWatched)}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">
                 Last Watched:
               </span>
-              <span className="text-sm">{formatDate(last_watched)}</span>
+              <span className="text-sm">{formatDate(lastWatched)}</span>
             </div>
           </div>
         </CardContent>
       </Card>
 
       {/* Series Episode Statistics - Only show for Series */}
-      {item.type === "Series" && statistics.episode_stats && (
+      {item.type === "Series" && statistics.episodeStats && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -146,7 +146,7 @@ export function ItemMetadata({ item, statistics }: ItemMetadataProps) {
             <div className="grid grid-cols-2 gap-4">
               <div className="flex flex-col">
                 <span className="text-2xl font-bold text-primary">
-                  {statistics.episode_stats.total_seasons}
+                  {statistics.episodeStats.totalSeasons}
                 </span>
                 <span className="text-sm text-muted-foreground">
                   Total Seasons
@@ -154,7 +154,7 @@ export function ItemMetadata({ item, statistics }: ItemMetadataProps) {
               </div>
               <div className="flex flex-col">
                 <span className="text-2xl font-bold text-primary">
-                  {statistics.episode_stats.total_episodes}
+                  {statistics.episodeStats.totalEpisodes}
                 </span>
                 <span className="text-sm text-muted-foreground">
                   Total Episodes
@@ -167,7 +167,7 @@ export function ItemMetadata({ item, statistics }: ItemMetadataProps) {
                 <div className="flex items-center gap-1">
                   <CheckCircle className="w-4 h-4" />
                   <span className="text-lg font-semibold">
-                    {statistics.episode_stats.watched_seasons}
+                    {statistics.episodeStats.watchedSeasons}
                   </span>
                 </div>
                 <span className="text-sm text-muted-foreground">
@@ -178,7 +178,7 @@ export function ItemMetadata({ item, statistics }: ItemMetadataProps) {
                 <div className="flex items-center gap-1">
                   <CheckCircle className="w-4 h-4" />
                   <span className="text-lg font-semibold">
-                    {statistics.episode_stats.watched_episodes}
+                    {statistics.episodeStats.watchedEpisodes}
                   </span>
                 </div>
                 <span className="text-sm text-muted-foreground">

@@ -23,62 +23,62 @@ import {
 } from "drizzle-orm";
 
 export interface ItemStats {
-  total_views: number;
-  total_watch_time: number;
-  completion_rate: number;
-  first_watched: Date | null;
-  last_watched: Date | null;
-  users_watched: ItemUserStats[];
-  watch_history: ItemWatchHistory[];
-  watch_count_by_month: ItemWatchCountByMonth[];
+  totalViews: number;
+  totalWatchTime: number;
+  completionRate: number;
+  firstWatched: Date | null;
+  lastWatched: Date | null;
+  usersWatched: ItemUserStats[];
+  watchHistory: ItemWatchHistory[];
+  watchCountByMonth: ItemWatchCountByMonth[];
 }
 
 export interface ItemUserStats {
   user: User;
-  watch_count: number;
-  total_watch_time: number;
-  completion_rate: number;
-  first_watched: Date | null;
-  last_watched: Date | null;
+  watchCount: number;
+  totalWatchTime: number;
+  completionRate: number;
+  firstWatched: Date | null;
+  lastWatched: Date | null;
 }
 
 export interface ItemWatchHistory {
   session: Session;
   user: User | null;
-  watch_date: Date;
-  watch_duration: number;
-  completion_percentage: number;
-  play_method: string | null;
-  device_name: string | null;
-  client_name: string | null;
+  watchDate: Date;
+  watchDuration: number;
+  completionPercentage: number;
+  playMethod: string | null;
+  deviceName: string | null;
+  clientName: string | null;
 }
 
 export interface ItemWatchCountByMonth {
   month: string;
   year: number;
-  watch_count: number;
-  unique_users: number;
-  total_watch_time: number;
+  watchCount: number;
+  uniqueUsers: number;
+  totalWatchTime: number;
 }
 
 export interface SeriesEpisodeStats {
-  total_seasons: number;
-  total_episodes: number;
-  watched_episodes: number;
-  watched_seasons: number;
+  totalSeasons: number;
+  totalEpisodes: number;
+  watchedEpisodes: number;
+  watchedSeasons: number;
 }
 
 export interface ItemDetailsResponse {
   item: Item;
-  total_views: number;
-  total_watch_time: number;
-  completion_rate: number;
-  first_watched: Date | null;
-  last_watched: Date | null;
-  users_watched: ItemUserStats[];
-  watch_history: ItemWatchHistory[];
-  watch_count_by_month: ItemWatchCountByMonth[];
-  episode_stats?: SeriesEpisodeStats; // Optional, only for Series
+  totalViews: number;
+  totalWatchTime: number;
+  completionRate: number;
+  firstWatched: Date | null;
+  lastWatched: Date | null;
+  usersWatched: ItemUserStats[];
+  watchHistory: ItemWatchHistory[];
+  watchCountByMonth: ItemWatchCountByMonth[];
+  episodeStats?: SeriesEpisodeStats; // Optional, only for Series
 }
 
 /**
@@ -128,15 +128,15 @@ export const getItemDetails = async ({
 
   return {
     item,
-    total_views: totalStats.total_views,
-    total_watch_time: totalStats.total_watch_time,
-    completion_rate: Math.round(completionRate * 10) / 10, // Round to 1 decimal place
-    first_watched: watchDates.first_watched,
-    last_watched: watchDates.last_watched,
-    users_watched: usersWatched,
-    watch_history: watchHistory,
-    watch_count_by_month: watchCountByMonth,
-    episode_stats: episodeStats,
+    totalViews: totalStats.total_views,
+    totalWatchTime: totalStats.total_watch_time,
+    completionRate: Math.round(completionRate * 10) / 10, // Round to 1 decimal place
+    firstWatched: watchDates.first_watched,
+    lastWatched: watchDates.last_watched,
+    usersWatched: usersWatched,
+    watchHistory: watchHistory,
+    watchCountByMonth: watchCountByMonth,
+    episodeStats: episodeStats,
   };
 };
 
@@ -491,12 +491,11 @@ export const getItemUserStats = async ({
 
     return {
       user: user,
-      watch_count: stat.watch_count,
-      total_watch_time: Number(stat.total_watch_time || 0),
-      completion_rate:
-        Math.round((Number(stat.completion_rate) || 0) * 10) / 10,
-      first_watched: stat.first_watched,
-      last_watched: stat.last_watched,
+      watchCount: stat.watch_count,
+      totalWatchTime: Number(stat.total_watch_time || 0),
+      completionRate: Math.round((Number(stat.completion_rate) || 0) * 10) / 10,
+      firstWatched: stat.first_watched,
+      lastWatched: stat.last_watched,
     };
   });
 
@@ -561,12 +560,12 @@ export const getItemWatchHistory = async ({
   return sessionData.map((row) => ({
     session: row.sessions,
     user: row.users,
-    watch_date: row.sessions.startTime!,
-    watch_duration: row.sessions.playDuration || 0,
-    completion_percentage: row.sessions.percentComplete || 0,
-    play_method: row.sessions.playMethod,
-    device_name: row.sessions.deviceName,
-    client_name: row.sessions.clientName,
+    watchDate: row.sessions.startTime!,
+    watchDuration: row.sessions.playDuration || 0,
+    completionPercentage: row.sessions.percentComplete || 0,
+    playMethod: row.sessions.playMethod,
+    deviceName: row.sessions.deviceName,
+    clientName: row.sessions.clientName,
   }));
 };
 
@@ -637,9 +636,9 @@ export const getItemWatchCountByMonth = async ({
   return result.map((row) => ({
     month: row.month,
     year: row.year,
-    watch_count: row.watch_count,
-    unique_users: row.unique_users,
-    total_watch_time: Number(row.total_watch_time || 0),
+    watchCount: row.watch_count,
+    uniqueUsers: row.unique_users,
+    totalWatchTime: Number(row.total_watch_time || 0),
   }));
 };
 
@@ -680,10 +679,10 @@ export const getSeriesEpisodeStats = async ({
 
   if (totalEpisodes === 0) {
     return {
-      total_seasons: totalSeasons,
-      total_episodes: totalEpisodes,
-      watched_episodes: 0,
-      watched_seasons: 0,
+      totalSeasons: totalSeasons,
+      totalEpisodes: totalEpisodes,
+      watchedEpisodes: 0,
+      watchedSeasons: 0,
     };
   }
 
@@ -723,9 +722,9 @@ export const getSeriesEpisodeStats = async ({
   const watchedSeasons = watchedSeasonNumbers.size;
 
   return {
-    total_seasons: totalSeasons,
-    total_episodes: totalEpisodes,
-    watched_episodes: watchedEpisodes,
-    watched_seasons: watchedSeasons,
+    totalSeasons: totalSeasons,
+    totalEpisodes: totalEpisodes,
+    watchedEpisodes: watchedEpisodes,
+    watchedSeasons: watchedSeasons,
   };
 };

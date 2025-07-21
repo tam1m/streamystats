@@ -20,11 +20,11 @@ import {
 
 interface ItemDetailsResponse {
   item: Item;
-  total_views: number;
-  total_watch_time: number;
-  completion_rate: number;
-  first_watched: Date | null;
-  last_watched: Date | null;
+  totalViews: number;
+  totalWatchTime: number;
+  completionRate: number;
+  firstWatched: Date | null;
+  lastWatched: Date | null;
 }
 
 interface ItemHeaderProps {
