@@ -58,9 +58,11 @@ export interface ItemWatchStatsResponse {
 /**
  * Get aggregated library statistics for a server
  */
-export const getAggregatedLibraryStatistics = async (
-  serverId: number
-): Promise<AggregatedLibraryStatistics> => {
+export const getAggregatedLibraryStatistics = async ({
+  serverId
+}: {
+  serverId: number;
+}): Promise<AggregatedLibraryStatistics> => {
   // Get counts by item type
   const itemCounts = await db
     .select({
@@ -127,15 +129,23 @@ export const getAggregatedLibraryStatistics = async (
 /**
  * Get library items with watch statistics
  */
-export const getLibraryItemsWithStats = async (
-  serverId: number,
-  page?: string,
-  sortOrder?: string,
-  sortBy?: string,
-  type?: "Movie" | "Episode" | "Series",
-  search?: string,
-  libraryIds?: string
-): Promise<ItemWatchStatsResponse> => {
+export const getLibraryItemsWithStats = async ({
+  serverId,
+  page,
+  sortOrder,
+  sortBy,
+  type,
+  search,
+  libraryIds
+}: {
+  serverId: number;
+  page?: string;
+  sortOrder?: string;
+  sortBy?: string;
+  type?: "Movie" | "Episode" | "Series";
+  search?: string;
+  libraryIds?: string;
+}): Promise<ItemWatchStatsResponse> => {
   const currentPage = Math.max(1, Number(page) || 1);
   const perPage = 20;
   const offset = (currentPage - 1) * perPage;

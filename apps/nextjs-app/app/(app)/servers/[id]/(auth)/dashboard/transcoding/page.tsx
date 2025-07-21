@@ -16,7 +16,7 @@ export default async function TranscodingPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const server = await getServer(id);
+  const server = await getServer({ serverId: id });
 
   if (!server) {
     redirect("/not-found");

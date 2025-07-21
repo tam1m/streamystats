@@ -20,7 +20,7 @@ export async function GET(
     const { serverId } = await params;
 
     // Verify server exists and user has access
-    const server = await getServer(serverId);
+    const server = await getServer({ serverId });
     if (!server) {
       return new Response(JSON.stringify({ error: "Server not found" }), {
         status: 404,

@@ -17,7 +17,7 @@ export default async function ActivitiesPage({
   const { id } = await params;
   const { page } = await searchParams;
 
-  const server = await getServer(id);
+  const server = await getServer({ serverId: id });
 
   if (!server) {
     redirect("/setup");

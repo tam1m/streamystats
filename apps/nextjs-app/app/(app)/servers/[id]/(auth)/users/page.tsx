@@ -11,13 +11,13 @@ export default async function UsersPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const server = await getServer(id);
+  const server = await getServer({ serverId: id });
 
   if (!server) {
     redirect("/");
   }
 
-  const users = await getUsersWithStats(server.id);
+  const users = await getUsersWithStats({ serverId: server.id });
 
   return (
     <Container className="flex flex-col w-screen md:w-[calc(100vw-256px)]">

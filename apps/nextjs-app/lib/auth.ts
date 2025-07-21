@@ -13,7 +13,7 @@ export const login = async ({
   password?: string | null;
 }): Promise<void> => {
   // Make login request to jellyfin server directly
-  const server = await getServer(serverId);
+  const server = await getServer({ serverId: serverId.toString() });
 
   if (!server) {
     throw new Error("Server not found");

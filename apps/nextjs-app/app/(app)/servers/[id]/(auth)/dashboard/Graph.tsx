@@ -18,12 +18,12 @@ export async function Graph({
 }: Props): Promise<JSX.Element> {
   const showAdminStats = await showAdminStatistics();
   const me = await getMe();
-  const data = await getWatchTimePerType(
-    server.id,
+  const data = await getWatchTimePerType({
+    serverId: server.id,
     startDate,
     endDate,
-    showAdminStats ? undefined : me?.id
-  );
+    userId: showAdminStats ? undefined : me?.id
+  });
 
   if (!data) {
     return <p>No data available</p>;

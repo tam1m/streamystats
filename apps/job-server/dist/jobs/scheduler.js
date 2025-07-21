@@ -185,7 +185,7 @@ class SyncScheduler {
             const activeServers = await database_1.db
                 .select()
                 .from(database_1.servers)
-                .where((0, drizzle_orm_1.eq)(database_1.servers.syncStatus, "completed"));
+                .where((0, drizzle_orm_1.ne)(database_1.servers.syncStatus, "syncing"));
             if (activeServers.length === 0) {
                 console.log("No active servers found for activity sync");
                 return;
@@ -228,7 +228,7 @@ class SyncScheduler {
             const activeServers = await database_1.db
                 .select()
                 .from(database_1.servers)
-                .where((0, drizzle_orm_1.eq)(database_1.servers.syncStatus, "completed"));
+                .where((0, drizzle_orm_1.ne)(database_1.servers.syncStatus, "syncing"));
             if (activeServers.length === 0) {
                 console.log("No active servers found for recently added items sync");
                 return;
@@ -271,7 +271,7 @@ class SyncScheduler {
             const activeServers = await database_1.db
                 .select()
                 .from(database_1.servers)
-                .where((0, drizzle_orm_1.eq)(database_1.servers.syncStatus, "completed"));
+                .where((0, drizzle_orm_1.ne)(database_1.servers.syncStatus, "syncing"));
             if (activeServers.length === 0) {
                 console.log("No active servers found for user sync");
                 return;
@@ -314,7 +314,7 @@ class SyncScheduler {
             const activeServers = await database_1.db
                 .select()
                 .from(database_1.servers)
-                .where((0, drizzle_orm_1.eq)(database_1.servers.syncStatus, "completed"));
+                .where((0, drizzle_orm_1.ne)(database_1.servers.syncStatus, "syncing"));
             if (activeServers.length === 0) {
                 console.log("No active servers found for full sync");
                 return;

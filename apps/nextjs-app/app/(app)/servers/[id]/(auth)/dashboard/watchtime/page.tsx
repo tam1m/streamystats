@@ -31,7 +31,7 @@ export default async function WatchtimePage({
 }) {
   const { id } = await params;
   const { startDate, endDate } = await searchParams;
-  const server = await getServer(id);
+  const server = await getServer({ serverId: id });
 
   if (!server) {
     redirect("/not-found");
@@ -71,8 +71,8 @@ async function WatchtimeStats({
   }
 
   const [d1, d2] = await Promise.all([
-    getWatchTimePerWeekDay(server.id, sas ? undefined : me.id),
-    getWatchTimePerHour(server.id, sas ? undefined : me.id),
+    getWatchTimePerWeekDay({ serverId: server.id, userId: sas ? undefined : me.id }),
+    getWatchTimePerHour({ serverId: server.id, userId: sas ? undefined : me.id }),
   ]);
 
   return (

@@ -1,20 +1,19 @@
 import { getItemDetails } from "@/lib/db/items";
-import { requireApiKey } from "@/lib/api-auth";
 import { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ serverId: string; itemId: string }> }
+  { params }: { params: Promise<{ itemId: string }> }
 ) {
-  try {
-    const { serverId, itemId } = await params;
+  const { itemId } = await params;
 
-    if (!serverId || !itemId) {
+  try {
+    if (!itemId) {
       return new Response(
         JSON.stringify({
-          error: "serverId and itemId are required parameters",
+          error: "itemId is required",
         }),
         {
           status: 400,
@@ -25,14 +24,9 @@ export async function GET(
       );
     }
 
-    // Check API key authentication against the specific server
-    const authError = await requireApiKey(request, Number(serverId));
-    if (authError) {
-      return authError;
-    }
-
-    // Get item details with admin privileges (full statistics)
-    const itemDetails = await getItemDetails(Number(serverId), itemId, true);
+    const itemDetails = await getItemDetails({
+      itemId,
+    });
 
     if (!itemDetails) {
       return new Response(

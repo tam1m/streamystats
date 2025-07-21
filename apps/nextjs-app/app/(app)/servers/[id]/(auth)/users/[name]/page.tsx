@@ -26,13 +26,13 @@ export default async function User({
 }) {
   const { id, name } = await params;
   const { page = "1" } = await searchParams;
-  const server = await getServer(id);
+  const server = await getServer({ serverId: id });
 
   if (!server) {
     redirect("/");
   }
 
-  const user = await getUser(name, server.id);
+  const user = await getUser({ name, serverId: server.id });
   if (!user) {
     redirect("/");
   }
@@ -43,10 +43,10 @@ export default async function User({
   const currentPage = parseInt(page);
   const [watchStats, watchTimePerWeekday, userHistory, genreStats] =
     await Promise.all([
-      getUserWatchStats(server.id, user.id),
-      getWatchTimePerWeekDay(server.id, showAdminStats ? undefined : user.id),
+      getUserWatchStats({ serverId: server.id, userId: user.id }),
+      getWatchTimePerWeekDay({ serverId: server.id, userId: showAdminStats ? undefined : user.id }),
       getUserHistory(server.id, user.id, currentPage, 50),
-      getUserGenreStats(user.id, server.id),
+      getUserGenreStats({ userId: user.id, serverId: server.id }),
     ]);
 
   return (

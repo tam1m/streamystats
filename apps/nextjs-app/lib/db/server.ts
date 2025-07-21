@@ -18,9 +18,11 @@ export const getServers = async (): Promise<Server[]> => {
   return await db.select().from(servers);
 };
 
-export const getServer = async (
-  serverId: number | string
-): Promise<Server | undefined> => {
+export const getServer = async ({
+  serverId
+}: {
+  serverId: number | string;
+}): Promise<Server | undefined> => {
   return await db.query.servers.findFirst({
     where: eq(servers.id, Number(serverId)),
   });
@@ -32,9 +34,11 @@ export const getServer = async (
  * @param serverId - The ID of the server to delete
  * @returns Promise<{ success: boolean; message: string }>
  */
-export const deleteServer = async (
-  serverId: number
-): Promise<{ success: boolean; message: string }> => {
+export const deleteServer = async ({
+  serverId
+}: {
+  serverId: number;
+}): Promise<{ success: boolean; message: string }> => {
   try {
     // First verify the server exists
     const serverExists = await db
@@ -70,7 +74,13 @@ export const deleteServer = async (
 
 // Embedding-related functions
 
-export const saveOpenAIKey = async (serverId: number, apiKey: string) => {
+export const saveOpenAIKey = async ({
+  serverId,
+  apiKey
+}: {
+  serverId: number;
+  apiKey: string;
+}) => {
   try {
     await db
       .update(servers)
@@ -82,14 +92,17 @@ export const saveOpenAIKey = async (serverId: number, apiKey: string) => {
   }
 };
 
-export const saveOllamaConfig = async (
-  serverId: number,
+export const saveOllamaConfig = async ({
+  serverId,
+  config
+}: {
+  serverId: number;
   config: {
     ollama_api_token?: string;
     ollama_base_url: string;
     ollama_model: string;
-  }
-) => {
+  };
+}) => {
   try {
     await db
       .update(servers)
@@ -105,10 +118,13 @@ export const saveOllamaConfig = async (
   }
 };
 
-export const saveEmbeddingProvider = async (
-  serverId: number,
-  provider: "openai" | "ollama"
-) => {
+export const saveEmbeddingProvider = async ({
+  serverId,
+  provider
+}: {
+  serverId: number;
+  provider: "openai" | "ollama";
+}) => {
   try {
     await db
       .update(servers)
@@ -123,7 +139,11 @@ export const saveEmbeddingProvider = async (
   }
 };
 
-export const clearEmbeddings = async (serverId: number) => {
+export const clearEmbeddings = async ({
+  serverId
+}: {
+  serverId: number;
+}) => {
   try {
     // Clear all embeddings for items belonging to this server
     await db
@@ -143,9 +163,11 @@ export interface EmbeddingProgress {
   status: string;
 }
 
-export const getEmbeddingProgress = async (
-  serverId: number
-): Promise<EmbeddingProgress> => {
+export const getEmbeddingProgress = async ({
+  serverId
+}: {
+  serverId: number;
+}): Promise<EmbeddingProgress> => {
   try {
     // Get total count of movies and series for this server
     const totalResult = await db
@@ -319,10 +341,14 @@ export const cleanupStaleEmbeddingJobs = async (): Promise<number> => {
   }
 };
 
-export const startEmbedding = async (serverId: number) => {
+export const startEmbedding = async ({
+  serverId
+}: {
+  serverId: number;
+}) => {
   try {
     // Verify server exists and has valid config
-    const server = await getServer(serverId);
+    const server = await getServer({ serverId });
     if (!server) {
       throw new Error("Server not found");
     }
@@ -386,7 +412,11 @@ export const startEmbedding = async (serverId: number) => {
   }
 };
 
-export const stopEmbedding = async (serverId: number) => {
+export const stopEmbedding = async ({
+  serverId
+}: {
+  serverId: number;
+}) => {
   try {
     // Construct job server URL with proper fallback
     const jobServerUrl =
@@ -425,10 +455,13 @@ export const stopEmbedding = async (serverId: number) => {
   }
 };
 
-export const toggleAutoEmbeddings = async (
-  serverId: number,
-  enabled: boolean
-) => {
+export const toggleAutoEmbeddings = async ({
+  serverId,
+  enabled
+}: {
+  serverId: number;
+  enabled: boolean;
+}) => {
   try {
     await db
       .update(servers)

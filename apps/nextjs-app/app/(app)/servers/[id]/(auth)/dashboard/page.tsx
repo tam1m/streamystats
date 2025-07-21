@@ -29,7 +29,7 @@ export default async function DashboardPage({
 }) {
   const { id } = await params;
   const { userActivityStartDate, userActivityEndDate } = await searchParams;
-  const server = await getServer(id);
+  const server = await getServer({ serverId: id });
 
   if (!server) {
     redirect("/not-found");
@@ -71,7 +71,7 @@ async function GeneralStats({
   const [similarData, similarSeriesData, data] = await Promise.all([
     getSimilarStatistics(server.id),
     getSimilarSeries(server.id),
-    getMostWatchedItems(server.id, sas ? undefined : me?.id),
+    getMostWatchedItems({ serverId: server.id, userId: sas ? undefined : me?.id }),
   ]);
 
   return (
