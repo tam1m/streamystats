@@ -112,7 +112,7 @@ export const SideBar: React.FC<Props> = ({
   useEffect(() => {
     const fetchUser = async () => {
       if (me?.name && me?.serverId) {
-        const user = await getUser(me.name, me.serverId);
+        const user = await getUser({ name: me.name, serverId: me.serverId });
         if (user) {
           setFullUser(user);
         }

@@ -12,6 +12,7 @@ import { redirect } from "next/navigation";
 import { ItemHeader } from "./ItemHeader";
 import { ItemMetadata } from "./ItemMetadata";
 import { SimilarItemsList } from "./SimilarItemsList";
+import { getMe } from "@/lib/db/users";
 
 export default async function ItemDetailsPage({
   params,
@@ -19,14 +20,19 @@ export default async function ItemDetailsPage({
   params: Promise<{ id: string; itemId: string }>;
 }) {
   const { id, itemId } = await params;
-  const server = await getServer(id);
+  const server = await getServer({ serverId: id });
 
   if (!server) {
     redirect("/not-found");
   }
 
-  const isAdmin = await showAdminStatistics();
-  const itemDetails = await getItemDetails(Number(server.id), itemId, isAdmin);
+  const me = await getMe();
+  const showAdmin = await showAdminStatistics();
+
+  const itemDetails = await getItemDetails({
+    itemId,
+    userId: showAdmin ? undefined : me?.id,
+  });
 
   if (!itemDetails) {
     redirect("/not-found");

@@ -38,24 +38,24 @@ export default async function DashboardPage({
     libraries: libraryIds,
   } = await searchParams;
 
-  const server = await getServer(id);
+  const server = await getServer({ serverId: id });
   const isAdmin = await isUserAdmin();
 
   if (!server) {
     redirect("/not-found");
   }
 
-  const libraries = await getLibraries(server.id);
-  const libraryStats = await getAggregatedLibraryStatistics(server.id);
-  const items = await getLibraryItemsWithStats(
-    server.id,
+  const libraries = await getLibraries({ serverId: server.id });
+  const libraryStats = await getAggregatedLibraryStatistics({ serverId: server.id });
+  const items = await getLibraryItemsWithStats({
+    serverId: server.id,
     page,
-    sort_order,
-    sort_by,
+    sortOrder: sort_order,
+    sortBy: sort_by,
     type,
     search,
     libraryIds
-  );
+  });
 
   return (
     <Container>

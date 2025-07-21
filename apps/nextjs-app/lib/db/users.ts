@@ -16,17 +16,24 @@ interface JellyfinUser {
   // Add other fields as needed
 }
 
-export const getUser = async (
-  name: string,
-  serverId: string | number
-): Promise<User | null> => {
+export const getUser = async ({
+  name,
+  serverId
+}: {
+  name: string;
+  serverId: string | number;
+}): Promise<User | null> => {
   const user = await db.query.users.findFirst({
     where: and(eq(users.name, name), eq(users.serverId, Number(serverId))),
   });
   return user || null;
 };
 
-export const getUsers = async (serverId: string | number): Promise<User[]> => {
+export const getUsers = async ({
+  serverId
+}: {
+  serverId: string | number;
+}): Promise<User[]> => {
   return await db.query.users.findMany({
     where: eq(users.serverId, Number(serverId)),
   });
@@ -37,10 +44,13 @@ export interface WatchTimePerWeekDay {
   watchTime: number;
 }
 
-export const getWatchTimePerWeekDay = async (
-  serverId: string | number,
-  userId?: string | number
-): Promise<WatchTimePerWeekDay[]> => {
+export const getWatchTimePerWeekDay = async ({
+  serverId,
+  userId
+}: {
+  serverId: string | number;
+  userId?: string | number;
+}): Promise<WatchTimePerWeekDay[]> => {
   // Build the where condition based on whether userId is provided
   const whereCondition = userId
     ? and(
@@ -91,10 +101,13 @@ export interface WatchTimePerHour {
   watchTime: number;
 }
 
-export const getWatchTimePerHour = async (
-  serverId: string | number,
-  userId?: string | number
-): Promise<WatchTimePerHour[]> => {
+export const getWatchTimePerHour = async ({
+  serverId,
+  userId
+}: {
+  serverId: string | number;
+  userId?: string | number;
+}): Promise<WatchTimePerHour[]> => {
   // Build the where condition based on whether userId is provided
   const whereCondition = userId
     ? and(
@@ -130,10 +143,13 @@ export const getWatchTimePerHour = async (
     .sort((a, b) => a.hour - b.hour);
 };
 
-export const getTotalWatchTime = async (
-  serverId: string | number,
-  userId?: string | number
-): Promise<number> => {
+export const getTotalWatchTime = async ({
+  serverId,
+  userId
+}: {
+  serverId: string | number;
+  userId?: string | number;
+}): Promise<number> => {
   // Build the where condition based on whether userId is provided
   const whereCondition = userId
     ? and(
@@ -156,9 +172,11 @@ interface UserWithWatchTime {
   [key: string]: number;
 }
 
-export const getTotalWatchTimeForUsers = async (
-  userIds: string[] | number[]
-): Promise<UserWithWatchTime> => {
+export const getTotalWatchTimeForUsers = async ({
+  userIds
+}: {
+  userIds: string[] | number[];
+}): Promise<UserWithWatchTime> => {
   if (userIds.length === 0) {
     return {};
   }
@@ -194,11 +212,15 @@ export const getTotalWatchTimeForUsers = async (
 
 export type UserActivityPerDay = Record<string, number>;
 
-export const getUserActivityPerDay = async (
-  serverId: string | number,
-  startDate: string,
-  endDate: string
-): Promise<UserActivityPerDay> => {
+export const getUserActivityPerDay = async ({
+  serverId,
+  startDate,
+  endDate
+}: {
+  serverId: string | number;
+  startDate: string;
+  endDate: string;
+}): Promise<UserActivityPerDay> => {
   // Get sessions with date and user information
   const sessionData = await db
     .select({
@@ -256,7 +278,7 @@ export const isUserAdmin = async (): Promise<boolean> => {
   }
 
   // Get the server configuration for this user
-  const server = await getServer(me.serverId);
+  const server = await getServer({ serverId: me.serverId });
   if (!server) {
     return false;
   }
@@ -305,9 +327,11 @@ export interface UserStatsSummary {
   sessionCount: number;
 }
 
-export const getUserStatsSummaryForServer = async (
-  serverId: string | number
-): Promise<UserStatsSummary[]> => {
+export const getUserStatsSummaryForServer = async ({
+  serverId
+}: {
+  serverId: string | number;
+}): Promise<UserStatsSummary[]> => {
   const results = await db
     .select({
       userId: sessions.userId,
@@ -336,17 +360,21 @@ export const getUserStatsSummaryForServer = async (
   );
 };
 
-export const getServerStatistics = async (serverId: string | number) => {
+export const getServerStatistics = async ({
+  serverId
+}: {
+  serverId: string | number;
+}) => {
   const [
     totalWatchTime,
     watchTimePerWeekDay,
     watchTimePerHour,
     userStatsSummary,
   ] = await Promise.all([
-    getTotalWatchTime(serverId),
-    getWatchTimePerWeekDay(serverId),
-    getWatchTimePerHour(serverId),
-    getUserStatsSummaryForServer(serverId),
+    getTotalWatchTime({ serverId }),
+    getWatchTimePerWeekDay({ serverId }),
+    getWatchTimePerHour({ serverId }),
+    getUserStatsSummaryForServer({ serverId }),
   ]);
 
   return {
@@ -373,16 +401,19 @@ export interface UserWithStats extends User {
   longest_streak: number;
 }
 
-export const getUserWatchStats = async (
-  serverId: string | number,
-  userId: string
-): Promise<UserWatchStats> => {
+export const getUserWatchStats = async ({
+  serverId,
+  userId
+}: {
+  serverId: string | number;
+  userId: string;
+}): Promise<UserWatchStats> => {
   if (!userId) {
     throw new Error("userId is required for getUserWatchStats");
   }
 
   const [totalWatchTime, userSessions] = await Promise.all([
-    getTotalWatchTime(serverId, userId),
+    getTotalWatchTime({ serverId, userId }),
     db
       .select({
         playDuration: sessions.playDuration,
@@ -440,14 +471,16 @@ export const getUserWatchStats = async (
   };
 };
 
-export const getUsersWithStats = async (
-  serverId: string | number
-): Promise<UserWithStats[]> => {
-  const users = await getUsers(serverId);
+export const getUsersWithStats = async ({
+  serverId
+}: {
+  serverId: string | number;
+}): Promise<UserWithStats[]> => {
+  const users = await getUsers({ serverId });
 
   // Get watch stats for all users in parallel
   const userStatsPromises = users.map(async (user) => {
-    const watchStats = await getUserWatchStats(serverId, user.id);
+    const watchStats = await getUserWatchStats({ serverId, userId: user.id });
     return {
       ...user,
       watch_stats: watchStats,
@@ -464,10 +497,13 @@ export interface GenreStat {
   playCount: number;
 }
 
-export const getUserGenreStats = async (
-  userId: string,
-  serverId: string | number
-): Promise<GenreStat[]> => {
+export const getUserGenreStats = async ({
+  userId,
+  serverId
+}: {
+  userId: string;
+  serverId: string | number;
+}): Promise<GenreStat[]> => {
   const sessionItems = await db
     .select({
       playDuration: sessions.playDuration,

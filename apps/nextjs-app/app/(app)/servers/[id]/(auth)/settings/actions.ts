@@ -10,7 +10,7 @@ import { revalidatePath } from "next/cache";
  */
 export async function deleteServerAction(serverId: number) {
   try {
-    const result = await deleteServerFromDb(serverId);
+    const result = await deleteServerFromDb({ serverId });
 
     if (result.success) {
       // Revalidate relevant paths

@@ -266,13 +266,13 @@ export function HistoryTable({
         return (
           <div className="flex items-center gap-2">
             <Link
-              href={`/servers/${server.id}/users/${row.original.user?.id}`}
+              href={`/servers/${server.id}/users/${row.original.user?.name}`}
               className="flex items-center gap-2 cursor-pointer group"
             >
               <JellyfinAvatar
                 user={{
                   id: row.original.user?.id ?? "",
-                  name: user,
+                  name: row.original.user?.name ?? null,
                   jellyfin_id: row.original.user?.id ?? null,
                 }}
                 serverUrl={server.url}

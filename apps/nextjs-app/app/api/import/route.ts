@@ -114,7 +114,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Verify the target server exists
-    const targetServer = await getServer(serverId);
+    const targetServer = await getServer({ serverId: serverIdNum });
     if (!targetServer) {
       return NextResponse.json(
         { error: "Target server not found" },

@@ -1,3 +1,4 @@
+import "server-only";
 import {
   db,
   sessions,
@@ -20,147 +21,139 @@ import {
   asc,
   inArray,
 } from "drizzle-orm";
-import { getMe } from "./users";
 
 export interface ItemStats {
-  total_views: number;
-  total_watch_time: number;
-  completion_rate: number;
-  first_watched: Date | null;
-  last_watched: Date | null;
-  users_watched: ItemUserStats[];
-  watch_history: ItemWatchHistory[];
-  watch_count_by_month: ItemWatchCountByMonth[];
+  totalViews: number;
+  totalWatchTime: number;
+  completionRate: number;
+  firstWatched: Date | null;
+  lastWatched: Date | null;
+  usersWatched: ItemUserStats[];
+  watchHistory: ItemWatchHistory[];
+  watchCountByMonth: ItemWatchCountByMonth[];
 }
 
 export interface ItemUserStats {
   user: User;
-  watch_count: number;
-  total_watch_time: number;
-  completion_rate: number;
-  first_watched: Date | null;
-  last_watched: Date | null;
+  watchCount: number;
+  totalWatchTime: number;
+  completionRate: number;
+  firstWatched: Date | null;
+  lastWatched: Date | null;
 }
 
 export interface ItemWatchHistory {
   session: Session;
   user: User | null;
-  watch_date: Date;
-  watch_duration: number;
-  completion_percentage: number;
-  play_method: string | null;
-  device_name: string | null;
-  client_name: string | null;
+  watchDate: Date;
+  watchDuration: number;
+  completionPercentage: number;
+  playMethod: string | null;
+  deviceName: string | null;
+  clientName: string | null;
 }
 
 export interface ItemWatchCountByMonth {
   month: string;
   year: number;
-  watch_count: number;
-  unique_users: number;
-  total_watch_time: number;
+  watchCount: number;
+  uniqueUsers: number;
+  totalWatchTime: number;
 }
 
 export interface SeriesEpisodeStats {
-  total_seasons: number;
-  total_episodes: number;
-  watched_episodes: number;
-  watched_seasons: number;
+  totalSeasons: number;
+  totalEpisodes: number;
+  watchedEpisodes: number;
+  watchedSeasons: number;
 }
 
 export interface ItemDetailsResponse {
   item: Item;
-  total_views: number;
-  total_watch_time: number;
-  completion_rate: number;
-  first_watched: Date | null;
-  last_watched: Date | null;
-  users_watched: ItemUserStats[];
-  watch_history: ItemWatchHistory[];
-  watch_count_by_month: ItemWatchCountByMonth[];
-  episode_stats?: SeriesEpisodeStats; // Optional, only for Series
+  totalViews: number;
+  totalWatchTime: number;
+  completionRate: number;
+  firstWatched: Date | null;
+  lastWatched: Date | null;
+  usersWatched: ItemUserStats[];
+  watchHistory: ItemWatchHistory[];
+  watchCountByMonth: ItemWatchCountByMonth[];
+  episodeStats?: SeriesEpisodeStats; // Optional, only for Series
 }
 
 /**
  * Get comprehensive item details with statistics
  */
-export const getItemDetails = async (
-  serverId: number,
-  itemId: string,
-  isAdmin: boolean = false
-): Promise<ItemDetailsResponse | null> => {
+export const getItemDetails = async ({
+  itemId,
+  userId,
+}: {
+  itemId: string;
+  userId?: string;
+}): Promise<ItemDetailsResponse | null> => {
   // Get the item first
   const item = await db.query.items.findFirst({
-    where: and(eq(items.id, itemId), eq(items.serverId, serverId)),
+    where: eq(items.id, itemId),
   });
 
   if (!item) {
     return null;
   }
 
-  // Get current user - always required for security
-  const currentUser = await getMe();
-
-  // If no logged in user, return null for security
-  if (!currentUser) {
-    return null;
-  }
-
-  // If user is admin, don't scope data (userId = undefined)
-  // If user is not admin, scope data to their user ID
-  const userId = isAdmin ? undefined : currentUser.id;
-
   // Get basic stats
-  const totalStats = await getItemTotalStats(serverId, itemId, userId);
-  const watchDates = await getItemWatchDates(serverId, itemId, userId);
-  const completionRate = await getItemCompletionRate(serverId, itemId, userId);
-  const usersWatched = await getItemUserStats(serverId, itemId, isAdmin);
-  const watchHistory = await getItemWatchHistory(serverId, itemId, isAdmin);
-  const watchCountByMonth = await getItemWatchCountByMonth(
-    serverId,
+  const totalStats = await getItemTotalStats({ itemId, userId });
+  const watchDates = await getItemWatchDates({ itemId, userId });
+  const completionRate = await getItemCompletionRate({
     itemId,
-    userId
-  );
+    userId,
+  });
+  const usersWatched = await getItemUserStats({
+    itemId,
+    userId,
+  });
+  const watchHistory = await getItemWatchHistory({
+    itemId,
+    userId,
+  });
+  const watchCountByMonth = await getItemWatchCountByMonth({
+    itemId,
+    userId,
+  });
 
   // Get episode stats if this is a series
   let episodeStats: SeriesEpisodeStats | undefined;
   if (item.type === "Series") {
-    episodeStats = await getSeriesEpisodeStats(serverId, itemId, userId);
+    episodeStats = await getSeriesEpisodeStats({ itemId, userId });
   }
 
   return {
     item,
-    total_views: totalStats.total_views,
-    total_watch_time: totalStats.total_watch_time,
-    completion_rate: Math.round(completionRate * 10) / 10, // Round to 1 decimal place
-    first_watched: watchDates.first_watched,
-    last_watched: watchDates.last_watched,
-    users_watched: usersWatched,
-    watch_history: watchHistory,
-    watch_count_by_month: watchCountByMonth,
-    episode_stats: episodeStats,
+    totalViews: totalStats.total_views,
+    totalWatchTime: totalStats.total_watch_time,
+    completionRate: Math.round(completionRate * 10) / 10, // Round to 1 decimal place
+    firstWatched: watchDates.first_watched,
+    lastWatched: watchDates.last_watched,
+    usersWatched: usersWatched,
+    watchHistory: watchHistory,
+    watchCountByMonth: watchCountByMonth,
+    episodeStats: episodeStats,
   };
 };
 
 /**
  * Get all episode IDs for a TV show
  */
-export const getEpisodeIdsForSeries = async (
-  serverId: number,
-  seriesId: string
-): Promise<string[]> => {
+export const getEpisodeIdsForSeries = async ({
+  seriesId,
+}: {
+  seriesId: string;
+}): Promise<string[]> => {
   const episodes = await db
     .select({
       id: items.id,
     })
     .from(items)
-    .where(
-      and(
-        eq(items.serverId, serverId),
-        eq(items.type, "Episode"),
-        eq(items.seriesId, seriesId)
-      )
-    );
+    .where(and(eq(items.type, "Episode"), eq(items.seriesId, seriesId)));
 
   return episodes.map((episode) => episode.id);
 };
@@ -168,25 +161,18 @@ export const getEpisodeIdsForSeries = async (
 /**
  * Get total views and watch time for an item
  * If userId is provided, scoped to that user only
- * If userId is not provided, shows global data (for admin users)
+ * If userId is not provided, shows global data (for all users)
  */
-export const getItemTotalStats = async (
-  serverId: number,
-  itemId: string,
-  userId?: string
-): Promise<{ total_views: number; total_watch_time: number }> => {
-  // Security check: if no userId provided, ensure there's a logged in user
-  // (this function should only be called from authenticated contexts)
-  if (!userId) {
-    const currentUser = await getMe();
-    if (!currentUser) {
-      return { total_views: 0, total_watch_time: 0 };
-    }
-  }
-
+export const getItemTotalStats = async ({
+  itemId,
+  userId,
+}: {
+  itemId: string;
+  userId?: string;
+}): Promise<{ total_views: number; total_watch_time: number }> => {
   // Get the item to check if it's a TV show
   const item = await db.query.items.findFirst({
-    where: and(eq(items.id, itemId), eq(items.serverId, serverId)),
+    where: eq(items.id, itemId),
   });
 
   if (!item) {
@@ -197,7 +183,9 @@ export const getItemTotalStats = async (
 
   // If it's a TV show, get all episode IDs
   if (item.type === "Series") {
-    itemIdsToQuery = await getEpisodeIdsForSeries(serverId, itemId);
+    itemIdsToQuery = await getEpisodeIdsForSeries({
+      seriesId: itemId,
+    });
     if (itemIdsToQuery.length === 0) {
       return { total_views: 0, total_watch_time: 0 };
     }
@@ -206,13 +194,11 @@ export const getItemTotalStats = async (
   // Build the where condition based on whether userId is provided
   const whereCondition = userId
     ? and(
-        eq(sessions.serverId, serverId),
         inArray(sessions.itemId, itemIdsToQuery),
         eq(sessions.userId, userId),
         isNotNull(sessions.playDuration)
       )
     : and(
-        eq(sessions.serverId, serverId),
         inArray(sessions.itemId, itemIdsToQuery),
         isNotNull(sessions.playDuration)
       );
@@ -234,25 +220,18 @@ export const getItemTotalStats = async (
 /**
  * Get first and last watched dates for an item
  * If userId is provided, scoped to that user only
- * If userId is not provided, shows global data (for admin users)
+ * If userId is not provided, shows global data (for all users)
  */
-export const getItemWatchDates = async (
-  serverId: number,
-  itemId: string,
-  userId?: string
-): Promise<{ first_watched: Date | null; last_watched: Date | null }> => {
-  // Security check: if no userId provided, ensure there's a logged in user
-  // (this function should only be called from authenticated contexts)
-  if (!userId) {
-    const currentUser = await getMe();
-    if (!currentUser) {
-      return { first_watched: null, last_watched: null };
-    }
-  }
-
+export const getItemWatchDates = async ({
+  itemId,
+  userId,
+}: {
+  itemId: string;
+  userId?: string;
+}): Promise<{ first_watched: Date | null; last_watched: Date | null }> => {
   // Get the item to check if it's a TV show
   const item = await db.query.items.findFirst({
-    where: and(eq(items.id, itemId), eq(items.serverId, serverId)),
+    where: eq(items.id, itemId),
   });
 
   if (!item) {
@@ -263,7 +242,9 @@ export const getItemWatchDates = async (
 
   // If it's a TV show, get all episode IDs
   if (item.type === "Series") {
-    itemIdsToQuery = await getEpisodeIdsForSeries(serverId, itemId);
+    itemIdsToQuery = await getEpisodeIdsForSeries({
+      seriesId: itemId,
+    });
     if (itemIdsToQuery.length === 0) {
       return { first_watched: null, last_watched: null };
     }
@@ -272,13 +253,11 @@ export const getItemWatchDates = async (
   // Build the where condition based on whether userId is provided
   const whereCondition = userId
     ? and(
-        eq(sessions.serverId, serverId),
         inArray(sessions.itemId, itemIdsToQuery),
         eq(sessions.userId, userId),
         isNotNull(sessions.startTime)
       )
     : and(
-        eq(sessions.serverId, serverId),
         inArray(sessions.itemId, itemIdsToQuery),
         isNotNull(sessions.startTime)
       );
@@ -300,25 +279,18 @@ export const getItemWatchDates = async (
 /**
  * Get completion rate for an item
  * If userId is provided, scoped to that user only
- * If userId is not provided, shows global data (for admin users)
+ * If userId is not provided, shows global data (for all users)
  */
-export const getItemCompletionRate = async (
-  serverId: number,
-  itemId: string,
-  userId?: string
-): Promise<number> => {
-  // Security check: if no userId provided, ensure there's a logged in user
-  // (this function should only be called from authenticated contexts)
-  if (!userId) {
-    const currentUser = await getMe();
-    if (!currentUser) {
-      return 0;
-    }
-  }
-
+export const getItemCompletionRate = async ({
+  itemId,
+  userId,
+}: {
+  itemId: string;
+  userId?: string;
+}): Promise<number> => {
   // Get the item to check if it's a TV show
   const item = await db.query.items.findFirst({
-    where: and(eq(items.id, itemId), eq(items.serverId, serverId)),
+    where: eq(items.id, itemId),
   });
 
   if (!item) {
@@ -329,7 +301,9 @@ export const getItemCompletionRate = async (
 
   // If it's a TV show, get all episode IDs
   if (item.type === "Series") {
-    itemIdsToQuery = await getEpisodeIdsForSeries(serverId, itemId);
+    itemIdsToQuery = await getEpisodeIdsForSeries({
+      seriesId: itemId,
+    });
     if (itemIdsToQuery.length === 0) {
       return 0;
     }
@@ -338,13 +312,11 @@ export const getItemCompletionRate = async (
   // Build the where condition based on whether userId is provided
   const whereCondition = userId
     ? and(
-        eq(sessions.serverId, serverId),
         inArray(sessions.itemId, itemIdsToQuery),
         eq(sessions.userId, userId),
         isNotNull(sessions.percentComplete)
       )
     : and(
-        eq(sessions.serverId, serverId),
         inArray(sessions.itemId, itemIdsToQuery),
         isNotNull(sessions.percentComplete)
       );
@@ -361,21 +333,19 @@ export const getItemCompletionRate = async (
 
 /**
  * Get user statistics for an item
+ * If userId is provided, shows only that user's stats
+ * If userId is not provided, shows all users' stats
  */
-export const getItemUserStats = async (
-  serverId: number,
-  itemId: string,
-  isAdmin: boolean = false
-): Promise<ItemUserStats[]> => {
-  // Security check: ensure there's a logged in user
-  const currentUser = await getMe();
-  if (!currentUser) {
-    return [];
-  }
-
+export const getItemUserStats = async ({
+  itemId,
+  userId,
+}: {
+  itemId: string;
+  userId?: string;
+}): Promise<ItemUserStats[]> => {
   // Get the item to check if it's a TV show
   const item = await db.query.items.findFirst({
-    where: and(eq(items.id, itemId), eq(items.serverId, serverId)),
+    where: eq(items.id, itemId),
   });
 
   if (!item) {
@@ -386,29 +356,30 @@ export const getItemUserStats = async (
 
   // If it's a TV show, get all episode IDs
   if (item.type === "Series") {
-    itemIdsToQuery = await getEpisodeIdsForSeries(serverId, itemId);
+    itemIdsToQuery = await getEpisodeIdsForSeries({
+      seriesId: itemId,
+    });
     if (itemIdsToQuery.length === 0) {
       return [];
     }
   }
 
-  // Build where condition based on admin status
-  const whereCondition = isAdmin
+  // Build where condition based on whether userId is provided
+  const whereCondition = userId
     ? and(
-        eq(sessions.serverId, serverId),
         inArray(sessions.itemId, itemIdsToQuery),
+        eq(sessions.userId, userId),
         isNotNull(sessions.userId)
       )
-    : and(
-        eq(sessions.serverId, serverId),
-        inArray(sessions.itemId, itemIdsToQuery),
-        eq(sessions.userId, currentUser.id),
-        isNotNull(sessions.userId)
-      );
+    : and(inArray(sessions.itemId, itemIdsToQuery), isNotNull(sessions.userId));
 
   const userStats = await db
     .select({
       userId: sessions.userId,
+      userName: users.name,
+      userServerId: users.serverId,
+      userCreatedAt: users.createdAt,
+      userUpdatedAt: users.updatedAt,
       watch_count: count(sessions.id),
       total_watch_time: sum(sessions.playDuration),
       completion_rate: sql<number>`AVG(${sessions.percentComplete})`,
@@ -416,59 +387,138 @@ export const getItemUserStats = async (
       last_watched: sql<Date>`MAX(${sessions.startTime})`,
     })
     .from(sessions)
+    .leftJoin(users, eq(sessions.userId, users.id))
     .where(whereCondition)
-    .groupBy(sessions.userId)
+    .groupBy(
+      sessions.userId,
+      users.name,
+      users.serverId,
+      users.createdAt,
+      users.updatedAt
+    )
     .orderBy(desc(count(sessions.id)));
 
-  // Get user details for each user
-  const result = await Promise.all(
-    userStats.map(
-      async (stat: {
-        userId: string | null;
-        watch_count: number;
-        total_watch_time: string | null;
-        completion_rate: number;
-        first_watched: Date;
-        last_watched: Date;
-      }) => {
-        const user = await db.query.users.findFirst({
-          where: eq(users.id, stat.userId!),
-        });
-
-        return {
-          user: user!,
-          watch_count: stat.watch_count,
-          total_watch_time: Number(stat.total_watch_time || 0),
-          completion_rate:
-            Math.round((Number(stat.completion_rate) || 0) * 10) / 10,
-          first_watched: stat.first_watched,
-          last_watched: stat.last_watched,
+  // Map to expected format and handle missing users gracefully
+  const result = userStats.map((stat) => {
+    // Create a user object - use actual user data if available, otherwise create a fallback
+    const user = stat.userName
+      ? {
+          id: stat.userId!,
+          name: stat.userName,
+          serverId: stat.userServerId!,
+          lastLoginDate: null,
+          lastActivityDate: null,
+          hasPassword: false,
+          hasConfiguredPassword: false,
+          hasConfiguredEasyPassword: false,
+          enableAutoLogin: false,
+          isAdministrator: false,
+          isHidden: false,
+          isDisabled: false,
+          enableUserPreferenceAccess: true,
+          enableRemoteControlOfOtherUsers: false,
+          enableSharedDeviceControl: false,
+          enableRemoteAccess: true,
+          enableLiveTvManagement: false,
+          enableLiveTvAccess: true,
+          enableMediaPlayback: true,
+          enableAudioPlaybackTranscoding: true,
+          enableVideoPlaybackTranscoding: true,
+          enablePlaybackRemuxing: true,
+          enableContentDeletion: false,
+          enableContentDownloading: false,
+          enableSyncTranscoding: true,
+          enableMediaConversion: false,
+          enableAllDevices: true,
+          enableAllChannels: true,
+          enableAllFolders: true,
+          enablePublicSharing: false,
+          invalidLoginAttemptCount: 0,
+          loginAttemptsBeforeLockout: 3,
+          maxActiveSessions: 0,
+          remoteClientBitrateLimit: 0,
+          authenticationProviderId:
+            "Jellyfin.Server.Implementations.Users.DefaultAuthenticationProvider",
+          passwordResetProviderId:
+            "Jellyfin.Server.Implementations.Users.DefaultPasswordResetProvider",
+          syncPlayAccess: "CreateAndJoinGroups",
+          createdAt: stat.userCreatedAt || new Date(),
+          updatedAt: stat.userUpdatedAt || new Date(),
+        }
+      : {
+          id: stat.userId!,
+          name: "Unknown User",
+          serverId: 0,
+          lastLoginDate: null,
+          lastActivityDate: null,
+          hasPassword: false,
+          hasConfiguredPassword: false,
+          hasConfiguredEasyPassword: false,
+          enableAutoLogin: false,
+          isAdministrator: false,
+          isHidden: false,
+          isDisabled: false,
+          enableUserPreferenceAccess: true,
+          enableRemoteControlOfOtherUsers: false,
+          enableSharedDeviceControl: false,
+          enableRemoteAccess: true,
+          enableLiveTvManagement: false,
+          enableLiveTvAccess: true,
+          enableMediaPlayback: true,
+          enableAudioPlaybackTranscoding: true,
+          enableVideoPlaybackTranscoding: true,
+          enablePlaybackRemuxing: true,
+          enableContentDeletion: false,
+          enableContentDownloading: false,
+          enableSyncTranscoding: true,
+          enableMediaConversion: false,
+          enableAllDevices: true,
+          enableAllChannels: true,
+          enableAllFolders: true,
+          enablePublicSharing: false,
+          invalidLoginAttemptCount: 0,
+          loginAttemptsBeforeLockout: 3,
+          maxActiveSessions: 0,
+          remoteClientBitrateLimit: 0,
+          authenticationProviderId:
+            "Jellyfin.Server.Implementations.Users.DefaultAuthenticationProvider",
+          passwordResetProviderId:
+            "Jellyfin.Server.Implementations.Users.DefaultPasswordResetProvider",
+          syncPlayAccess: "CreateAndJoinGroups",
+          createdAt: new Date(),
+          updatedAt: new Date(),
         };
-      }
-    )
-  );
 
-  return result.filter((item: any) => item.user); // Filter out items where user wasn't found
+    return {
+      user: user,
+      watchCount: stat.watch_count,
+      totalWatchTime: Number(stat.total_watch_time || 0),
+      completionRate: Math.round((Number(stat.completion_rate) || 0) * 10) / 10,
+      firstWatched: stat.first_watched,
+      lastWatched: stat.last_watched,
+    };
+  });
+
+  return result; // No longer filtering out items - handle all users including unknown ones
 };
 
 /**
  * Get watch history for an item
+ * If userId is provided, shows only that user's history
+ * If userId is not provided, shows all users' history
  */
-export const getItemWatchHistory = async (
-  serverId: number,
-  itemId: string,
-  isAdmin: boolean = false,
-  limit: number = 50
-): Promise<ItemWatchHistory[]> => {
-  // Security check: ensure there's a logged in user
-  const currentUser = await getMe();
-  if (!currentUser) {
-    return [];
-  }
-
+export const getItemWatchHistory = async ({
+  itemId,
+  userId,
+  limit = 50,
+}: {
+  itemId: string;
+  userId?: string;
+  limit?: number;
+}): Promise<ItemWatchHistory[]> => {
   // Get the item to check if it's a TV show
   const item = await db.query.items.findFirst({
-    where: and(eq(items.id, itemId), eq(items.serverId, serverId)),
+    where: eq(items.id, itemId),
   });
 
   if (!item) {
@@ -479,23 +529,23 @@ export const getItemWatchHistory = async (
 
   // If it's a TV show, get all episode IDs
   if (item.type === "Series") {
-    itemIdsToQuery = await getEpisodeIdsForSeries(serverId, itemId);
+    itemIdsToQuery = await getEpisodeIdsForSeries({
+      seriesId: itemId,
+    });
     if (itemIdsToQuery.length === 0) {
       return [];
     }
   }
 
-  // Build where condition based on admin status
-  const whereCondition = isAdmin
+  // Build where condition based on whether userId is provided
+  const whereCondition = userId
     ? and(
-        eq(sessions.serverId, serverId),
         inArray(sessions.itemId, itemIdsToQuery),
+        eq(sessions.userId, userId),
         isNotNull(sessions.startTime)
       )
     : and(
-        eq(sessions.serverId, serverId),
         inArray(sessions.itemId, itemIdsToQuery),
-        eq(sessions.userId, currentUser.id),
         isNotNull(sessions.startTime)
       );
 
@@ -510,37 +560,30 @@ export const getItemWatchHistory = async (
   return sessionData.map((row) => ({
     session: row.sessions,
     user: row.users,
-    watch_date: row.sessions.startTime!,
-    watch_duration: row.sessions.playDuration || 0,
-    completion_percentage: row.sessions.percentComplete || 0,
-    play_method: row.sessions.playMethod,
-    device_name: row.sessions.deviceName,
-    client_name: row.sessions.clientName,
+    watchDate: row.sessions.startTime!,
+    watchDuration: row.sessions.playDuration || 0,
+    completionPercentage: row.sessions.percentComplete || 0,
+    playMethod: row.sessions.playMethod,
+    deviceName: row.sessions.deviceName,
+    clientName: row.sessions.clientName,
   }));
 };
 
 /**
  * Get watch count by month for an item
  * If userId is provided, scoped to that user only
- * If userId is not provided, shows global data (for admin users)
+ * If userId is not provided, fetch all data (global)
  */
-export const getItemWatchCountByMonth = async (
-  serverId: number,
-  itemId: string,
-  userId?: string
-): Promise<ItemWatchCountByMonth[]> => {
-  // Security check: if no userId provided, ensure there's a logged in user
-  // (this function should only be called from authenticated contexts)
-  if (!userId) {
-    const currentUser = await getMe();
-    if (!currentUser) {
-      return [];
-    }
-  }
-
+export const getItemWatchCountByMonth = async ({
+  itemId,
+  userId,
+}: {
+  itemId: string;
+  userId?: string;
+}): Promise<ItemWatchCountByMonth[]> => {
   // Get the item to check if it's a TV show
   const item = await db.query.items.findFirst({
-    where: and(eq(items.id, itemId), eq(items.serverId, serverId)),
+    where: eq(items.id, itemId),
   });
 
   if (!item) {
@@ -551,22 +594,22 @@ export const getItemWatchCountByMonth = async (
 
   // If it's a TV show, get all episode IDs
   if (item.type === "Series") {
-    itemIdsToQuery = await getEpisodeIdsForSeries(serverId, itemId);
+    itemIdsToQuery = await getEpisodeIdsForSeries({
+      seriesId: itemId,
+    });
     if (itemIdsToQuery.length === 0) {
       return [];
     }
   }
 
-  // Build the where condition based on whether userId is provided
+  // Build the where condition: if userId is provided, filter by user; otherwise, return all users' data
   const whereCondition = userId
     ? and(
-        eq(sessions.serverId, serverId),
         inArray(sessions.itemId, itemIdsToQuery),
         eq(sessions.userId, userId),
         isNotNull(sessions.startTime)
       )
     : and(
-        eq(sessions.serverId, serverId),
         inArray(sessions.itemId, itemIdsToQuery),
         isNotNull(sessions.startTime)
       );
@@ -593,35 +636,24 @@ export const getItemWatchCountByMonth = async (
   return result.map((row) => ({
     month: row.month,
     year: row.year,
-    watch_count: row.watch_count,
-    unique_users: row.unique_users,
-    total_watch_time: Number(row.total_watch_time || 0),
+    watchCount: row.watch_count,
+    uniqueUsers: row.unique_users,
+    totalWatchTime: Number(row.total_watch_time || 0),
   }));
 };
 
 /**
  * Get season and episode statistics for a series
  * If userId is provided, scoped to that user only
- * If userId is not provided, shows global data (for admin users)
+ * If userId is not provided, shows global data (for all users)
  */
-export const getSeriesEpisodeStats = async (
-  serverId: number,
-  seriesId: string,
-  userId?: string
-): Promise<SeriesEpisodeStats> => {
-  // Security check: if no userId provided, ensure there's a logged in user
-  if (!userId) {
-    const currentUser = await getMe();
-    if (!currentUser) {
-      return {
-        total_seasons: 0,
-        total_episodes: 0,
-        watched_episodes: 0,
-        watched_seasons: 0,
-      };
-    }
-  }
-
+export const getSeriesEpisodeStats = async ({
+  itemId,
+  userId,
+}: {
+  itemId: string;
+  userId?: string;
+}): Promise<SeriesEpisodeStats> => {
   // Get all episodes for this series
   const allEpisodes = await db
     .select({
@@ -632,9 +664,8 @@ export const getSeriesEpisodeStats = async (
     .from(items)
     .where(
       and(
-        eq(items.serverId, serverId),
         eq(items.type, "Episode"),
-        eq(items.seriesId, seriesId),
+        eq(items.seriesId, itemId),
         isNotNull(items.parentIndexNumber),
         isNotNull(items.indexNumber)
       )
@@ -648,10 +679,10 @@ export const getSeriesEpisodeStats = async (
 
   if (totalEpisodes === 0) {
     return {
-      total_seasons: totalSeasons,
-      total_episodes: totalEpisodes,
-      watched_episodes: 0,
-      watched_seasons: 0,
+      totalSeasons: totalSeasons,
+      totalEpisodes: totalEpisodes,
+      watchedEpisodes: 0,
+      watchedSeasons: 0,
     };
   }
 
@@ -660,13 +691,11 @@ export const getSeriesEpisodeStats = async (
 
   const whereCondition = userId
     ? and(
-        eq(sessions.serverId, serverId),
         inArray(sessions.itemId, episodeIds),
         eq(sessions.userId, userId),
         isNotNull(sessions.playDuration)
       )
     : and(
-        eq(sessions.serverId, serverId),
         inArray(sessions.itemId, episodeIds),
         isNotNull(sessions.playDuration)
       );
@@ -693,9 +722,9 @@ export const getSeriesEpisodeStats = async (
   const watchedSeasons = watchedSeasonNumbers.size;
 
   return {
-    total_seasons: totalSeasons,
-    total_episodes: totalEpisodes,
-    watched_episodes: watchedEpisodes,
-    watched_seasons: watchedSeasons,
+    totalSeasons: totalSeasons,
+    totalEpisodes: totalEpisodes,
+    watchedEpisodes: watchedEpisodes,
+    watchedSeasons: watchedSeasons,
   };
 };

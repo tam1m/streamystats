@@ -30,7 +30,7 @@ export const DeleteServer: React.FC<Props> = ({ server }) => {
   const handleDelete = async () => {
     setLoading(true);
     try {
-      const result = await deleteServer(server.id);
+      const result = await deleteServer({ serverId: server.id });
 
       if (result.success) {
         router.push("/setup");

@@ -19,7 +19,7 @@ export default async function HistoryPage({
 }) {
   const { id } = await params;
   const { page, search, sort_by, sort_order } = await searchParams;
-  const server = await getServer(id);
+  const server = await getServer({ serverId: id });
 
   if (!server) {
     redirect("/setup");

@@ -239,7 +239,7 @@ const validateUserAuth = async (
     }
 
     // Get server information to make the validation request
-    const server = await getServer(me.serverId);
+    const server = await getServer({ serverId: me.serverId.toString() });
     if (!server) {
       return {
         type: ResultType.Error,

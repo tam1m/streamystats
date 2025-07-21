@@ -32,7 +32,8 @@
       "Bash(curl:*)",
       "WebFetch(domain:github.com)",
       "WebFetch(domain:timgit.github.io)",
-      "Bash(rg:*)"
+      "Bash(rg:*)",
+      "Bash(psql:*)"
     ],
     "deny": []
   },

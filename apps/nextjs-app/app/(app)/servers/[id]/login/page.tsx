@@ -10,7 +10,7 @@ export default async function Page({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const server = await getServer(id);
+  const server = await getServer({ serverId: id });
   const servers = await getServers();
 
   if (!server) {

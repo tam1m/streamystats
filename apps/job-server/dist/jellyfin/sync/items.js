@@ -225,16 +225,26 @@ async function syncRecentlyAddedItems(server, limit = 100) {
     const errors = [];
     try {
         console.log(`Starting recently added items sync for server ${server.name} (limit: ${limit})`);
-        // Get all libraries for this server (that haven't been removed)
+        // Get current libraries from Jellyfin server to verify they still exist
+        metrics.incrementApiRequests();
+        const jellyfinLibraries = await client.getLibraries();
+        const existingLibraryIds = new Set(jellyfinLibraries.map((lib) => lib.Id));
+        // Get all libraries for this server from our database
         const serverLibraries = await database_1.db
             .select()
             .from(database_1.libraries)
             .where((0, drizzle_orm_1.eq)(database_1.libraries.serverId, server.id));
-        console.log(`Found ${serverLibraries.length} libraries to sync`);
+        // Filter to only include libraries that still exist on the Jellyfin server
+        const validLibraries = serverLibraries.filter((library) => existingLibraryIds.has(library.id));
+        const removedLibraries = serverLibraries.filter((library) => !existingLibraryIds.has(library.id));
+        if (removedLibraries.length > 0) {
+            console.log(`Found ${removedLibraries.length} libraries that no longer exist on server:`, removedLibraries.map((lib) => `${lib.name} (${lib.id})`).join(", "));
+        }
+        console.log(`Found ${validLibraries.length} valid libraries to sync (${serverLibraries.length - validLibraries.length} removed libraries skipped)`);
         let allMappedItems = [];
         let allInvalidItems = [];
-        // Collect recent items from all libraries with their already-known library IDs
-        for (const library of serverLibraries) {
+        // Collect recent items from all valid libraries with their already-known library IDs
+        for (const library of validLibraries) {
             try {
                 console.log(`Fetching recently added items from library: ${library.name} (limit: ${limit})`);
                 metrics.incrementApiRequests();
@@ -253,35 +263,11 @@ async function syncRecentlyAddedItems(server, limit = 100) {
             }
         }
         console.log(`Total recently added items collected: ${allMappedItems.length}`);
-        // Deduplicate items by ID to prevent primary key constraint violations
-        // This can happen when the same item appears in multiple libraries' recent items
-        const uniqueItemsMap = new Map();
-        const duplicateItems = [];
-        for (const item of allMappedItems) {
-            if (uniqueItemsMap.has(item.id)) {
-                // Track duplicates for logging
-                const existing = duplicateItems.find((d) => d.id === item.id);
-                if (existing) {
-                    existing.count++;
-                }
-                else {
-                    duplicateItems.push({ id: item.id, count: 2 });
-                }
-            }
-            else {
-                uniqueItemsMap.set(item.id, item);
-            }
-        }
-        const deduplicatedItems = Array.from(uniqueItemsMap.values());
-        if (duplicateItems.length > 0) {
-            console.warn(`Found ${duplicateItems.length} duplicate items across libraries:`, duplicateItems.map((d) => `${d.id} (${d.count} times)`));
-            console.log(`Deduplicated ${allMappedItems.length} items to ${deduplicatedItems.length} unique items`);
-        }
-        if (deduplicatedItems.length === 0) {
+        if (allMappedItems.length === 0) {
             console.log("No recently added items found across libraries");
             const finalMetrics = metrics.finish();
             const data = {
-                librariesProcessed: serverLibraries.length,
+                librariesProcessed: validLibraries.length,
                 itemsProcessed: finalMetrics.itemsProcessed,
                 itemsInserted: 0,
                 itemsUpdated: 0,
@@ -291,15 +277,33 @@ async function syncRecentlyAddedItems(server, limit = 100) {
         }
         // Process valid items - determine inserts vs updates
         metrics.incrementDatabaseOperations();
-        const { insertResult, updateResult, unchangedCount } = await processValidItems(deduplicatedItems, allInvalidItems, server.id);
+        const { insertResult, updateResult, unchangedCount } = await processValidItems(allMappedItems, allInvalidItems, server.id);
         const finalMetrics = metrics.finish();
         const data = {
-            librariesProcessed: serverLibraries.length,
+            librariesProcessed: validLibraries.length,
             itemsProcessed: finalMetrics.itemsProcessed,
             itemsInserted: insertResult,
             itemsUpdated: updateResult,
             itemsUnchanged: unchangedCount,
         };
+        // Optionally clean up libraries that no longer exist on the server
+        if (removedLibraries.length > 0) {
+            try {
+                const removedLibraryIds = removedLibraries.map((lib) => lib.id);
+                // Note: We don't automatically delete libraries as they might contain important historical data
+                // Instead, we just log them. In the future, we could add a configuration option for automatic cleanup
+                console.log(`Libraries no longer on server (not automatically removed): ${removedLibraries
+                    .map((lib) => lib.name)
+                    .join(", ")}`);
+                // If you want to enable automatic cleanup, uncomment the following:
+                // await db.delete(libraries).where(inArray(libraries.id, removedLibraryIds));
+                // console.log(`Removed ${removedLibraries.length} obsolete libraries from database`);
+            }
+            catch (cleanupError) {
+                console.error("Error during library cleanup:", cleanupError);
+                // Don't fail the entire sync for cleanup errors
+            }
+        }
         console.log(`Recently added items sync completed for server ${server.name}:`, data);
         if (allInvalidItems.length > 0 || errors.length > 0) {
             const allErrors = errors.concat(allInvalidItems.map((item) => `Item ${item.id}: ${item.error}`));
@@ -311,7 +315,7 @@ async function syncRecentlyAddedItems(server, limit = 100) {
         console.error(`Recently added items sync failed for server ${server.name}:`, error);
         const finalMetrics = metrics.finish();
         const errorData = {
-            librariesProcessed: 0,
+            librariesProcessed: 0, // 0 because we failed before processing any libraries
             itemsProcessed: finalMetrics.itemsProcessed,
             itemsInserted: 0,
             itemsUpdated: 0,
@@ -572,56 +576,13 @@ async function processInserts(itemsToInsert) {
     if (itemsToInsert.length === 0)
         return 0;
     try {
-        // Try batch insert first (most efficient)
         await database_1.db.insert(database_1.items).values(itemsToInsert);
         console.log(`Inserted ${itemsToInsert.length} new items`);
         return itemsToInsert.length;
     }
     catch (error) {
-        console.error("Batch insert failed, attempting individual inserts:", error);
-        // Log specific constraint violation details if available
-        if (error && typeof error === "object" && "code" in error) {
-            const dbError = error;
-            if (dbError.code === "23505") {
-                // PostgreSQL unique constraint violation
-                console.error(`Duplicate key constraint violation in batch insert: ${dbError.detail || dbError.message}`);
-                console.error("Items in failed batch:", itemsToInsert.map((item) => ({
-                    id: item.id,
-                    name: item.name,
-                    serverId: item.serverId,
-                })));
-            }
-        }
-        // Fall back to individual inserts with error handling
-        let successCount = 0;
-        const failedItems = [];
-        for (const item of itemsToInsert) {
-            try {
-                await database_1.db
-                    .insert(database_1.items)
-                    .values([item])
-                    .onConflictDoUpdate({
-                    target: database_1.items.id,
-                    set: {
-                        ...item,
-                        updatedAt: new Date(),
-                    },
-                });
-                successCount++;
-            }
-            catch (individualError) {
-                const errorMessage = individualError instanceof Error
-                    ? individualError.message
-                    : String(individualError);
-                console.error(`Failed to insert item ${item.id} (${item.name}):`, errorMessage);
-                failedItems.push({ item, error: errorMessage });
-            }
-        }
-        if (failedItems.length > 0) {
-            console.warn(`${failedItems.length} items failed to insert:`, failedItems.map((f) => `${f.item.id}: ${f.error}`));
-        }
-        console.log(`Individual insert results: ${successCount} succeeded, ${failedItems.length} failed`);
-        return successCount;
+        console.error("Error inserting items:", error);
+        throw error;
     }
 }
 /**

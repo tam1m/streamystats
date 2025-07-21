@@ -11,7 +11,7 @@ export default async function GeneralSettings(props: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await props.params;
-  const server = await getServer(id);
+  const server = await getServer({ serverId: id });
   if (!server) {
     redirect("/setup");
   }

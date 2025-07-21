@@ -73,3 +73,6 @@ services:
 volumes:
   vectorchord_data:
     driver: local
+
+networks:
+  app-network:

@@ -7,10 +7,10 @@ interface Props {
 }
 
 export const UserLeaderboard = async ({ server }: Props) => {
-  const users = await getUsers(server.id);
-  const totalWatchTime = await getTotalWatchTimeForUsers(
-    users.map((user: User) => user.id)
-  );
+  const users = await getUsers({ serverId: server.id });
+  const totalWatchTime = await getTotalWatchTimeForUsers({
+    userIds: users.map((user: User) => user.id)
+  });
 
   return (
     <UserLeaderboardTable

@@ -84,7 +84,7 @@ export function EmbeddingsManager({ server }: { server: Server }) {
     refetch,
   } = useQuery<EmbeddingProgress>({
     queryKey: ["embedding-progress", server.id],
-    queryFn: async () => await getEmbeddingProgress(server.id),
+    queryFn: async () => await getEmbeddingProgress({ serverId: server.id }),
     refetchInterval: 2000,
     retry: 3,
     retryDelay: 1000,
@@ -93,7 +93,7 @@ export function EmbeddingsManager({ server }: { server: Server }) {
   const handleSaveApiKey = async () => {
     setIsSaving(true);
     try {
-      await saveOpenAIKey(server.id, apiKey);
+      await saveOpenAIKey({ serverId: server.id, apiKey });
       toast.success("OpenAI API Key saved successfully");
       refetch();
     } catch (error) {
@@ -106,11 +106,11 @@ export function EmbeddingsManager({ server }: { server: Server }) {
   const handleSaveOllamaConfig = async () => {
     setIsSaving(true);
     try {
-      await saveOllamaConfig(server.id, {
+      await saveOllamaConfig({ serverId: server.id, config: {
         ollama_api_token: ollamaToken || undefined,
         ollama_base_url: ollamaBaseUrl,
         ollama_model: ollamaModel,
-      });
+      } });
       toast.success("Ollama configuration saved successfully");
       refetch();
     } catch (error) {
@@ -122,7 +122,7 @@ export function EmbeddingsManager({ server }: { server: Server }) {
 
   const handleProviderChange = async (newProvider: "openai" | "ollama") => {
     try {
-      await saveEmbeddingProvider(server.id, newProvider);
+      await saveEmbeddingProvider({ serverId: server.id, provider: newProvider });
       setProvider(newProvider);
       toast.success(
         `Switched to ${newProvider === "openai" ? "OpenAI" : "Ollama"} provider`
@@ -145,7 +145,7 @@ export function EmbeddingsManager({ server }: { server: Server }) {
   const handleStartEmbedding = async () => {
     setIsStarting(true);
     try {
-      await startEmbedding(server.id);
+      await startEmbedding({ serverId: server.id });
       toast.success("Embedding process started successfully");
       refetch();
     } catch (err) {
@@ -160,7 +160,7 @@ export function EmbeddingsManager({ server }: { server: Server }) {
   const handleStopEmbedding = async () => {
     setIsStopping(true);
     try {
-      await stopEmbedding(server.id);
+      await stopEmbedding({ serverId: server.id });
       toast.dismiss();
       toast.success("Embedding process stopped successfully");
       refetch();
@@ -209,7 +209,7 @@ export function EmbeddingsManager({ server }: { server: Server }) {
   const handleClearEmbeddings = async () => {
     setIsClearing(true);
     try {
-      await clearEmbeddings(server.id);
+      await clearEmbeddings({ serverId: server.id });
       toast.success("Embeddings cleared successfully");
       refetch();
     } catch (err) {
@@ -225,7 +225,7 @@ export function EmbeddingsManager({ server }: { server: Server }) {
   const handleToggleAutoEmbeddings = async (checked: boolean) => {
     setIsUpdatingAutoEmbed(true);
     try {
-      await toggleAutoEmbeddings(server.id, checked);
+      await toggleAutoEmbeddings({ serverId: server.id, enabled: checked });
       setAutoEmbeddings(checked);
       toast.success(
         `Auto-generate embeddings ${checked ? "enabled" : "disabled"}`

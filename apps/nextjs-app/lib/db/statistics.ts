@@ -23,10 +23,13 @@ interface MostWatchedItems {
   Series: ItemWithStats[];
 }
 
-export const getMostWatchedItems = async (
-  serverId: string | number,
-  userId?: string | number
-): Promise<MostWatchedItems> => {
+export const getMostWatchedItems = async ({
+  serverId,
+  userId
+}: {
+  serverId: string | number;
+  userId?: string | number;
+}): Promise<MostWatchedItems> => {
   // First get the aggregated session data for Movies and Episodes
   const whereConditions = [
     eq(sessions.serverId, Number(serverId)),
@@ -164,12 +167,17 @@ export interface WatchTimePerType {
   };
 }
 
-export const getWatchTimePerType = async (
-  serverId: string | number,
-  startDate: string,
-  endDate: string,
-  userId?: string | number
-): Promise<WatchTimePerType> => {
+export const getWatchTimePerType = async ({
+  serverId,
+  startDate,
+  endDate,
+  userId
+}: {
+  serverId: string | number;
+  startDate: string;
+  endDate: string;
+  userId?: string | number;
+}): Promise<WatchTimePerType> => {
   const whereConditions = [
     eq(sessions.serverId, Number(serverId)),
     gte(sessions.startTime, new Date(startDate)),
@@ -279,11 +287,15 @@ export interface LibraryWatchTime {
   };
 }
 
-export const getWatchTimeByLibrary = async (
-  serverId: string | number,
-  startDate: string,
-  endDate: string
-): Promise<LibraryWatchTime> => {
+export const getWatchTimeByLibrary = async ({
+  serverId,
+  startDate,
+  endDate
+}: {
+  serverId: string | number;
+  startDate: string;
+  endDate: string;
+}): Promise<LibraryWatchTime> => {
   const results = await db
     .select({
       date: sql<string>`DATE(${sessions.startTime})`.as("date"),

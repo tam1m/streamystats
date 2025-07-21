@@ -13,7 +13,7 @@ export async function GET(request: Request) {
     return new Response("Server ID is required", { status: 400 });
   }
 
-  const server = await getServer(serverId);
+  const server = await getServer({ serverId });
 
   if (!server) {
     return new Response(
