@@ -29,6 +29,8 @@ export interface ActivitySyncData {
   pagesFetched: number;
 }
 
+const ACTIVITYLOG_SYSTEM_USERID = '00000000000000000000000000000000';
+
 export async function syncActivities(
   server: Server,
   options: ActivitySyncOptions = {}
@@ -385,6 +387,8 @@ async function processActivity(
 
       if (userExists.length > 0) {
         validUserId = jellyfinActivity.UserId;
+      } else if (jellyfinActivity.UserId == ACTIVITYLOG_SYSTEM_USERID) {
+        // this is a system event (plugin install/uninstall, ...) we do not print a warning
       } else {
         console.warn(
           `Activity ${jellyfinActivity.Id} references non-existent user ${jellyfinActivity.UserId}, setting to null`
