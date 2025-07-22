@@ -1,5 +1,23 @@
 # Changelog
 
+## [2.4.0](https://github.com/fredrikburmester/streamystats/compare/v2.3.0...v2.4.0) (2025-07-21)
+
+
+### Features
+
+* build PR images ([49f1bbe](https://github.com/fredrikburmester/streamystats/commit/49f1bbeb65f8ef869c033e5da58bd9a6a38e66b2))
+
+
+### Bug Fixes
+
+* avatars in users table ([bcefacb](https://github.com/fredrikburmester/streamystats/commit/bcefacb08472f642952d77532969f62a9615ba0b))
+* build error ([48f0db3](https://github.com/fredrikburmester/streamystats/commit/48f0db38384a253ac980fd14ca66539552a13d98))
+* build error ([9f5d2c5](https://github.com/fredrikburmester/streamystats/commit/9f5d2c5b547b3d4c68d22b713bc7f6be55bac90c))
+* https://github.com/fredrikburmester/streamystats/issues/181 ([30a6e48](https://github.com/fredrikburmester/streamystats/commit/30a6e48f0537aa71d3c395a32ade469ce3816437))
+* ignore dist files from job server ([0577a13](https://github.com/fredrikburmester/streamystats/commit/0577a13a45695f012067679dec47cb57d72456f2))
+* **job-server:** do not print warning for system activites ([30a6e48](https://github.com/fredrikburmester/streamystats/commit/30a6e48f0537aa71d3c395a32ade469ce3816437))
+* **next-app:** /setup is admin only unless there are no servers configured ([dd58e4b](https://github.com/fredrikburmester/streamystats/commit/dd58e4b2eb4f37938fec2a1b9bf03a71704baa08))
+
 ## [2.3.0](https://github.com/fredrikburmester/streamystats/compare/v2.2.0...v2.3.0) (2025-07-20)
 
 
