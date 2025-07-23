@@ -29,8 +29,8 @@ interface ItemDetailsResponse {
   totalViews: number;
   totalWatchTime: number;
   completionRate: number;
-  firstWatched: Date | null;
-  lastWatched: Date | null;
+  firstWatched: string | null;
+  lastWatched: string | null;
   usersWatched: any[];
   watchHistory: any[];
   watchCountByMonth: any[];
@@ -42,7 +42,7 @@ interface ItemMetadataProps {
   statistics: ItemDetailsResponse;
 }
 
-function formatDate(date: Date | null): string {
+function formatDate(date: string | Date | null): string {
   if (!date) return "Never";
   return new Intl.DateTimeFormat("en-US", {
     year: "numeric",

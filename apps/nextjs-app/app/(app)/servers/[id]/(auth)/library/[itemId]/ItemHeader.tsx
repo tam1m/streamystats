@@ -23,8 +23,8 @@ interface ItemDetailsResponse {
   totalViews: number;
   totalWatchTime: number;
   completionRate: number;
-  firstWatched: Date | null;
-  lastWatched: Date | null;
+  firstWatched: string | null;
+  lastWatched: string | null;
 }
 
 interface ItemHeaderProps {

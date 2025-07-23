@@ -26,8 +26,8 @@ export interface ItemStats {
   totalViews: number;
   totalWatchTime: number;
   completionRate: number;
-  firstWatched: Date | null;
-  lastWatched: Date | null;
+  firstWatched: string | null;
+  lastWatched: string | null;
   usersWatched: ItemUserStats[];
   watchHistory: ItemWatchHistory[];
   watchCountByMonth: ItemWatchCountByMonth[];
@@ -38,14 +38,14 @@ export interface ItemUserStats {
   watchCount: number;
   totalWatchTime: number;
   completionRate: number;
-  firstWatched: Date | null;
-  lastWatched: Date | null;
+  firstWatched: string | null;
+  lastWatched: string | null;
 }
 
 export interface ItemWatchHistory {
   session: Session;
   user: User | null;
-  watchDate: Date;
+  watchDate: string;
   watchDuration: number;
   completionPercentage: number;
   playMethod: string | null;
@@ -54,7 +54,7 @@ export interface ItemWatchHistory {
 }
 
 export interface ItemWatchCountByMonth {
-  month: string;
+  month: number;
   year: number;
   watchCount: number;
   uniqueUsers: number;
@@ -73,8 +73,8 @@ export interface ItemDetailsResponse {
   totalViews: number;
   totalWatchTime: number;
   completionRate: number;
-  firstWatched: Date | null;
-  lastWatched: Date | null;
+  firstWatched: string | null;
+  lastWatched: string | null;
   usersWatched: ItemUserStats[];
   watchHistory: ItemWatchHistory[];
   watchCountByMonth: ItemWatchCountByMonth[];
@@ -228,7 +228,7 @@ export const getItemWatchDates = async ({
 }: {
   itemId: string;
   userId?: string;
-}): Promise<{ first_watched: Date | null; last_watched: Date | null }> => {
+}): Promise<{ first_watched: string | null; last_watched: string | null }> => {
   // Get the item to check if it's a TV show
   const item = await db.query.items.findFirst({
     where: eq(items.id, itemId),
@@ -264,8 +264,8 @@ export const getItemWatchDates = async ({
 
   const result = await db
     .select({
-      first_watched: sql<Date>`MIN(${sessions.startTime})`,
-      last_watched: sql<Date>`MAX(${sessions.startTime})`,
+      first_watched: sql<string>`TO_CHAR(MIN(${sessions.startTime}) AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
+      last_watched: sql<string>`TO_CHAR(MAX(${sessions.startTime}) AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
     })
     .from(sessions)
     .where(whereCondition);
@@ -383,8 +383,8 @@ export const getItemUserStats = async ({
       watch_count: count(sessions.id),
       total_watch_time: sum(sessions.playDuration),
       completion_rate: sql<number>`AVG(${sessions.percentComplete})`,
-      first_watched: sql<Date>`MIN(${sessions.startTime})`,
-      last_watched: sql<Date>`MAX(${sessions.startTime})`,
+      first_watched: sql<string>`TO_CHAR(MIN(${sessions.startTime}) AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
+      last_watched: sql<string>`TO_CHAR(MAX(${sessions.startTime}) AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
     })
     .from(sessions)
     .leftJoin(users, eq(sessions.userId, users.id))
@@ -560,7 +560,9 @@ export const getItemWatchHistory = async ({
   return sessionData.map((row) => ({
     session: row.sessions,
     user: row.users,
-    watchDate: row.sessions.startTime!,
+    watchDate: row.sessions
+      .startTime!.toISOString()
+      .replace(/\.(\d{3})Z$/, (match, ms) => `.${ms}000Z`),
     watchDuration: row.sessions.playDuration || 0,
     completionPercentage: row.sessions.percentComplete || 0,
     playMethod: row.sessions.playMethod,
@@ -616,7 +618,7 @@ export const getItemWatchCountByMonth = async ({
 
   const result = await db
     .select({
-      month: sql<string>`TO_CHAR(${sessions.startTime}, 'MM')`,
+      month: sql<number>`EXTRACT(MONTH FROM ${sessions.startTime})`,
       year: sql<number>`EXTRACT(YEAR FROM ${sessions.startTime})`,
       watch_count: count(sessions.id),
       unique_users: sql<number>`COUNT(DISTINCT ${sessions.userId})`,
@@ -625,12 +627,12 @@ export const getItemWatchCountByMonth = async ({
     .from(sessions)
     .where(whereCondition)
     .groupBy(
-      sql`TO_CHAR(${sessions.startTime}, 'MM')`,
+      sql`EXTRACT(MONTH FROM ${sessions.startTime})`,
       sql`EXTRACT(YEAR FROM ${sessions.startTime})`
     )
     .orderBy(
       sql`EXTRACT(YEAR FROM ${sessions.startTime})`,
-      sql`TO_CHAR(${sessions.startTime}, 'MM')`
+      sql`EXTRACT(MONTH FROM ${sessions.startTime})`
     );
 
   return result.map((row) => ({
