@@ -4,14 +4,14 @@ globs:
 alwaysApply: true
 ---
 
-All timestamps must use the following format:
+All timestamps must follow the ISO 8601 format:
 
-yyyy-MM-dd HH:mm:ss.SSS±HH
+yyyy-MM-dd'T'HH:mm:ss.SSSSSS'Z'
 
-Separator: Use a space (' ') between date and time.
+    Use 'T' as the date–time separator.
 
-Precision: Use milliseconds (3 digits after the decimal point).
+    Use 6-digit fractional seconds (microseconds).
 
-Timezone: Include numeric UTC offset in the format ±HH, e.g., +00 or +02.
+    Always use 'Z' to indicate UTC.
 
-Timezone precision: Offset must include at least hours, but may optionally include ±HH:mm if needed.
+    Example: 2025-07-23T07:51:42.811836Z

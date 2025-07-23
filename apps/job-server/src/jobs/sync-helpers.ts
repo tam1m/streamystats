@@ -9,30 +9,6 @@ import {
   NewActivity,
 } from "@streamystats/database";
 
-/**
- * Format a Date object to the required timestamp format: yyyy-MM-dd HH:mm:ss.SSS+HH
- */
-const formatTimestamp = (date: Date): string => {
-  const isoString = date.toISOString();
-  // Convert from "2025-01-11T15:36:37.215Z" to "2025-01-11 15:36:37.215+00"
-  return isoString.replace("T", " ").replace("Z", "+00");
-};
-
-/**
- * Parse and format a date string to the required timestamp format, or return null
- */
-const parseAndFormatDate = (
-  dateString: string | undefined | null
-): string | null => {
-  if (!dateString) return null;
-  try {
-    return formatTimestamp(new Date(dateString));
-  } catch (error) {
-    console.warn(`Invalid date string: ${dateString}`);
-    return null;
-  }
-};
-
 // Helper function to sync users
 export async function syncUsers(
   serverId: number,

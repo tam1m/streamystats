@@ -22,15 +22,6 @@ import {
   inArray,
 } from "drizzle-orm";
 
-/**
- * Format a Date object to the required timestamp format: yyyy-MM-dd HH:mm:ss.SSS+HH
- */
-const formatTimestamp = (date: Date): string => {
-  const isoString = date.toISOString();
-  // Convert from "2025-01-11T15:36:37.215Z" to "2025-01-11 15:36:37.215+00"
-  return isoString.replace("T", " ").replace("Z", "+00");
-};
-
 export interface ItemStats {
   totalViews: number;
   totalWatchTime: number;
@@ -77,14 +68,8 @@ export interface SeriesEpisodeStats {
   watchedSeasons: number;
 }
 
-export interface ItemWithFormattedDates
-  extends Omit<Item, "dateCreated" | "premiereDate"> {
-  dateCreated: string | null;
-  premiereDate: string | null;
-}
-
 export interface ItemDetailsResponse {
-  item: ItemWithFormattedDates;
+  item: Item;
   totalViews: number;
   totalWatchTime: number;
   completionRate: number;
@@ -142,13 +127,7 @@ export const getItemDetails = async ({
   }
 
   return {
-    item: {
-      ...item,
-      dateCreated: item.dateCreated ? formatTimestamp(item.dateCreated) : null,
-      premiereDate: item.premiereDate
-        ? formatTimestamp(item.premiereDate)
-        : null,
-    },
+    item,
     totalViews: totalStats.total_views,
     totalWatchTime: totalStats.total_watch_time,
     completionRate: Math.round(completionRate * 10) / 10, // Round to 1 decimal place
@@ -285,8 +264,8 @@ export const getItemWatchDates = async ({
 
   const result = await db
     .select({
-      first_watched: sql<string>`TO_CHAR(MIN(${sessions.startTime}), 'YYYY-MM-DD HH24:MI:SS.MS+00')`,
-      last_watched: sql<string>`TO_CHAR(MAX(${sessions.startTime}), 'YYYY-MM-DD HH24:MI:SS.MS+00')`,
+      first_watched: sql<string>`TO_CHAR(MIN(${sessions.startTime}) AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
+      last_watched: sql<string>`TO_CHAR(MAX(${sessions.startTime}) AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
     })
     .from(sessions)
     .where(whereCondition);
@@ -404,8 +383,8 @@ export const getItemUserStats = async ({
       watch_count: count(sessions.id),
       total_watch_time: sum(sessions.playDuration),
       completion_rate: sql<number>`AVG(${sessions.percentComplete})`,
-      first_watched: sql<string>`TO_CHAR(MIN(${sessions.startTime}), 'YYYY-MM-DD HH24:MI:SS.MS+00')`,
-      last_watched: sql<string>`TO_CHAR(MAX(${sessions.startTime}), 'YYYY-MM-DD HH24:MI:SS.MS+00')`,
+      first_watched: sql<string>`TO_CHAR(MIN(${sessions.startTime}) AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
+      last_watched: sql<string>`TO_CHAR(MAX(${sessions.startTime}) AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`,
     })
     .from(sessions)
     .leftJoin(users, eq(sessions.userId, users.id))
@@ -581,7 +560,9 @@ export const getItemWatchHistory = async ({
   return sessionData.map((row) => ({
     session: row.sessions,
     user: row.users,
-    watchDate: formatTimestamp(row.sessions.startTime!),
+    watchDate: row.sessions
+      .startTime!.toISOString()
+      .replace(/\.(\d{3})Z$/, (match, ms) => `.${ms}000Z`),
     watchDuration: row.sessions.playDuration || 0,
     completionPercentage: row.sessions.percentComplete || 0,
     playMethod: row.sessions.playMethod,
