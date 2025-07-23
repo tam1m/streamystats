@@ -17,6 +17,7 @@ import {
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 import { SidebarMenuButton } from "./ui/sidebar";
+import Link from "next/link";
 
 interface Props extends React.HTMLAttributes<HTMLButtonElement> {
   servers: Server[];
@@ -76,10 +77,10 @@ export const ServerSelector: React.FC<Props> = ({
         ))}
         {allowedToCreateServer && (
           <DropdownMenuItem>
-            <a href={"/setup/"} className="flex flex-row items-center gap-2">
+            <Link href="/setup" className="flex flex-row items-center gap-2">
               <PlusIcon />
               <span>Add server</span>
-            </a>
+            </Link>
           </DropdownMenuItem>
         )}
       </DropdownMenuContent>
