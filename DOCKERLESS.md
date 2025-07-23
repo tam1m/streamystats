@@ -9,7 +9,7 @@ Streamystats depends on the vector extension so you might need to use the upstre
 
 Installing PostgreSQL:
 ```bash
-# NOTE: on Debian Bookwarm the default postgresql version is 15
+# NOTE: on Debian Bookworm, the default PostgreSQL version is 15.
 apt install postgresql postgresql-client
 systemctl enable --now postgresql@15-main.service
 ```
