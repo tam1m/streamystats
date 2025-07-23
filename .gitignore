@@ -92,3 +92,5 @@ node_modules/
 ehthumbs.db
 Thumbs.db
 apps/job-server/dist/
+.claude
+.cursor
