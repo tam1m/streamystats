@@ -7,6 +7,20 @@ interface SyncTask {
   sync_completed_at: string;
 }
 
+/*
+ * export and normalize basePath
+ * use process.env.NEXT_PUBLIC_BASE_PATH if set and normalize "/my/base/url"
+ * when unset or set to "/" we default to "" (empty)
+ */
+const normalizeBasePath = (path: string): string => {
+    // Trim trailing slashes
+    const trimmedPath = path.replace(/\/+$/, "");
+
+    // Ensure a single leading slash
+    return trimmedPath === "" ? "" : `/${trimmedPath.replace(/^\/+/, "")}`;
+};
+export const basePath = normalizeBasePath(process.env.NEXT_PUBLIC_BASE_PATH || "");
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
@@ -92,4 +106,13 @@ export const formatDate = (s: string): string => {
     dateStyle: "medium",
     timeStyle: "short",
   });
+};
+
+const globalFetch = global.fetch;
+export const fetch = async (url: string | Request, options?: RequestInit): Promise<Response> => {
+  if (typeof url === 'string' && url.startsWith('/')) {
+    url = `${basePath}${url}`;
+  }
+
+  return globalFetch(url, options);
 };

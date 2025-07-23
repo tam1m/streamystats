@@ -1,3 +1,4 @@
+import { basePath } from "@/lib/utils";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { getServers } from "./lib/server";
@@ -69,11 +70,15 @@ export const config = {
 const ADMIN_ONLY_PATHS = ["history", "settings", "activities", "users", "setup"];
 const PUBLIC_PATHS = ["login"];
 
+const BASE_PATH_REGEX = basePath.replace(/[.*+?^${}()|[\]\\\/]/g, '\\$&');
+
 /**
  * Parse URL pathname to extract server ID, page, and user name
  */
 const parsePathname = (pathname: string) => {
-  const segments = pathname.split("/").filter(Boolean);
+  const segments = basePath
+    ? pathname.replace(new RegExp(`^${BASE_PATH_REGEX}`), '').split("/").filter(Boolean)
+    : pathname.split("/").filter(Boolean);
 
   // Handle /setup
   if (segments[0] === "setup") {
@@ -354,12 +359,12 @@ export async function middleware(request: NextRequest) {
     if (page === "setup") {
       return NextResponse.next();
     }
-    return NextResponse.redirect(new URL("/setup", request.url));
+    return NextResponse.redirect(new URL(`${basePath}/setup`, request.url));
   }
 
   // If the server does not exist
   if (id && !servers.some((s) => Number(s.id) === Number(id))) {
-    return NextResponse.redirect(new URL("/not-found", request.url));
+    return NextResponse.redirect(new URL(`${basePath}/not-found`, request.url));
   }
 
   // If the page is public, return the response
@@ -386,8 +391,8 @@ export async function middleware(request: NextRequest) {
       meResult.error
     );
     const redirectUrl = id
-      ? new URL(`/servers/${id}/login`, request.url)
-      : new URL(`/servers/${servers[0].id}/login`, request.url);
+      ? new URL(`${basePath}/servers/${id}/login`, request.url)
+      : new URL(`${basePath}/servers/${servers[0].id}/login`, request.url);
 
     const response = NextResponse.redirect(redirectUrl);
 
@@ -405,7 +410,7 @@ export async function middleware(request: NextRequest) {
         "User is trying to access a server they are not a member of"
       );
       return NextResponse.redirect(
-        new URL(`/servers/${id}/login`, request.url)
+        new URL(`${basePath}/servers/${id}/login`, request.url)
       );
     }
 
@@ -424,17 +429,13 @@ export async function middleware(request: NextRequest) {
       adminResult.type === ResultType.Success ? adminResult.data : false;
 
     // Check if user is trying to access another users page (/servers/{x}/users/[name])
-    if (name) {
-      if (name !== meResult.data.name && !isAdmin) {
-        return NextResponse.redirect(new URL("/not-found", request.url));
-      }
+    if (name && (name !== meResult.data.name && !isAdmin)) {
+          return NextResponse.redirect(new URL(`${basePath}/not-found`, request.url));
     }
 
     // Check admin permission for restricted paths
-    if (page && !name && ADMIN_ONLY_PATHS.includes(page)) {
-      if (!isAdmin) {
-        return NextResponse.redirect(new URL("/not-found", request.url));
-      }
+    if (page && !name && ADMIN_ONLY_PATHS.includes(page) && !isAdmin) {
+          return NextResponse.redirect(new URL(`${basePath}/not-found`, request.url));
     }
   }
 

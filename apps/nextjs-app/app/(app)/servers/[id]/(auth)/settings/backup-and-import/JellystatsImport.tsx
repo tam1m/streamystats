@@ -1,5 +1,6 @@
 "use client";
 
+import { fetch } from "@/lib/utils";
 import {
   Accordion,
   AccordionContent,

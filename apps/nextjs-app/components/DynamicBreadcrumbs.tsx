@@ -1,5 +1,6 @@
 "use client";
 
+import { basePath } from "@/lib/utils";
 import { House, Slash } from "lucide-react";
 import { useParams, usePathname } from "next/navigation";
 import React from "react";
@@ -57,12 +58,12 @@ export const DynamicBreadcrumbs: React.FC = () => {
     <Breadcrumb>
       <BreadcrumbList>
         <BreadcrumbItem>
-          <BreadcrumbLink href={`/servers/${id}/dashboard`}>
+          <BreadcrumbLink href={`${basePath}/servers/${id}/dashboard`}>
             <House className="h-4 w-4 ml-1" />
           </BreadcrumbLink>
         </BreadcrumbItem>
         {pathSegments.map((segment, index) => {
-          const url = `/servers/${id}/${pathSegments
+          const url = `${basePath}/servers/${id}/${pathSegments
             .slice(0, index + 1)
             .join("/")}`;
           return (
