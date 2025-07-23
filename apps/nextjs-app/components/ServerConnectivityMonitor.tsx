@@ -1,5 +1,6 @@
 "use client";
 
+import { fetch } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { usePathname } from "next/navigation";

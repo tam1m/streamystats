@@ -1,5 +1,6 @@
 "use client";
 
+import { fetch } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,

@@ -1,5 +1,6 @@
 "use client";
 
+import { fetch } from "@/lib/utils";
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -74,7 +75,7 @@ export default function DatabaseBackupRestore({
       const form = new FormData();
       form.set("file", file, file.name);
       form.set("serverId", serverId.toString());
-      const res = await fetch(`/api/import`, {
+      const res = await fetch("/api/import", {
         method: "POST",
         body: form,
       });

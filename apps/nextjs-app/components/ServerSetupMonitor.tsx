@@ -1,5 +1,6 @@
 "use client";
 
+import { fetch } from "@/lib/utils";
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
