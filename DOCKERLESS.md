@@ -23,7 +23,7 @@ cd /tmp/pgvector
 make
 make install
 
-# NOTE: optionally cleanup the dev requirements
+# NOTE: optionally clean up the dev requirements
 apt remove build-essential postgresql-server-dev-15 clang-14 icu-devtools lib32gcc-s1 lib32stdc++6 libc6-i386 libclang-common-14-dev libclang-cpp14 libclang-rt-14-dev libclang1-14 libcurl3-nss libffi-dev libgc1 libicu-dev libncurses-dev libncurses6 libobjc-12-dev libobjc4 libpfm4 libpq-dev libtinfo-dev libxml2-dev libyaml-0-2 libz3-dev llvm-14 llvm-14-dev llvm-14-linker-tools llvm-14-runtime llvm-14-tools nss-plugin-pem postgresql-server-dev-15 python3-pygments python3-yaml
 apt autoremove
 ```
