@@ -25,7 +25,7 @@ interface MostWatchedItems {
 
 export const getMostWatchedItems = async ({
   serverId,
-  userId
+  userId,
 }: {
   serverId: string | number;
   userId?: string | number;
@@ -50,13 +50,15 @@ export const getMostWatchedItems = async ({
     .from(sessions)
     .where(and(...whereConditions))
     .groupBy(sessions.itemId)
-    .orderBy(desc(count(sessions.id)));
+    .orderBy(desc(sum(sessions.playDuration)));
 
-  const sessionStats = rawSessionStats.map(stat => ({
-    itemId: stat.itemId || '',
-    totalPlayCount: stat.totalPlayCount,
-    totalPlayDuration: Number(stat.totalPlayDuration || 0),
-  })).filter(stat => stat.itemId); // Filter out null itemIds
+  const sessionStats = rawSessionStats
+    .map((stat) => ({
+      itemId: stat.itemId || "",
+      totalPlayCount: stat.totalPlayCount,
+      totalPlayDuration: Number(stat.totalPlayDuration || 0),
+    }))
+    .filter((stat) => stat.itemId); // Filter out null itemIds
 
   // Then get the full item data for each item
   const results = await Promise.all(
@@ -149,12 +151,16 @@ export const getMostWatchedItems = async ({
     }
   }
 
-  // Sort each category by play count (descending) and limit to top items
+  // Sort each category by total play duration (descending) and limit to top items
   const limit = 10; // You can adjust this or make it a parameter
-  grouped.Movie = grouped.Movie.slice(0, limit);
-  grouped.Episode = grouped.Episode.slice(0, limit);
+  grouped.Movie = grouped.Movie.sort(
+    (a, b) => b.totalPlayDuration - a.totalPlayDuration
+  ).slice(0, limit);
+  grouped.Episode = grouped.Episode.sort(
+    (a, b) => b.totalPlayDuration - a.totalPlayDuration
+  ).slice(0, limit);
   grouped.Series = grouped.Series.sort(
-    (a, b) => b.totalPlayCount - a.totalPlayCount
+    (a, b) => b.totalPlayDuration - a.totalPlayDuration
   ).slice(0, limit);
 
   return grouped;
@@ -171,7 +177,7 @@ export const getWatchTimePerType = async ({
   serverId,
   startDate,
   endDate,
-  userId
+  userId,
 }: {
   serverId: string | number;
   startDate: string;
@@ -201,11 +207,13 @@ export const getWatchTimePerType = async ({
     .groupBy(sql`DATE(${sessions.startTime})`, sessions.itemId)
     .orderBy(sql`DATE(${sessions.startTime})`);
 
-  const results = rawResults.map(result => ({
-    date: result.date,
-    itemId: result.itemId || '',
-    totalWatchTime: Number(result.totalWatchTime || 0),
-  })).filter(result => result.itemId); // Filter out null itemIds
+  const results = rawResults
+    .map((result) => ({
+      date: result.date,
+      itemId: result.itemId || "",
+      totalWatchTime: Number(result.totalWatchTime || 0),
+    }))
+    .filter((result) => result.itemId); // Filter out null itemIds
 
   // Now get the item types for each unique itemId
   const itemIds = [
@@ -290,7 +298,7 @@ export interface LibraryWatchTime {
 export const getWatchTimeByLibrary = async ({
   serverId,
   startDate,
-  endDate
+  endDate,
 }: {
   serverId: string | number;
   startDate: string;
