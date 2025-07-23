@@ -61,6 +61,12 @@ Version tags (e.g., `v1.2.3`) are automatically generated on release. These tags
 
 The `:edge` tag always points to the latest commit on the main branch. It contains the most recent features and fixes. While typically stable, it may occasionally contain breaking changes
 
+### Dockerless
+
+Docker is currently the easiest and recommended way to run streamystats. However you can also run without docker.
+
+[See the documentation](DOCKERLESS.md)
+
 ## 📸 Screenshots
 <img width="1545" alt="Screenshot 2024-11-06 at 21 29 48" src="https://github.com/user-attachments/assets/78c5843a-7dc4-4485-bfeb-841725b133e7">
 <img width="1545" alt="Screenshot 2024-11-06 at 21 30 01" src="https://github.com/user-attachments/assets/d2d4bf6d-85a0-4c6d-8e2b-19e876dc6579">
