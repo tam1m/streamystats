@@ -10,6 +10,7 @@ export default async function AISettings(props: {
 }) {
   const { id } = await props.params;
   const server = await getServer({ serverId: id });
+
   if (!server) {
     redirect("/setup");
   }
