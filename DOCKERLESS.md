@@ -54,7 +54,7 @@ echo 'CREATE EXTENSION IF NOT EXISTS "vector";' | sudo -u postgres psql -d ${DB_
 
 Everything except the database and systemd unit will be contained within `/opt/streamystats`. We will also use a nodeenv to keep everything separate from the system's default node.
 
-### Prepareing the nodeenv
++### Preparing the nodeenv
 Creating the nodeenv:
 ```bash
 [ -d /opt/streamystats/nodeenv ] || nodeenv --prebuilt -n 23.11.1 /opt/streamystats/nodeenv
