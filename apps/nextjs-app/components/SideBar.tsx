@@ -39,6 +39,7 @@ import {
   SidebarMenuSubItem,
 } from "./ui/sidebar";
 import { ShowAdminStatisticsSwitch } from "./ShowAdminStatisticsSwitch";
+import Link from "next/link";
 
 const dashboard_items = [
   {
@@ -162,10 +163,10 @@ export const SideBar: React.FC<Props> = ({
                       {dashboard_items.map((item) => (
                         <SidebarMenuSubItem key={item.title}>
                           <SidebarMenuSubButton asChild>
-                            <a href={"/servers/" + id + item.url}>
+                            <Link href={`/servers/${id}${item.url}`}>
                               <item.icon className="h-4 w-4" />
                               <span>{item.title}</span>
-                            </a>
+                            </Link>
                           </SidebarMenuSubButton>
                         </SidebarMenuSubItem>
                       ))}
@@ -176,10 +177,10 @@ export const SideBar: React.FC<Props> = ({
               {items.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
-                    <a href={"/servers/" + id + item.url}>
+                    <Link href={`/servers/${id}${item.url}`}>
                       <item.icon />
                       <span>{item.title}</span>
-                    </a>
+                    </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
@@ -194,10 +195,10 @@ export const SideBar: React.FC<Props> = ({
                 {admin_items.map((item) => (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild>
-                      <a href={"/servers/" + id + item.url}>
+                      <Link href={`/servers/${id}${item.url}`}>
                         <item.icon />
                         <span>{item.title}</span>
-                      </a>
+                      </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
@@ -215,10 +216,10 @@ export const SideBar: React.FC<Props> = ({
                         {settings_items.map((item) => (
                           <SidebarMenuSubItem key={item.title}>
                             <SidebarMenuSubButton asChild>
-                              <a href={"/servers/" + id + item.url}>
+                              <Link href={`/servers/${id}${item.url}`}>
                                 <item.icon className="h-4 w-4" />
                                 <span>{item.title}</span>
-                              </a>
+                              </Link>
                             </SidebarMenuSubButton>
                           </SidebarMenuSubItem>
                         ))}
