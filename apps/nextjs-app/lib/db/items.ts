@@ -22,12 +22,21 @@ import {
   inArray,
 } from "drizzle-orm";
 
+/**
+ * Format a Date object to the required timestamp format: yyyy-MM-dd HH:mm:ss.SSS+HH
+ */
+const formatTimestamp = (date: Date): string => {
+  const isoString = date.toISOString();
+  // Convert from "2025-01-11T15:36:37.215Z" to "2025-01-11 15:36:37.215+00"
+  return isoString.replace("T", " ").replace("Z", "+00");
+};
+
 export interface ItemStats {
   totalViews: number;
   totalWatchTime: number;
   completionRate: number;
-  firstWatched: Date | null;
-  lastWatched: Date | null;
+  firstWatched: string | null;
+  lastWatched: string | null;
   usersWatched: ItemUserStats[];
   watchHistory: ItemWatchHistory[];
   watchCountByMonth: ItemWatchCountByMonth[];
@@ -38,14 +47,14 @@ export interface ItemUserStats {
   watchCount: number;
   totalWatchTime: number;
   completionRate: number;
-  firstWatched: Date | null;
-  lastWatched: Date | null;
+  firstWatched: string | null;
+  lastWatched: string | null;
 }
 
 export interface ItemWatchHistory {
   session: Session;
   user: User | null;
-  watchDate: Date;
+  watchDate: string;
   watchDuration: number;
   completionPercentage: number;
   playMethod: string | null;
@@ -54,7 +63,7 @@ export interface ItemWatchHistory {
 }
 
 export interface ItemWatchCountByMonth {
-  month: string;
+  month: number;
   year: number;
   watchCount: number;
   uniqueUsers: number;
@@ -68,13 +77,19 @@ export interface SeriesEpisodeStats {
   watchedSeasons: number;
 }
 
+export interface ItemWithFormattedDates
+  extends Omit<Item, "dateCreated" | "premiereDate"> {
+  dateCreated: string | null;
+  premiereDate: string | null;
+}
+
 export interface ItemDetailsResponse {
-  item: Item;
+  item: ItemWithFormattedDates;
   totalViews: number;
   totalWatchTime: number;
   completionRate: number;
-  firstWatched: Date | null;
-  lastWatched: Date | null;
+  firstWatched: string | null;
+  lastWatched: string | null;
   usersWatched: ItemUserStats[];
   watchHistory: ItemWatchHistory[];
   watchCountByMonth: ItemWatchCountByMonth[];
@@ -127,7 +142,13 @@ export const getItemDetails = async ({
   }
 
   return {
-    item,
+    item: {
+      ...item,
+      dateCreated: item.dateCreated ? formatTimestamp(item.dateCreated) : null,
+      premiereDate: item.premiereDate
+        ? formatTimestamp(item.premiereDate)
+        : null,
+    },
     totalViews: totalStats.total_views,
     totalWatchTime: totalStats.total_watch_time,
     completionRate: Math.round(completionRate * 10) / 10, // Round to 1 decimal place
@@ -228,7 +249,7 @@ export const getItemWatchDates = async ({
 }: {
   itemId: string;
   userId?: string;
-}): Promise<{ first_watched: Date | null; last_watched: Date | null }> => {
+}): Promise<{ first_watched: string | null; last_watched: string | null }> => {
   // Get the item to check if it's a TV show
   const item = await db.query.items.findFirst({
     where: eq(items.id, itemId),
@@ -264,8 +285,8 @@ export const getItemWatchDates = async ({
 
   const result = await db
     .select({
-      first_watched: sql<Date>`MIN(${sessions.startTime})`,
-      last_watched: sql<Date>`MAX(${sessions.startTime})`,
+      first_watched: sql<string>`TO_CHAR(MIN(${sessions.startTime}), 'YYYY-MM-DD HH24:MI:SS.MS+00')`,
+      last_watched: sql<string>`TO_CHAR(MAX(${sessions.startTime}), 'YYYY-MM-DD HH24:MI:SS.MS+00')`,
     })
     .from(sessions)
     .where(whereCondition);
@@ -383,8 +404,8 @@ export const getItemUserStats = async ({
       watch_count: count(sessions.id),
       total_watch_time: sum(sessions.playDuration),
       completion_rate: sql<number>`AVG(${sessions.percentComplete})`,
-      first_watched: sql<Date>`MIN(${sessions.startTime})`,
-      last_watched: sql<Date>`MAX(${sessions.startTime})`,
+      first_watched: sql<string>`TO_CHAR(MIN(${sessions.startTime}), 'YYYY-MM-DD HH24:MI:SS.MS+00')`,
+      last_watched: sql<string>`TO_CHAR(MAX(${sessions.startTime}), 'YYYY-MM-DD HH24:MI:SS.MS+00')`,
     })
     .from(sessions)
     .leftJoin(users, eq(sessions.userId, users.id))
@@ -560,7 +581,7 @@ export const getItemWatchHistory = async ({
   return sessionData.map((row) => ({
     session: row.sessions,
     user: row.users,
-    watchDate: row.sessions.startTime!,
+    watchDate: formatTimestamp(row.sessions.startTime!),
     watchDuration: row.sessions.playDuration || 0,
     completionPercentage: row.sessions.percentComplete || 0,
     playMethod: row.sessions.playMethod,
@@ -616,7 +637,7 @@ export const getItemWatchCountByMonth = async ({
 
   const result = await db
     .select({
-      month: sql<string>`TO_CHAR(${sessions.startTime}, 'MM')`,
+      month: sql<number>`EXTRACT(MONTH FROM ${sessions.startTime})`,
       year: sql<number>`EXTRACT(YEAR FROM ${sessions.startTime})`,
       watch_count: count(sessions.id),
       unique_users: sql<number>`COUNT(DISTINCT ${sessions.userId})`,
@@ -625,12 +646,12 @@ export const getItemWatchCountByMonth = async ({
     .from(sessions)
     .where(whereCondition)
     .groupBy(
-      sql`TO_CHAR(${sessions.startTime}, 'MM')`,
+      sql`EXTRACT(MONTH FROM ${sessions.startTime})`,
       sql`EXTRACT(YEAR FROM ${sessions.startTime})`
     )
     .orderBy(
       sql`EXTRACT(YEAR FROM ${sessions.startTime})`,
-      sql`TO_CHAR(${sessions.startTime}, 'MM')`
+      sql`EXTRACT(MONTH FROM ${sessions.startTime})`
     );
 
   return result.map((row) => ({

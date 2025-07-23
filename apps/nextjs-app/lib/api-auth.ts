@@ -1,7 +1,7 @@
 "use server";
 
 import { NextRequest } from "next/server";
-import { getServer } from "./db/server";
+import { Server } from "@streamystats/database";
 
 /**
  * Validates API key from Authorization header against the actual Jellyfin server
@@ -9,10 +9,10 @@ import { getServer } from "./db/server";
  */
 export async function validateApiKey({
   request,
-  serverId,
+  server,
 }: {
   request: NextRequest;
-  serverId: number;
+  server: Server;
 }): Promise<boolean> {
   const authHeader = request.headers.get("authorization");
 
@@ -29,14 +29,6 @@ export async function validateApiKey({
   }
 
   try {
-    // Get the server from database to get the URL
-    const server = await getServer({ serverId });
-
-    if (!server) {
-      console.error(`Server with ID ${serverId} not found`);
-      return false;
-    }
-
     // Validate the API key by making a request to the Jellyfin server
     // Use /Users/Me endpoint which requires valid authentication
     try {
@@ -103,12 +95,12 @@ export async function validateApiKey({
  */
 export async function requireApiKey({
   request,
-  serverId,
+  server,
 }: {
   request: NextRequest;
-  serverId: number;
+  server: Server;
 }): Promise<Response | null> {
-  const isValid = await validateApiKey({ request, serverId });
+  const isValid = await validateApiKey({ request, server });
 
   if (!isValid) {
     return new Response(

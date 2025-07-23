@@ -1,6 +1,7 @@
 import { getItemDetails } from "@/lib/db/items";
 import { requireApiKey } from "@/lib/api-auth";
 import { NextRequest } from "next/server";
+import { getServer } from "@/lib/db/server";
 
 /**
  * API Route: GET /api/get-item-details/[itemId]?serverId=123
@@ -71,10 +72,20 @@ export async function GET(
       );
     }
 
+    const server = await getServer({ serverId });
+
+    if (!server) {
+      return new Response(
+        JSON.stringify({
+          error: "Server not found",
+        })
+      );
+    }
+
     // Validate API key against the specified server
     const authError = await requireApiKey({
       request,
-      serverId: parseInt(serverId, 10),
+      server,
     });
 
     if (authError) {

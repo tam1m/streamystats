@@ -1,0 +1,17 @@
+---
+description: Date and time format.
+globs:
+alwaysApply: true
+---
+
+All timestamps must use the following format:
+
+yyyy-MM-dd HH:mm:ss.SSS±HH
+
+Separator: Use a space (' ') between date and time.
+
+Precision: Use milliseconds (3 digits after the decimal point).
+
+Timezone: Include numeric UTC offset in the format ±HH, e.g., +00 or +02.
+
+Timezone precision: Offset must include at least hours, but may optionally include ±HH:mm if needed.
